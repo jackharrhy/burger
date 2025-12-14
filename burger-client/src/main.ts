@@ -1,21 +1,34 @@
 import "./style.css";
 
-import { debugGraphics, pixi, sounds, world, worldContainer } from "./setup";
+import {
+  debugGraphics,
+  pixi,
+  showDebug,
+  sounds,
+  toggleDebug,
+  world,
+  worldContainer,
+} from "./setup";
 import {
   cameraOffset,
   CAMERA_ZOOM,
-  PLAYER_SIZE,
-  showDebug,
-  toggleDebugRender,
+  holdableItems,
+  TILE_WIDTH,
+  TILE_HEIGHT,
 } from "./vars";
 import {
   debugSprite,
-  lastMoveDirection,
+  dropItem,
+  handleInteraction,
+  heldItem,
+  interactableCollider,
+  pickupItem,
   playerBody,
   playerSprite,
+  updateInteractablePosition,
   updatePlayerMovement,
 } from "./player";
-import { createLevel } from "./level";
+import { createLevel, entityColliderRegistry } from "./level";
 
 export const playCounterSound = () => {
   sounds.counter.play();
@@ -51,7 +64,44 @@ const renderDebugShapes = () => {
 
 window.addEventListener("keydown", (e) => {
   if (e.key === "q") {
-    toggleDebugRender();
+    toggleDebug();
+  }
+  if (e.key === " " || e.key === "Space") {
+    e.preventDefault();
+    if (heldItem) {
+      // If holding an item, first check for items to pick up (for swap)
+      const intersectingColliders = handleInteraction();
+      let swapped = false;
+
+      for (const collider of intersectingColliders) {
+        const entityInfo = entityColliderRegistry.get(collider);
+        if (
+          entityInfo &&
+          holdableItems.includes(
+            entityInfo.type as (typeof holdableItems)[number]
+          )
+        ) {
+          // Found an item to swap with - pick it up (which will drop current at its position)
+          if (pickupItem(collider)) {
+            swapped = true;
+            break;
+          }
+        }
+      }
+
+      // If no swap happened, try to drop on a counter
+      if (!swapped) {
+        dropItem();
+      }
+    } else {
+      // If not holding, check for items to pick up
+      const intersectingColliders = handleInteraction();
+      for (const collider of intersectingColliders) {
+        if (pickupItem(collider)) {
+          break; // Only pick up one item at a time
+        }
+      }
+    }
   }
 });
 
@@ -75,12 +125,24 @@ pixi.ticker.add((ticker) => {
   playerSprite.x = playerPos.x;
   playerSprite.y = playerPos.y;
 
-  if (lastMoveDirection) {
-    debugSprite.x = playerSprite.x + lastMoveDirection.x * PLAYER_SIZE;
-    debugSprite.y = playerSprite.y + lastMoveDirection.y * PLAYER_SIZE;
-  } else {
-    debugSprite.x = playerSprite.x;
-    debugSprite.y = playerSprite.y;
+  updateInteractablePosition();
+  const interactablePos = interactableCollider.translation();
+  debugSprite.x = interactablePos.x;
+  debugSprite.y = interactablePos.y;
+
+  // Update held item position to match interactable area
+  // With anchor 1 (bottom-right), sprite position needs offset to center visually
+  if (heldItem) {
+    heldItem.rigidBody.setTranslation(
+      {
+        x: interactablePos.x,
+        y: interactablePos.y,
+      },
+      true
+    );
+    // Sprite position = center + half tile size (to account for anchor 1)
+    heldItem.sprite.x = interactablePos.x + TILE_WIDTH / 2;
+    heldItem.sprite.y = interactablePos.y + TILE_HEIGHT / 2;
   }
 
   cameraOffset.x = playerSprite.x - pixi.screen.width / 2 / CAMERA_ZOOM;

@@ -41,11 +41,14 @@ export const sounds = {
   counter: counterSound,
 };
 
+export let showDebug = true;
+
 export const worldContainer = new Pixi.Container();
 export const levelContainer = new Pixi.Container();
 export const entityContainer = new Pixi.Container();
 export const playerContainer = new Pixi.Container();
 export const debugContainer = new Pixi.Container();
+debugContainer.visible = showDebug;
 
 pixi.stage.addChild(worldContainer);
 worldContainer.addChild(levelContainer);
@@ -55,3 +58,12 @@ worldContainer.addChild(debugContainer);
 
 export const debugGraphics = new Pixi.Graphics();
 worldContainer.addChild(debugGraphics);
+
+export const toggleDebug = () => {
+  showDebug = !showDebug;
+  debugContainer.visible = showDebug;
+  if (!showDebug) {
+    debugGraphics.clear();
+  }
+  return showDebug;
+};

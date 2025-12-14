@@ -15,15 +15,7 @@ export const GRAVITY = { x: 0.0, y: 0.0 };
 
 export const keys: { [key: string]: boolean } = {};
 
-export let showDebug = true;
-
-export const toggleDebugRender = () => {
-  showDebug = !showDebug;
-  if (!showDebug) {
-    debugGraphics.clear();
-  }
-  return showDebug;
-};
-
 export let cameraOffset = { x: 0, y: 0 };
 export const CAMERA_ZOOM = 2.0;
+
+export const holdableItems = ["Cooked_Patty", "Uncooked_Patty"] as const;
