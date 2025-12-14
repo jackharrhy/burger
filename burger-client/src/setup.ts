@@ -21,6 +21,10 @@ await Pixi.Assets.load([
   { alias: "player", src: `${SPRITES_DIR}/player.png` },
   { alias: "red-brick", src: `${SPRITES_DIR}/red-brick.png` },
   { alias: "black-floor", src: `${SPRITES_DIR}/black-floor.png` },
+  { alias: "stove", src: `${SPRITES_DIR}/stove.png` },
+  { alias: "counter", src: `${SPRITES_DIR}/counter.png` },
+  { alias: "uncooked-patty", src: `${SPRITES_DIR}/uncooked-patty.png` },
+  { alias: "cooked-patty", src: `${SPRITES_DIR}/cooked-patty.png` },
   { alias: "debug", src: `${SPRITES_DIR}/debug.png` },
 ]);
 
@@ -39,10 +43,13 @@ export const sounds = {
 
 export const worldContainer = new Pixi.Container();
 export const levelContainer = new Pixi.Container();
+export const entityContainer = new Pixi.Container();
 export const playerContainer = new Pixi.Container();
 export const debugContainer = new Pixi.Container();
+
 pixi.stage.addChild(worldContainer);
 worldContainer.addChild(levelContainer);
+worldContainer.addChild(entityContainer);
 worldContainer.addChild(playerContainer);
 worldContainer.addChild(debugContainer);
 

@@ -1,7 +1,8 @@
+import type RAPIER from "@dimforge/rapier2d-compat";
 import * as Pixi from "pixi.js";
 
 export type GameEntity = {
   sprite: Pixi.Sprite;
-  body?: any; // Rapier RigidBody
-  collider?: any; // Rapier Collider
+  body?: RAPIER.RigidBody;
+  collider?: RAPIER.Collider;
 };

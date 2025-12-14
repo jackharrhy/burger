@@ -1,8 +1,8 @@
 import * as Pixi from "pixi.js";
 import { TILE_HEIGHT, TILE_WIDTH } from "./vars";
-import { Rapier, world, levelContainer } from "./setup";
+import { Rapier, world, levelContainer, entityContainer } from "./setup";
 import levelData from "./burger.json";
-import { playerBody, playerSprite } from "./player";
+import { playerBody } from "./player";
 
 export const createLevel = () => {
   const level = levelData.levels[0];
@@ -45,24 +45,58 @@ export const createLevel = () => {
     world.createCollider(colliderDesc, rigidBody);
   };
 
-  const setupSprite = (x: number, y: number, spriteName: string) => {
+  const setupSprite = (
+    x: number,
+    y: number,
+    spriteName: string,
+    container: Pixi.Container,
+    options: {
+      anchor: number;
+    }
+  ) => {
     const sprite = new Pixi.Sprite(Pixi.Assets.get(spriteName));
     sprite.width = TILE_WIDTH;
     sprite.height = TILE_HEIGHT;
-    sprite.anchor.set(0.5);
+    sprite.anchor.set(options.anchor);
     sprite.x = x + TILE_WIDTH / 2;
     sprite.y = y + TILE_HEIGHT / 2;
-    levelContainer.addChild(sprite);
+    container.addChild(sprite);
   };
+
+  const setupEntitySprite = (x: number, y: number, spriteName: string) => {
+    setupSprite(x, y, spriteName, entityContainer, { anchor: 1 });
+  };
+
+  const setupLevelSprite = (x: number, y: number, spriteName: string) => {
+    setupSprite(x, y, spriteName, levelContainer, { anchor: 0.5 });
+  };
+
+  entitiesLayer.entityInstances.forEach((entity) => {
+    switch (entity.__identifier) {
+      case "Stove":
+        setupEntitySprite(entity.__worldX, entity.__worldY, "stove");
+        break;
+      case "Cooked_Patty":
+        setupEntitySprite(entity.__worldX, entity.__worldY, "cooked-patty");
+        break;
+      case "Uncooked_Patty":
+        setupEntitySprite(entity.__worldX, entity.__worldY, "uncooked-patty");
+        break;
+    }
+  });
 
   worldLayer.gridTiles.forEach((tile) => {
     switch (tile.t) {
       case 0:
-        setupSprite(tile.px[0], tile.px[1], "red-brick");
+        setupLevelSprite(tile.px[0], tile.px[1], "red-brick");
         setupRigidBody(tile.px[0], tile.px[1]);
         break;
       case 1:
-        setupSprite(tile.px[0], tile.px[1], "black-floor");
+        setupLevelSprite(tile.px[0], tile.px[1], "black-floor");
+        break;
+      case 6:
+        setupLevelSprite(tile.px[0], tile.px[1], "counter");
+        setupRigidBody(tile.px[0], tile.px[1]);
         break;
     }
   });
