@@ -5,22 +5,11 @@ export const FONTS_DIR = `${ASSETS_DIR}/fonts`;
 export const SPRITES_DIR = `${ASSETS_DIR}/sprites`;
 export const SOUNDS_DIR = `${ASSETS_DIR}/sounds`;
 
-export const TILE_WIDTH = 64;
+export const TILE_WIDTH = 32;
 export const TILE_HEIGHT = TILE_WIDTH;
 
-export const PLAYER_SIZE = TILE_WIDTH;
-export const PLAYER_START_X = TILE_WIDTH * 3;
-export const PLAYER_START_Y = TILE_WIDTH * 3;
-
-export const LEVEL_DATA = [
-  "=======",
-  "=     =",
-  "=     =",
-  "=     =",
-  "=     =",
-  "=     =",
-  "=======",
-];
+export const PLAYER_SIZE = TILE_WIDTH / 1.25;
+export const PLAYER_SPEED = 240;
 
 export const GRAVITY = { x: 0.0, y: 0.0 };
 
@@ -33,8 +22,8 @@ export const toggleDebugRender = () => {
   if (!showDebug) {
     debugGraphics.clear();
   }
-  console.log("showDebug", showDebug);
   return showDebug;
 };
 
 export let cameraOffset = { x: 0, y: 0 };
+export const CAMERA_ZOOM = 2.0;

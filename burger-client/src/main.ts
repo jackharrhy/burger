@@ -1,9 +1,9 @@
 import "./style.css";
 
-import * as Pixi from "pixi.js";
 import { debugGraphics, pixi, sounds, world, worldContainer } from "./setup";
 import {
   cameraOffset,
+  CAMERA_ZOOM,
   PLAYER_SIZE,
   showDebug,
   toggleDebugRender,
@@ -83,11 +83,12 @@ pixi.ticker.add((ticker) => {
     debugSprite.y = playerSprite.y;
   }
 
-  cameraOffset.x = playerSprite.x - pixi.screen.width / 2;
-  cameraOffset.y = playerSprite.y - pixi.screen.height / 2;
+  cameraOffset.x = playerSprite.x - pixi.screen.width / 2 / CAMERA_ZOOM;
+  cameraOffset.y = playerSprite.y - pixi.screen.height / 2 / CAMERA_ZOOM;
 
-  worldContainer.x = -cameraOffset.x;
-  worldContainer.y = -cameraOffset.y;
+  worldContainer.scale.set(CAMERA_ZOOM);
+  worldContainer.x = -cameraOffset.x * CAMERA_ZOOM;
+  worldContainer.y = -cameraOffset.y * CAMERA_ZOOM;
 
   renderDebugShapes();
 });

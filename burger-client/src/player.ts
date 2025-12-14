@@ -1,19 +1,19 @@
 import * as Pixi from "pixi.js";
-import { keys, PLAYER_SIZE, PLAYER_START_X, PLAYER_START_Y } from "./vars";
+import { keys, PLAYER_SIZE, PLAYER_SPEED } from "./vars";
 import { Rapier, world, playerContainer, debugContainer } from "./setup";
 
 export const playerSprite = new Pixi.Sprite(Pixi.Assets.get("player"));
 playerSprite.width = PLAYER_SIZE;
 playerSprite.height = PLAYER_SIZE;
 playerSprite.anchor.set(0.5);
-playerSprite.x = PLAYER_START_X;
-playerSprite.y = PLAYER_START_Y;
+playerSprite.x = 0;
+playerSprite.y = 0;
 playerContainer.addChild(playerSprite);
 
 const playerBodyDesc =
   Rapier.RigidBodyDesc.kinematicPositionBased().setTranslation(
-    PLAYER_START_X,
-    PLAYER_START_Y
+    playerSprite.x,
+    playerSprite.y
   );
 export const playerBody = world.createRigidBody(playerBodyDesc);
 
@@ -35,11 +35,9 @@ debugSprite.width = PLAYER_SIZE;
 debugSprite.height = PLAYER_SIZE;
 debugSprite.anchor.set(0.5);
 debugSprite.alpha = 0.25;
-debugSprite.x = PLAYER_START_X;
-debugSprite.y = PLAYER_START_Y;
+debugSprite.x = 0;
+debugSprite.y = 0;
 debugContainer.addChild(debugSprite);
-
-const SPEED = 480;
 
 window.addEventListener("keydown", (e) => {
   keys[e.key.toLowerCase()] = true;
@@ -55,7 +53,7 @@ export const updatePlayerMovement = (timeStep: number) => {
   let moveX = 0;
   let moveY = 0;
 
-  const moveDistance = SPEED * timeStep;
+  const moveDistance = PLAYER_SPEED * timeStep;
 
   if (keys["a"] || keys["arrowleft"]) {
     moveX = -moveDistance;

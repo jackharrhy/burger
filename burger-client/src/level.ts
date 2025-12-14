@@ -1,53 +1,69 @@
 import * as Pixi from "pixi.js";
-import type { GameEntity } from "./types";
-import { LEVEL_DATA, TILE_HEIGHT, TILE_WIDTH } from "./vars";
+import { TILE_HEIGHT, TILE_WIDTH } from "./vars";
 import { Rapier, world, levelContainer } from "./setup";
+import levelData from "./burger.json";
+import { playerBody, playerSprite } from "./player";
 
 export const createLevel = () => {
-  const walls: GameEntity[] = [];
-  const floors: GameEntity[] = [];
+  const level = levelData.levels[0];
+  const entitiesLayer = level.layerInstances.find(
+    (layer) => layer.__identifier === "Entities"
+  );
+  if (!entitiesLayer) {
+    throw new Error("Entities layer not found");
+  }
+  const worldLayer = level.layerInstances.find(
+    (layer) => layer.__identifier === "World"
+  );
+  if (!worldLayer) {
+    throw new Error("World layer not found");
+  }
 
-  const startX = 0;
-  const startY = 0;
+  const playerSpawn = entitiesLayer.entityInstances.find(
+    (entity) => entity.__identifier === "Player"
+  );
+  if (!playerSpawn) {
+    throw new Error("Player spawn not found");
+  }
 
-  LEVEL_DATA.forEach((row, rowIndex) => {
-    row.split("").forEach((tile, colIndex) => {
-      const x = startX + colIndex * TILE_WIDTH;
-      const y = startY + rowIndex * TILE_HEIGHT;
+  playerBody.setNextKinematicTranslation({
+    x: playerSpawn.__worldX,
+    y: playerSpawn.__worldY,
+  });
 
-      if (tile === "=") {
-        const sprite = new Pixi.Sprite(Pixi.Assets.get("red-brick"));
-        sprite.width = TILE_WIDTH;
-        sprite.height = TILE_HEIGHT;
-        sprite.anchor.set(0.5);
-        sprite.x = x + TILE_WIDTH / 2;
-        sprite.y = y + TILE_HEIGHT / 2;
-        levelContainer.addChild(sprite);
+  const setupRigidBody = (x: number, y: number) => {
+    const rigidBodyDesc = Rapier.RigidBodyDesc.fixed().setTranslation(
+      x + TILE_WIDTH / 2,
+      y + TILE_HEIGHT / 2
+    );
+    const rigidBody = world.createRigidBody(rigidBodyDesc);
 
-        const rigidBodyDesc = Rapier.RigidBodyDesc.fixed().setTranslation(
-          x + TILE_WIDTH / 2,
-          y + TILE_HEIGHT / 2
-        );
-        const rigidBody = world.createRigidBody(rigidBodyDesc);
+    const colliderDesc = Rapier.ColliderDesc.cuboid(
+      TILE_WIDTH / 2,
+      TILE_HEIGHT / 2
+    );
+    world.createCollider(colliderDesc, rigidBody);
+  };
 
-        const colliderDesc = Rapier.ColliderDesc.cuboid(
-          TILE_WIDTH / 2,
-          TILE_HEIGHT / 2
-        );
-        const collider = world.createCollider(colliderDesc, rigidBody);
+  const setupSprite = (x: number, y: number, spriteName: string) => {
+    const sprite = new Pixi.Sprite(Pixi.Assets.get(spriteName));
+    sprite.width = TILE_WIDTH;
+    sprite.height = TILE_HEIGHT;
+    sprite.anchor.set(0.5);
+    sprite.x = x + TILE_WIDTH / 2;
+    sprite.y = y + TILE_HEIGHT / 2;
+    levelContainer.addChild(sprite);
+  };
 
-        walls.push({ sprite, body: rigidBody, collider });
-      } else if (tile === " ") {
-        const sprite = new Pixi.Sprite(Pixi.Assets.get("black-floor"));
-        sprite.width = TILE_WIDTH;
-        sprite.height = TILE_HEIGHT;
-        sprite.anchor.set(0.5);
-        sprite.x = x + TILE_WIDTH / 2;
-        sprite.y = y + TILE_HEIGHT / 2;
-        levelContainer.addChild(sprite);
-
-        floors.push({ sprite });
-      }
-    });
+  worldLayer.gridTiles.forEach((tile) => {
+    switch (tile.t) {
+      case 0:
+        setupSprite(tile.px[0], tile.px[1], "red-brick");
+        setupRigidBody(tile.px[0], tile.px[1]);
+        break;
+      case 1:
+        setupSprite(tile.px[0], tile.px[1], "black-floor");
+        break;
+    }
   });
 };
