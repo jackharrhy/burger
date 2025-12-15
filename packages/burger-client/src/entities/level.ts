@@ -2,13 +2,7 @@ import type { GameWorld } from "../ecs/world";
 import levelData from "../burger.json";
 import { createPlayer } from "./player";
 import { createWall, createCounter, createFloor } from "./tiles";
-import {
-  createStove,
-  createUncookedPatty,
-  createCookedPatty,
-  linkStovesToCounters,
-  linkPattiesToCounters,
-} from "./items";
+import { createStove, linkStovesToCounters } from "./items";
 
 let playerEntityId: number | null = null;
 
@@ -59,19 +53,10 @@ export const createLevel = (world: GameWorld): void => {
   }
 
   for (const entity of entitiesLayer.entityInstances) {
-    switch (entity.__identifier) {
-      case "Stove":
-        createStove(world, entity.__worldX, entity.__worldY);
-        break;
-      case "Cooked_Patty":
-        createCookedPatty(world, entity.__worldX, entity.__worldY);
-        break;
-      case "Uncooked_Patty":
-        createUncookedPatty(world, entity.__worldX, entity.__worldY);
-        break;
+    if (entity.__identifier === "Stove") {
+      createStove(world, entity.__worldX, entity.__worldY);
     }
   }
 
   linkStovesToCounters(world);
-  linkPattiesToCounters(world);
 };

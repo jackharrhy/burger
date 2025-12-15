@@ -12,7 +12,8 @@
     "emitDecoratorMetadata": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "useDefineForClassFields": false
+    "useDefineForClassFields": false,
+    "resolveJsonModule": true
   },
   "include": ["src", "../burger-shared/src"]
 }

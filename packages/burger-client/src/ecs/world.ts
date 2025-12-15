@@ -21,7 +21,6 @@ import {
   CharacterController,
   NetworkId,
 } from "./components";
-import { setupCookingObservers } from "./systems/cooking";
 
 export const entityIndex = createEntityIndex();
 
@@ -63,8 +62,6 @@ export const createGameWorld = () => {
     keys: {} as Record<string, boolean>,
     prevInteract: false,
   });
-
-  setupCookingObservers(world);
 
   return world;
 };

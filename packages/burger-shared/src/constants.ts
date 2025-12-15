@@ -4,7 +4,7 @@ export const TILE_HEIGHT = TILE_WIDTH;
 export const PLAYER_SIZE = TILE_WIDTH / 1.25;
 export const PLAYER_SPEED = 200;
 
-export const COOKING_DURATION = 20.0;
+export const COOKING_DURATION = 5.0;
 
 export const GRAVITY = { x: 0.0, y: 0.0 };
 

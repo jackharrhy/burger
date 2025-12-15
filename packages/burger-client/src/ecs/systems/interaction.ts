@@ -1,11 +1,4 @@
-import {
-  query,
-  hasComponent,
-  removeComponent,
-  addComponent,
-  getRelationTargets,
-  Wildcard,
-} from "bitecs";
+import { query, hasComponent, Wildcard } from "bitecs";
 import debugFactory from "debug";
 import {
   Player,
@@ -16,54 +9,26 @@ import {
   Counter,
   Collider,
   RigidBody,
-  Sprite,
-  SittingOn,
-  CookingTimer,
-  UncookedPatty,
 } from "../components";
 import type { GameWorld } from "../world";
 import { getRapierWorld, getEntityPosition } from "./physics";
+import { PLAYER_SIZE } from "../../vars";
 import {
-  PLAYER_SIZE,
-  TILE_WIDTH,
-  TILE_HEIGHT,
-  MIN_OVERLAP_THRESHOLD,
-  COOKING_DURATION,
-} from "../../vars";
+  getInteractionPosition,
+  calculateOverlapArea,
+  MIN_OVERLAP_AREA,
+} from "@burger-king/shared";
 import { Rapier } from "../../setup";
+import { isCounterOccupiedByItem } from "./cooking";
 import {
-  removeDebugTimerText,
-  getStoveOnCounter,
-  isCounterOccupiedByItem,
-} from "./cooking";
+  getRoom,
+  applyOptimisticPickup,
+  applyOptimisticDrop,
+  getServerItemForEntity,
+} from "../../network";
+import { findCounterAtPosition } from "../../entities/items";
 
 const debug = debugFactory("burger:ecs:systems:interaction");
-const INTERACTION_ZONE_AREA = PLAYER_SIZE * PLAYER_SIZE;
-const MIN_OVERLAP_AREA = INTERACTION_ZONE_AREA * MIN_OVERLAP_THRESHOLD;
-
-const startWaitingPattyOnCounter = (
-  world: GameWorld,
-  counterEid: number
-): void => {
-  const stoveEid = getStoveOnCounter(world, counterEid);
-  if (stoveEid === 0) return;
-
-  for (const eid of query(world, [SittingOn(counterEid), UncookedPatty])) {
-    if (hasComponent(world, eid, CookingTimer)) continue;
-
-    addComponent(world, eid, CookingTimer);
-    if (!CookingTimer.duration[eid]) {
-      CookingTimer.duration[eid] = COOKING_DURATION;
-    }
-    debug(
-      "Started cooking waiting patty %d on counter %d (stove %d)",
-      eid,
-      counterEid,
-      stoveEid
-    );
-    break;
-  }
-};
 
 export const getPlayerHeldEntity = (world: GameWorld): number | null => {
   const held = query(world, [HeldBy(Wildcard)]);
@@ -119,45 +84,16 @@ const findEntitiesAtInteractionZone = (
   return foundEntities;
 };
 
-const getInteractionPosition = (
+const getClientInteractionPosition = (
   playerEid: number
 ): { x: number; y: number } => {
   const playerPos = getEntityPosition(playerEid);
-  return {
-    x: playerPos.x + FacingDirection.x[playerEid] * PLAYER_SIZE,
-    y: playerPos.y + FacingDirection.y[playerEid] * PLAYER_SIZE,
-  };
-};
-
-const calculateOverlapArea = (
-  interactionPos: { x: number; y: number },
-  entityPos: { x: number; y: number }
-): number => {
-  const interactableHalfExtents = PLAYER_SIZE / 2;
-  const entityHalfExtentsX = TILE_WIDTH / 2;
-  const entityHalfExtentsY = TILE_HEIGHT / 2;
-
-  const left = Math.max(
-    interactionPos.x - interactableHalfExtents,
-    entityPos.x - entityHalfExtentsX
+  return getInteractionPosition(
+    playerPos.x,
+    playerPos.y,
+    FacingDirection.x[playerEid],
+    FacingDirection.y[playerEid]
   );
-  const right = Math.min(
-    interactionPos.x + interactableHalfExtents,
-    entityPos.x + entityHalfExtentsX
-  );
-  const bottom = Math.max(
-    interactionPos.y - interactableHalfExtents,
-    entityPos.y - entityHalfExtentsY
-  );
-  const top = Math.min(
-    interactionPos.y + interactableHalfExtents,
-    entityPos.y + entityHalfExtentsY
-  );
-
-  if (right > left && top > bottom) {
-    return (right - left) * (top - bottom);
-  }
-  return 0;
 };
 
 const findBestHoldable = (
@@ -166,7 +102,7 @@ const findBestHoldable = (
   excludeEid: number = 0
 ): number | null => {
   const entities = findEntitiesAtInteractionZone(world, playerEid);
-  const interactionPos = getInteractionPosition(playerEid);
+  const interactionPos = getClientInteractionPosition(playerEid);
 
   let bestHoldable: number | null = null;
   let maxOverlapArea = 0;
@@ -174,6 +110,15 @@ const findBestHoldable = (
   for (const eid of entities) {
     if (!hasComponent(world, eid, Holdable)) continue;
     if (eid === excludeEid) continue;
+
+    const room = getRoom();
+    if (room) {
+      const itemId = getServerItemForEntity(eid);
+      if (itemId) {
+        const item = room.state.items.get(itemId);
+        if (item && item.heldBy !== "") continue;
+      }
+    }
 
     const overlapArea = calculateOverlapArea(
       interactionPos,
@@ -195,7 +140,7 @@ const findBestCounter = (
   playerEid: number
 ): { eid: number; x: number; y: number; occupied: boolean } | null => {
   const entities = findEntitiesAtInteractionZone(world, playerEid);
-  const interactionPos = getInteractionPosition(playerEid);
+  const interactionPos = getClientInteractionPosition(playerEid);
 
   let bestCounter: {
     eid: number;
@@ -217,22 +162,18 @@ const findBestCounter = (
 
     const occupied = isCounterOccupiedByItem(world, eid);
 
-    // Track best overall counter
     if (overlapArea > maxOverlapArea) {
       maxOverlapArea = overlapArea;
       bestCounter = { eid, x: entityPos.x, y: entityPos.y, occupied };
     }
 
-    // Track best unoccupied counter separately
     if (!occupied && overlapArea > maxUnoccupiedOverlapArea) {
       maxUnoccupiedOverlapArea = overlapArea;
       bestUnoccupiedCounter = { eid, x: entityPos.x, y: entityPos.y };
     }
   }
 
-  // If best counter is occupied, check if we should use unoccupied fallback
   if (bestCounter?.occupied && bestUnoccupiedCounter) {
-    // Only use unoccupied if its overlap is significant compared to the occupied one
     const overlapRatio = maxUnoccupiedOverlapArea / maxOverlapArea;
     if (overlapRatio > 0.6) {
       return { ...bestUnoccupiedCounter, occupied: false };
@@ -247,49 +188,42 @@ const pickupItem = (
   playerEid: number,
   itemEid: number
 ): boolean => {
-  const rapierWorld = getRapierWorld();
-  if (!rapierWorld) return false;
+  const room = getRoom();
+  if (!room) {
+    debug("No room connection, cannot pickup");
+    return false;
+  }
+
+  const itemId = getServerItemForEntity(itemEid);
+  if (!itemId) {
+    debug("Item %d has no server ID", itemEid);
+    return false;
+  }
 
   const currentlyHeld = getPlayerHeldEntity(world);
   if (currentlyHeld !== null) {
     const oldItemPos = getEntityPosition(itemEid);
-    const [swapCounterEid] = getRelationTargets(world, itemEid, SittingOn);
-    debug(
-      "Swap: dropping held item at (%d, %d), counterEid=%d",
-      oldItemPos.x,
-      oldItemPos.y,
-      swapCounterEid ?? 0
-    );
+    const counterEid = findCounterAtPosition(world, oldItemPos.x, oldItemPos.y);
     dropItemAtPosition(
       world,
       playerEid,
       oldItemPos.x,
       oldItemPos.y,
-      swapCounterEid ?? 0
+      counterEid
     );
   }
 
-  if (hasComponent(world, itemEid, CookingTimer)) {
-    removeComponent(world, itemEid, CookingTimer);
-    removeDebugTimerText(itemEid);
+  const actionId = applyOptimisticPickup(room, itemEid, playerEid);
+  if (!actionId) {
+    debug("Failed to apply optimistic pickup");
+    return false;
   }
 
-  const [previousCounterEid] = getRelationTargets(world, itemEid, SittingOn);
-
-  // Remove the SPECIFIC relation, not Wildcard - this properly cleans up
-  // SittingOn(Wildcard) too when there are no other targets
-  if (previousCounterEid) {
-    removeComponent(world, itemEid, SittingOn(previousCounterEid));
-    startWaitingPattyOnCounter(world, previousCounterEid);
-  }
-
-  const collider = Collider[itemEid];
-  if (collider) {
-    rapierWorld.removeCollider(collider, false);
-  }
-
-  addComponent(world, itemEid, HeldBy(playerEid));
-
+  debug(
+    "Applied optimistic pickup for item %d (action: %s)",
+    itemEid,
+    actionId
+  );
   return true;
 };
 
@@ -303,32 +237,26 @@ const dropItemAtPosition = (
   const heldEntity = getPlayerHeldEntity(world);
   if (heldEntity === null) return false;
 
-  const rapierWorld = getRapierWorld();
-  if (!rapierWorld) return false;
-
-  const itemEid = heldEntity;
-  const rigidBody = RigidBody[itemEid];
-
-  if (rigidBody) {
-    rigidBody.setTranslation({ x, y }, true);
-
-    const colliderDesc = Rapier.ColliderDesc.cuboid(
-      TILE_WIDTH / 2,
-      TILE_HEIGHT / 2
-    );
-    const newCollider = rapierWorld.createCollider(colliderDesc, rigidBody);
-    Collider[itemEid] = newCollider;
+  const room = getRoom();
+  if (!room) {
+    debug("No room connection, cannot drop");
+    return false;
   }
 
-  const sprite = Sprite[itemEid];
-  if (sprite) {
-    sprite.x = x + TILE_WIDTH / 2;
-    sprite.y = y + TILE_HEIGHT / 2;
+  const actionId = applyOptimisticDrop(
+    room,
+    heldEntity,
+    playerEid,
+    x,
+    y,
+    counterEid
+  );
+  if (!actionId) {
+    debug("Failed to apply optimistic drop");
+    return false;
   }
 
-  removeComponent(world, itemEid, HeldBy(playerEid));
-  addComponent(world, itemEid, SittingOn(counterEid));
-
+  debug("Applied optimistic drop for item %d at (%d, %d)", heldEntity, x, y);
   return true;
 };
 
@@ -365,6 +293,9 @@ export const interactionSystem = (world: GameWorld): void => {
 
     debug("Interact pressed!");
 
+    const room = getRoom();
+    let interactionPerformed = false;
+
     const heldEntity = getPlayerHeldEntity(world);
     if (heldEntity !== null) {
       debug("Currently holding entity: %d", heldEntity);
@@ -376,16 +307,25 @@ export const interactionSystem = (world: GameWorld): void => {
         if (bestItem !== null) {
           if (pickupItem(world, eid, bestItem)) {
             debug("Swapped with entity: %d", bestItem);
+            interactionPerformed = true;
           }
         }
+      } else {
+        interactionPerformed = true;
       }
     } else {
       const bestItem = findBestHoldable(world, eid);
       if (bestItem !== null) {
         if (pickupItem(world, eid, bestItem)) {
           debug("Picked up entity: %d", bestItem);
+          interactionPerformed = true;
         }
       }
+    }
+
+    if (interactionPerformed && room) {
+      room.send("interact", { action: "interact" });
+      debug("Sent interact message to server");
     }
   }
 };

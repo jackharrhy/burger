@@ -13,4 +13,4 @@ export { heldItemSystem } from "./held-item";
 export { cameraSystem, cameraOffset } from "./camera";
 export { renderSyncSystem } from "./render";
 export { debugRenderSystem, interactionZoneDebugSystem } from "./debug";
-export { cookingSystem } from "./cooking";
+export { getStoveOnCounter, isCounterOccupiedByItem } from "./cooking";

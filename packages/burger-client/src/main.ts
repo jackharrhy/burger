@@ -15,10 +15,15 @@ import {
   renderSyncSystem,
   debugRenderSystem,
   interactionZoneDebugSystem,
-  cookingSystem,
 } from "./ecs/systems";
-import { createLevel } from "./entities";
-import { connect, setupPlayerSync, networkInputSystem } from "./network";
+import { createLevel, getPlayerEntityId } from "./entities";
+import {
+  connect,
+  setupPlayerSync,
+  setupItemSync,
+  initOptimistic,
+  networkInputSystem,
+} from "./network";
 
 const startGame = async () => {
   const gameWorld = createGameWorld();
@@ -31,9 +36,18 @@ const startGame = async () => {
     }
   });
 
+  createLevel(gameWorld);
+
+  // Initialize optimistic updates with player entity
+  const playerEid = getPlayerEntityId();
+  if (playerEid !== null) {
+    initOptimistic(gameWorld, playerEid);
+  }
+
   try {
     const room = await connect();
     setupPlayerSync(room, gameWorld);
+    setupItemSync(room, gameWorld);
     console.log("Connected to multiplayer server");
   } catch (error) {
     console.warn(
@@ -41,8 +55,6 @@ const startGame = async () => {
       error
     );
   }
-
-  createLevel(gameWorld);
 
   pixi.ticker.add(() => {
     // 1. Update time
@@ -63,19 +75,16 @@ const startGame = async () => {
     // 6. Update held items to follow player
     heldItemSystem(gameWorld);
 
-    // 7. Update cooking timers
-    cookingSystem(gameWorld);
-
-    // 8. Sync render positions from physics
+    // 7. Sync render positions from physics
     renderSyncSystem(gameWorld);
 
-    // 9. Update camera to follow player
+    // 8. Update camera to follow player
     cameraSystem(gameWorld);
 
-    // 10. Update interaction zone debug sprite
+    // 9. Update interaction zone debug sprite
     interactionZoneDebugSystem(gameWorld);
 
-    // 11. Render debug shapes
+    // 10. Render debug shapes
     debugRenderSystem(gameWorld);
   });
 };
