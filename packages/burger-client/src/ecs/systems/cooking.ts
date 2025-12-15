@@ -32,9 +32,6 @@ import {
 
 const debug = debugFactory("burger:ecs:systems:cooking");
 
-// Re-export for convenience
-export { COOKING_DURATION } from "@burger-king/shared";
-
 const debugTimerTexts = new Map<number, Pixi.Text>();
 
 export const getStoveOnCounter = (

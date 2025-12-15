@@ -9,6 +9,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@colyseus/schema": "^3.0.0",
     "bitecs": "^0.4.0"
   },
   "devDependencies": {

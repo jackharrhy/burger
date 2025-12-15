@@ -1,4 +1,3 @@
-// Re-export shared constants
 export {
   TILE_WIDTH,
   TILE_HEIGHT,
@@ -10,7 +9,6 @@ export {
   holdableItems,
 } from "@burger-king/shared";
 
-// Client-specific constants (asset paths)
 export const ASSETS_DIR = "/assets";
 export const FONTS_DIR = `${ASSETS_DIR}/fonts`;
 export const SPRITES_DIR = `${ASSETS_DIR}/sprites`;
