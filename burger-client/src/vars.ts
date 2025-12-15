@@ -7,7 +7,7 @@ export const TILE_WIDTH = 32;
 export const TILE_HEIGHT = TILE_WIDTH;
 
 export const PLAYER_SIZE = TILE_WIDTH / 1.25;
-export const PLAYER_SPEED = 240;
+export const PLAYER_SPEED = 200;
 
 export const GRAVITY = { x: 0.0, y: 0.0 };
 

@@ -34,6 +34,10 @@ import {
 
 const debug = debugFactory("burger:ecs:systems:interaction");
 
+const MIN_OVERLAP_THRESHOLD = 0.1;
+const INTERACTION_ZONE_AREA = PLAYER_SIZE * PLAYER_SIZE;
+const MIN_OVERLAP_AREA = INTERACTION_ZONE_AREA * MIN_OVERLAP_THRESHOLD;
+
 const startWaitingPattyOnCounter = (
   world: GameWorld,
   counterEid: number
@@ -112,58 +116,123 @@ const findEntitiesAtInteractionZone = (
   return foundEntities;
 };
 
-const findBestCounter = (
-  world: GameWorld,
+const getInteractionPosition = (
   playerEid: number
-): { eid: number; x: number; y: number } | null => {
-  const entities = findEntitiesAtInteractionZone(world, playerEid);
-
+): { x: number; y: number } => {
   const playerPos = getEntityPosition(playerEid);
-
-  const interactionPos = {
+  return {
     x: playerPos.x + FacingDirection.x[playerEid] * PLAYER_SIZE,
     y: playerPos.y + FacingDirection.y[playerEid] * PLAYER_SIZE,
   };
+};
 
-  let bestCounter: { eid: number; x: number; y: number } | null = null;
-  let maxOverlapArea = 0;
+const calculateOverlapArea = (
+  interactionPos: { x: number; y: number },
+  entityPos: { x: number; y: number }
+): number => {
   const interactableHalfExtents = PLAYER_SIZE / 2;
+  const entityHalfExtentsX = TILE_WIDTH / 2;
+  const entityHalfExtentsY = TILE_HEIGHT / 2;
+
+  const left = Math.max(
+    interactionPos.x - interactableHalfExtents,
+    entityPos.x - entityHalfExtentsX
+  );
+  const right = Math.min(
+    interactionPos.x + interactableHalfExtents,
+    entityPos.x + entityHalfExtentsX
+  );
+  const bottom = Math.max(
+    interactionPos.y - interactableHalfExtents,
+    entityPos.y - entityHalfExtentsY
+  );
+  const top = Math.min(
+    interactionPos.y + interactableHalfExtents,
+    entityPos.y + entityHalfExtentsY
+  );
+
+  if (right > left && top > bottom) {
+    return (right - left) * (top - bottom);
+  }
+  return 0;
+};
+
+const findBestHoldable = (
+  world: GameWorld,
+  playerEid: number,
+  excludeEid: number = 0
+): number | null => {
+  const entities = findEntitiesAtInteractionZone(world, playerEid);
+  const interactionPos = getInteractionPosition(playerEid);
+
+  let bestHoldable: number | null = null;
+  let maxOverlapArea = 0;
+
+  for (const eid of entities) {
+    if (!hasComponent(world, eid, Holdable)) continue;
+    if (eid === excludeEid) continue;
+
+    const overlapArea = calculateOverlapArea(
+      interactionPos,
+      getEntityPosition(eid)
+    );
+    if (overlapArea < MIN_OVERLAP_AREA) continue;
+
+    if (overlapArea > maxOverlapArea) {
+      maxOverlapArea = overlapArea;
+      bestHoldable = eid;
+    }
+  }
+
+  return bestHoldable;
+};
+
+const findBestCounter = (
+  world: GameWorld,
+  playerEid: number
+): { eid: number; x: number; y: number; occupied: boolean } | null => {
+  const entities = findEntitiesAtInteractionZone(world, playerEid);
+  const interactionPos = getInteractionPosition(playerEid);
+
+  let bestCounter: {
+    eid: number;
+    x: number;
+    y: number;
+    occupied: boolean;
+  } | null = null;
+  let bestUnoccupiedCounter: { eid: number; x: number; y: number } | null =
+    null;
+  let maxOverlapArea = 0;
+  let maxUnoccupiedOverlapArea = 0;
 
   for (const eid of entities) {
     if (!hasComponent(world, eid, Counter)) continue;
 
-    const counterPos = getEntityPosition(eid);
-    const counterCenterX = counterPos.x;
-    const counterCenterY = counterPos.y;
+    const entityPos = getEntityPosition(eid);
+    const overlapArea = calculateOverlapArea(interactionPos, entityPos);
+    if (overlapArea < MIN_OVERLAP_AREA) continue;
 
-    if (isCounterOccupiedByItem(world, eid)) continue;
+    const occupied = isCounterOccupiedByItem(world, eid);
 
-    const counterHalfExtentsX = TILE_WIDTH / 2;
-    const counterHalfExtentsY = TILE_HEIGHT / 2;
+    // Track best overall counter
+    if (overlapArea > maxOverlapArea) {
+      maxOverlapArea = overlapArea;
+      bestCounter = { eid, x: entityPos.x, y: entityPos.y, occupied };
+    }
 
-    const left = Math.max(
-      interactionPos.x - interactableHalfExtents,
-      counterCenterX - counterHalfExtentsX
-    );
-    const right = Math.min(
-      interactionPos.x + interactableHalfExtents,
-      counterCenterX + counterHalfExtentsX
-    );
-    const bottom = Math.max(
-      interactionPos.y - interactableHalfExtents,
-      counterCenterY - counterHalfExtentsY
-    );
-    const top = Math.min(
-      interactionPos.y + interactableHalfExtents,
-      counterCenterY + counterHalfExtentsY
-    );
+    // Track best unoccupied counter separately
+    if (!occupied && overlapArea > maxUnoccupiedOverlapArea) {
+      maxUnoccupiedOverlapArea = overlapArea;
+      bestUnoccupiedCounter = { eid, x: entityPos.x, y: entityPos.y };
+    }
+  }
 
-    if (right > left && top > bottom) {
-      const overlapArea = (right - left) * (top - bottom);
-      if (overlapArea > maxOverlapArea) {
-        maxOverlapArea = overlapArea;
-        bestCounter = { eid, x: counterCenterX, y: counterCenterY };
-      }
+  // If best counter is occupied, check if we should use unoccupied fallback
+  if (bestCounter?.occupied && bestUnoccupiedCounter) {
+    // Only use unoccupied if its overlap is significant compared to the occupied one
+    const overlapRatio = maxUnoccupiedOverlapArea / maxOverlapArea;
+    if (overlapRatio > 0.6) {
+      return { ...bestUnoccupiedCounter, occupied: false };
     }
   }
 
@@ -266,6 +335,14 @@ const dropItem = (world: GameWorld, playerEid: number): boolean => {
   const counter = findBestCounter(world, playerEid);
   if (!counter) return false;
 
+  if (counter.occupied) {
+    debug(
+      "dropItem: best counter %d is occupied, triggering swap",
+      counter.eid
+    );
+    return false;
+  }
+
   const success = dropItemAtPosition(
     world,
     playerEid,
@@ -285,8 +362,6 @@ export const interactionSystem = (world: GameWorld): void => {
 
     debug("Interact pressed!");
 
-    const entities = findEntitiesAtInteractionZone(world, eid);
-
     const heldEntity = getPlayerHeldEntity(world);
     if (heldEntity !== null) {
       debug("Currently holding entity: %d", heldEntity);
@@ -294,25 +369,18 @@ export const interactionSystem = (world: GameWorld): void => {
       const dropped = dropItem(world, eid);
 
       if (!dropped) {
-        for (const entityEid of entities) {
-          if (
-            hasComponent(world, entityEid, Holdable) &&
-            entityEid !== heldEntity
-          ) {
-            if (pickupItem(world, eid, entityEid)) {
-              debug("Swapped with entity: %d", entityEid);
-              break;
-            }
+        const bestItem = findBestHoldable(world, eid, heldEntity);
+        if (bestItem !== null) {
+          if (pickupItem(world, eid, bestItem)) {
+            debug("Swapped with entity: %d", bestItem);
           }
         }
       }
     } else {
-      for (const entityEid of entities) {
-        if (hasComponent(world, entityEid, Holdable)) {
-          if (pickupItem(world, eid, entityEid)) {
-            debug("Picked up entity: %d", entityEid);
-            break;
-          }
+      const bestItem = findBestHoldable(world, eid);
+      if (bestItem !== null) {
+        if (pickupItem(world, eid, bestItem)) {
+          debug("Picked up entity: %d", bestItem);
         }
       }
     }
