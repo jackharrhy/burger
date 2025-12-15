@@ -1,0 +1,16 @@
+{
+  "name": "burger-king",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev:client": "pnpm --filter @burger-king/client dev",
+    "dev:server": "pnpm --filter @burger-king/server dev",
+    "build:client": "pnpm --filter @burger-king/client build",
+    "build:server": "pnpm --filter @burger-king/server build",
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2"
+  }
+}

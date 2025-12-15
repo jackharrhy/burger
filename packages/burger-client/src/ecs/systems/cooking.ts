@@ -23,29 +23,17 @@ import debugFactory from "debug";
 import * as Pixi from "pixi.js";
 import { getEntityPosition } from "./physics";
 import { debugContainer, showDebug } from "../../setup";
+import {
+  COOKING_DURATION,
+  getCookingProgress,
+  getCookingTint,
+  isCookingComplete,
+} from "@burger-king/shared";
 
 const debug = debugFactory("burger:ecs:systems:cooking");
 
-export const COOKING_DURATION = 20.0;
-
-const UNCOOKED_TINT = 0xffcccc;
-const COOKED_TINT = 0xd4a574;
-
-const lerpColor = (from: number, to: number, t: number): number => {
-  const fromR = (from >> 16) & 0xff;
-  const fromG = (from >> 8) & 0xff;
-  const fromB = from & 0xff;
-
-  const toR = (to >> 16) & 0xff;
-  const toG = (to >> 8) & 0xff;
-  const toB = to & 0xff;
-
-  const r = Math.round(fromR + (toR - fromR) * t);
-  const g = Math.round(fromG + (toG - fromG) * t);
-  const b = Math.round(fromB + (toB - fromB) * t);
-
-  return (r << 16) | (g << 8) | b;
-};
+// Re-export for convenience
+export { COOKING_DURATION } from "@burger-king/shared";
 
 const debugTimerTexts = new Map<number, Pixi.Text>();
 
@@ -152,16 +140,13 @@ export const cookingSystem = (world: GameWorld): void => {
       CookingTimer.duration[eid]
     );
 
-    const progress = Math.min(
-      CookingTimer.elapsed[eid] / CookingTimer.duration[eid],
-      1
-    );
+    const progress = getCookingProgress(eid);
     const sprite = Sprite[eid];
     if (sprite) {
-      sprite.tint = lerpColor(UNCOOKED_TINT, COOKED_TINT, progress);
+      sprite.tint = getCookingTint(progress);
     }
 
-    if (CookingTimer.elapsed[eid] >= CookingTimer.duration[eid]) {
+    if (isCookingComplete(eid)) {
       debug("Cooking complete for patty %d", eid);
       removeComponent(world, eid, UncookedPatty);
       removeComponent(world, eid, CookingTimer);

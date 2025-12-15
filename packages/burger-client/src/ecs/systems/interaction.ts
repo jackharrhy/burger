@@ -23,18 +23,21 @@ import {
 } from "../components";
 import type { GameWorld } from "../world";
 import { getRapierWorld, getEntityPosition } from "./physics";
-import { PLAYER_SIZE, TILE_WIDTH, TILE_HEIGHT } from "../../vars";
+import {
+  PLAYER_SIZE,
+  TILE_WIDTH,
+  TILE_HEIGHT,
+  MIN_OVERLAP_THRESHOLD,
+  COOKING_DURATION,
+} from "../../vars";
 import { Rapier } from "../../setup";
 import {
   removeDebugTimerText,
   getStoveOnCounter,
   isCounterOccupiedByItem,
-  COOKING_DURATION,
 } from "./cooking";
 
 const debug = debugFactory("burger:ecs:systems:interaction");
-
-const MIN_OVERLAP_THRESHOLD = 0.1;
 const INTERACTION_ZONE_AREA = PLAYER_SIZE * PLAYER_SIZE;
 const MIN_OVERLAP_AREA = INTERACTION_ZONE_AREA * MIN_OVERLAP_THRESHOLD;
 
