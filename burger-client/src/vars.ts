@@ -1,5 +1,3 @@
-import { debugGraphics } from "./setup";
-
 export const ASSETS_DIR = "/assets";
 export const FONTS_DIR = `${ASSETS_DIR}/fonts`;
 export const SPRITES_DIR = `${ASSETS_DIR}/sprites`;
@@ -13,9 +11,6 @@ export const PLAYER_SPEED = 240;
 
 export const GRAVITY = { x: 0.0, y: 0.0 };
 
-export const keys: { [key: string]: boolean } = {};
-
-export let cameraOffset = { x: 0, y: 0 };
 export const CAMERA_ZOOM = 2.0;
 
 export const holdableItems = ["Cooked_Patty", "Uncooked_Patty"] as const;

@@ -1,156 +1,64 @@
 import "./style.css";
 
+import { pixi, toggleDebug, world as rapierWorld } from "./setup";
+import { createGameWorld } from "./ecs/world";
 import {
-  debugGraphics,
-  pixi,
-  showDebug,
-  sounds,
-  toggleDebug,
-  world,
-  worldContainer,
-} from "./setup";
-import {
-  cameraOffset,
-  CAMERA_ZOOM,
-  holdableItems,
-  TILE_WIDTH,
-  TILE_HEIGHT,
-} from "./vars";
-import {
-  debugSprite,
-  dropItem,
-  handleInteraction,
-  heldItem,
-  interactableCollider,
-  pickupItem,
-  playerBody,
-  playerSprite,
-  updateInteractablePosition,
-  updatePlayerMovement,
-} from "./player";
-import { createLevel, entityColliderRegistry } from "./level";
+  timeSystem,
+  inputSystem,
+  setupInputListeners,
+  playerMovementSystem,
+  runPhysicsWithAccumulator,
+  setRapierWorld,
+  interactionSystem,
+  heldItemSystem,
+  cameraSystem,
+  renderSyncSystem,
+  debugRenderSystem,
+  interactionZoneDebugSystem,
+  cookingSystem,
+} from "./ecs/systems";
+import { createLevel } from "./entities";
 
-export const playCounterSound = () => {
-  sounds.counter.play();
-};
-
-const renderDebugShapes = () => {
-  debugGraphics.clear();
-
-  if (!showDebug) {
-    return;
-  }
-
-  const { vertices, colors } = world.debugRender();
-
-  for (let i = 0; i < vertices.length / 4; i += 1) {
-    const vertexIndex = i * 4;
-    const colorIndex = i * 8;
-
-    const color = [
-      colors[colorIndex],
-      colors[colorIndex + 1],
-      colors[colorIndex + 2],
-      colors[colorIndex + 3],
-    ];
-
-    debugGraphics
-      .setStrokeStyle({ width: 2, color })
-      .moveTo(vertices[vertexIndex], vertices[vertexIndex + 1])
-      .lineTo(vertices[vertexIndex + 2], vertices[vertexIndex + 3])
-      .stroke();
-  }
-};
+const gameWorld = createGameWorld();
+setRapierWorld(rapierWorld);
+setupInputListeners(gameWorld);
 
 window.addEventListener("keydown", (e) => {
   if (e.key === "q") {
     toggleDebug();
   }
-  if (e.key === " " || e.key === "Space") {
-    e.preventDefault();
-    if (heldItem) {
-      // If holding an item, first check for items to pick up (for swap)
-      const intersectingColliders = handleInteraction();
-      let swapped = false;
-
-      for (const collider of intersectingColliders) {
-        const entityInfo = entityColliderRegistry.get(collider);
-        if (
-          entityInfo &&
-          holdableItems.includes(
-            entityInfo.type as (typeof holdableItems)[number]
-          )
-        ) {
-          // Found an item to swap with - pick it up (which will drop current at its position)
-          if (pickupItem(collider)) {
-            swapped = true;
-            break;
-          }
-        }
-      }
-
-      // If no swap happened, try to drop on a counter
-      if (!swapped) {
-        dropItem();
-      }
-    } else {
-      // If not holding, check for items to pick up
-      const intersectingColliders = handleInteraction();
-      for (const collider of intersectingColliders) {
-        if (pickupItem(collider)) {
-          break; // Only pick up one item at a time
-        }
-      }
-    }
-  }
 });
 
-const PHYSICS_TIMESTEP = 1 / 60;
-let accumulator = 0;
+createLevel(gameWorld);
 
-createLevel();
+pixi.ticker.add(() => {
+  // 1. Update time
+  timeSystem(gameWorld);
 
-pixi.ticker.add((ticker) => {
-  const deltaTime = ticker.deltaTime;
-  accumulator += deltaTime / 60;
+  // 2. Read input
+  inputSystem(gameWorld);
 
-  while (accumulator >= PHYSICS_TIMESTEP) {
-    updatePlayerMovement(PHYSICS_TIMESTEP);
+  // 3. Run physics with fixed timestep (includes movement)
+  runPhysicsWithAccumulator(gameWorld, playerMovementSystem);
 
-    world.step();
-    accumulator -= PHYSICS_TIMESTEP;
-  }
+  // 4. Handle interactions (pickup/drop)
+  interactionSystem(gameWorld);
 
-  const playerPos = playerBody.translation();
-  playerSprite.x = playerPos.x;
-  playerSprite.y = playerPos.y;
+  // 5. Update held items to follow player
+  heldItemSystem(gameWorld);
 
-  updateInteractablePosition();
-  const interactablePos = interactableCollider.translation();
-  debugSprite.x = interactablePos.x;
-  debugSprite.y = interactablePos.y;
+  // 6. Update cooking timers
+  cookingSystem(gameWorld);
 
-  // Update held item position to match interactable area
-  // With anchor 1 (bottom-right), sprite position needs offset to center visually
-  if (heldItem) {
-    heldItem.rigidBody.setTranslation(
-      {
-        x: interactablePos.x,
-        y: interactablePos.y,
-      },
-      true
-    );
-    // Sprite position = center + half tile size (to account for anchor 1)
-    heldItem.sprite.x = interactablePos.x + TILE_WIDTH / 2;
-    heldItem.sprite.y = interactablePos.y + TILE_HEIGHT / 2;
-  }
+  // 7. Sync render positions from physics
+  renderSyncSystem(gameWorld);
 
-  cameraOffset.x = playerSprite.x - pixi.screen.width / 2 / CAMERA_ZOOM;
-  cameraOffset.y = playerSprite.y - pixi.screen.height / 2 / CAMERA_ZOOM;
+  // 8. Update camera to follow player
+  cameraSystem(gameWorld);
 
-  worldContainer.scale.set(CAMERA_ZOOM);
-  worldContainer.x = -cameraOffset.x * CAMERA_ZOOM;
-  worldContainer.y = -cameraOffset.y * CAMERA_ZOOM;
+  // 9. Update interaction zone debug sprite
+  interactionZoneDebugSystem(gameWorld);
 
-  renderDebugShapes();
+  // 10. Render debug shapes
+  debugRenderSystem(gameWorld);
 });
