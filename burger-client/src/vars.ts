@@ -11,6 +11,6 @@ export const PLAYER_SPEED = 240;
 
 export const GRAVITY = { x: 0.0, y: 0.0 };
 
-export const CAMERA_ZOOM = 2.0;
+export const CAMERA_ZOOM = 2.75;
 
 export const holdableItems = ["Cooked_Patty", "Uncooked_Patty"] as const;

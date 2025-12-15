@@ -1,7 +1,6 @@
 import { addEntity, addComponent } from "bitecs";
 import * as Pixi from "pixi.js";
 import {
-  Position,
   FacingDirection,
   Input,
   Player,
@@ -11,6 +10,7 @@ import {
   CharacterController,
   FollowsEntity,
   InteractionZone,
+  Position,
 } from "../ecs/components";
 import type { GameWorld } from "../ecs/world";
 import { getRapierWorld } from "../ecs/systems/physics";
@@ -20,14 +20,13 @@ import { PLAYER_SIZE } from "../vars";
 export const createPlayer = (
   world: GameWorld,
   x: number,
-  y: number
+  y: number,
 ): number => {
   const rapierWorld = getRapierWorld();
   if (!rapierWorld) throw new Error("Rapier world not initialized");
 
   const eid = addEntity(world);
 
-  addComponent(world, eid, Position);
   addComponent(world, eid, FacingDirection);
   addComponent(world, eid, Input);
   addComponent(world, eid, Player);
@@ -35,9 +34,6 @@ export const createPlayer = (
   addComponent(world, eid, RigidBody);
   addComponent(world, eid, Collider);
   addComponent(world, eid, CharacterController);
-
-  Position.x[eid] = x;
-  Position.y[eid] = y;
 
   FacingDirection.x[eid] = 1;
   FacingDirection.y[eid] = 0;
@@ -53,14 +49,14 @@ export const createPlayer = (
 
   const bodyDesc = Rapier.RigidBodyDesc.kinematicPositionBased().setTranslation(
     x,
-    y
+    y,
   );
   const rigidBody = rapierWorld.createRigidBody(bodyDesc);
   RigidBody[eid] = rigidBody;
 
   const colliderDesc = Rapier.ColliderDesc.cuboid(
     PLAYER_SIZE / 2,
-    PLAYER_SIZE / 2
+    PLAYER_SIZE / 2,
   );
   const collider = rapierWorld.createCollider(colliderDesc, rigidBody);
   Collider[eid] = collider;

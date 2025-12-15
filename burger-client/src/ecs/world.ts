@@ -4,7 +4,6 @@ import {
   Velocity,
   FacingDirection,
   Input,
-  HeldBy,
   CookingTimer,
   FollowsEntity,
   Player,
@@ -22,6 +21,7 @@ import {
   CharacterController,
   NetworkId,
 } from "./components";
+import { setupCookingObservers } from "./systems/cooking";
 
 export const entityIndex = createEntityIndex();
 
@@ -32,7 +32,6 @@ export const createGameWorld = () => {
       Velocity,
       FacingDirection,
       Input,
-      HeldBy,
       CookingTimer,
       FollowsEntity,
       NetworkId,
@@ -64,6 +63,8 @@ export const createGameWorld = () => {
     keys: {} as Record<string, boolean>,
     prevInteract: false,
   });
+
+  setupCookingObservers(world);
 
   return world;
 };

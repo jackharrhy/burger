@@ -1,9 +1,15 @@
-import { query, hasComponent } from "bitecs";
+import {
+  query,
+  hasComponent,
+  removeComponent,
+  addComponent,
+  getRelationTargets,
+  Wildcard,
+} from "bitecs";
 import debugFactory from "debug";
 import {
   Player,
   Input,
-  Position,
   FacingDirection,
   Holdable,
   HeldBy,
@@ -11,17 +17,51 @@ import {
   Collider,
   RigidBody,
   Sprite,
+  SittingOn,
+  CookingTimer,
+  UncookedPatty,
 } from "../components";
 import type { GameWorld } from "../world";
-import { getRapierWorld } from "./physics";
+import { getRapierWorld, getEntityPosition } from "./physics";
 import { PLAYER_SIZE, TILE_WIDTH, TILE_HEIGHT } from "../../vars";
 import { Rapier } from "../../setup";
+import {
+  removeDebugTimerText,
+  getStoveOnCounter,
+  isCounterOccupiedByItem,
+  COOKING_DURATION,
+} from "./cooking";
 
 const debug = debugFactory("burger:ecs:systems:interaction");
 
-let playerHeldEntity: number | null = null;
+const startWaitingPattyOnCounter = (
+  world: GameWorld,
+  counterEid: number
+): void => {
+  const stoveEid = getStoveOnCounter(world, counterEid);
+  if (stoveEid === 0) return;
 
-export const getPlayerHeldEntity = (): number | null => playerHeldEntity;
+  for (const eid of query(world, [SittingOn(counterEid), UncookedPatty])) {
+    if (hasComponent(world, eid, CookingTimer)) continue;
+
+    addComponent(world, eid, CookingTimer);
+    if (!CookingTimer.duration[eid]) {
+      CookingTimer.duration[eid] = COOKING_DURATION;
+    }
+    debug(
+      "Started cooking waiting patty %d on counter %d (stove %d)",
+      eid,
+      counterEid,
+      stoveEid
+    );
+    break;
+  }
+};
+
+export const getPlayerHeldEntity = (world: GameWorld): number | null => {
+  const held = query(world, [HeldBy(Wildcard)]);
+  return held.length > 0 ? held[0] : null;
+};
 
 const findEntitiesAtInteractionZone = (
   world: GameWorld,
@@ -32,17 +72,12 @@ const findEntitiesAtInteractionZone = (
     throw new Error("Rapier world not initialized");
   }
 
-  const playerPos = {
-    x: Position.x[playerEid],
-    y: Position.y[playerEid],
-  };
+  const playerPos = getEntityPosition(playerEid);
 
   const interactionPos = {
     x: playerPos.x + FacingDirection.x[playerEid] * PLAYER_SIZE,
     y: playerPos.y + FacingDirection.y[playerEid] * PLAYER_SIZE,
   };
-
-  debug("Interaction pos: %o", interactionPos);
 
   const foundEntities: number[] = [];
   const shape = new Rapier.Cuboid(PLAYER_SIZE / 2, PLAYER_SIZE / 2);
@@ -54,10 +89,8 @@ const findEntitiesAtInteractionZone = (
     shape,
     (collider) => {
       colliderCount++;
-      debug("Found collider in physics world");
       for (const eid of query(world, [Collider])) {
         if (Collider[eid] === collider) {
-          debug("Matched to entity: %d", eid);
           foundEntities.push(eid);
           break;
         }
@@ -79,48 +112,13 @@ const findEntitiesAtInteractionZone = (
   return foundEntities;
 };
 
-const isCounterOccupied = (
-  world: GameWorld,
-  counterX: number,
-  counterY: number
-): boolean => {
-  const rapierWorld = getRapierWorld();
-  if (!rapierWorld) return false;
-
-  const shape = new Rapier.Cuboid(TILE_WIDTH / 4, TILE_HEIGHT / 4);
-  let occupied = false;
-
-  rapierWorld.intersectionsWithShape(
-    { x: counterX, y: counterY },
-    0,
-    shape,
-    (collider) => {
-      for (const eid of query(world, [Collider])) {
-        if (Collider[eid] === collider) {
-          if (hasComponent(world, eid, Holdable) && eid !== playerHeldEntity) {
-            occupied = true;
-            return false;
-          }
-          break;
-        }
-      }
-      return true;
-    }
-  );
-
-  return occupied;
-};
-
 const findBestCounter = (
   world: GameWorld,
   playerEid: number
 ): { eid: number; x: number; y: number } | null => {
   const entities = findEntitiesAtInteractionZone(world, playerEid);
 
-  const playerPos = {
-    x: Position.x[playerEid],
-    y: Position.y[playerEid],
-  };
+  const playerPos = getEntityPosition(playerEid);
 
   const interactionPos = {
     x: playerPos.x + FacingDirection.x[playerEid] * PLAYER_SIZE,
@@ -134,10 +132,11 @@ const findBestCounter = (
   for (const eid of entities) {
     if (!hasComponent(world, eid, Counter)) continue;
 
-    const counterCenterX = Position.x[eid];
-    const counterCenterY = Position.y[eid];
+    const counterPos = getEntityPosition(eid);
+    const counterCenterX = counterPos.x;
+    const counterCenterY = counterPos.y;
 
-    if (isCounterOccupied(world, counterCenterX, counterCenterY)) continue;
+    if (isCounterOccupiedByItem(world, eid)) continue;
 
     const counterHalfExtentsX = TILE_WIDTH / 2;
     const counterHalfExtentsY = TILE_HEIGHT / 2;
@@ -179,12 +178,37 @@ const pickupItem = (
   const rapierWorld = getRapierWorld();
   if (!rapierWorld) return false;
 
-  if (playerHeldEntity !== null) {
-    const oldItemPos = {
-      x: Position.x[itemEid],
-      y: Position.y[itemEid],
-    };
-    dropItemAtPosition(world, playerEid, oldItemPos.x, oldItemPos.y);
+  const currentlyHeld = getPlayerHeldEntity(world);
+  if (currentlyHeld !== null) {
+    const oldItemPos = getEntityPosition(itemEid);
+    const [swapCounterEid] = getRelationTargets(world, itemEid, SittingOn);
+    debug(
+      "Swap: dropping held item at (%d, %d), counterEid=%d",
+      oldItemPos.x,
+      oldItemPos.y,
+      swapCounterEid ?? 0
+    );
+    dropItemAtPosition(
+      world,
+      playerEid,
+      oldItemPos.x,
+      oldItemPos.y,
+      swapCounterEid ?? 0
+    );
+  }
+
+  if (hasComponent(world, itemEid, CookingTimer)) {
+    removeComponent(world, itemEid, CookingTimer);
+    removeDebugTimerText(itemEid);
+  }
+
+  const [previousCounterEid] = getRelationTargets(world, itemEid, SittingOn);
+
+  // Remove the SPECIFIC relation, not Wildcard - this properly cleans up
+  // SittingOn(Wildcard) too when there are no other targets
+  if (previousCounterEid) {
+    removeComponent(world, itemEid, SittingOn(previousCounterEid));
+    startWaitingPattyOnCounter(world, previousCounterEid);
   }
 
   const collider = Collider[itemEid];
@@ -192,24 +216,25 @@ const pickupItem = (
     rapierWorld.removeCollider(collider, false);
   }
 
-  HeldBy.holder[itemEid] = playerEid;
-  playerHeldEntity = itemEid;
+  addComponent(world, itemEid, HeldBy(playerEid));
 
   return true;
 };
 
 const dropItemAtPosition = (
-  _world: GameWorld,
-  _playerEid: number,
+  world: GameWorld,
+  playerEid: number,
   x: number,
-  y: number
+  y: number,
+  counterEid: number
 ): boolean => {
-  if (playerHeldEntity === null) return false;
+  const heldEntity = getPlayerHeldEntity(world);
+  if (heldEntity === null) return false;
 
   const rapierWorld = getRapierWorld();
   if (!rapierWorld) return false;
 
-  const itemEid = playerHeldEntity;
+  const itemEid = heldEntity;
   const rigidBody = RigidBody[itemEid];
 
   if (rigidBody) {
@@ -223,28 +248,33 @@ const dropItemAtPosition = (
     Collider[itemEid] = newCollider;
   }
 
-  Position.x[itemEid] = x;
-  Position.y[itemEid] = y;
-
   const sprite = Sprite[itemEid];
   if (sprite) {
     sprite.x = x + TILE_WIDTH / 2;
     sprite.y = y + TILE_HEIGHT / 2;
   }
 
-  HeldBy.holder[itemEid] = 0;
-  playerHeldEntity = null;
+  removeComponent(world, itemEid, HeldBy(playerEid));
+  addComponent(world, itemEid, SittingOn(counterEid));
 
   return true;
 };
 
 const dropItem = (world: GameWorld, playerEid: number): boolean => {
-  if (playerHeldEntity === null) return false;
+  if (getPlayerHeldEntity(world) === null) return false;
 
   const counter = findBestCounter(world, playerEid);
   if (!counter) return false;
 
-  const success = dropItemAtPosition(world, playerEid, counter.x, counter.y);
+  const success = dropItemAtPosition(
+    world,
+    playerEid,
+    counter.x,
+    counter.y,
+    counter.eid
+  );
+
+  debug("dropItem: counter.eid=%d success=%s", counter.eid, success);
 
   return success;
 };
@@ -256,45 +286,31 @@ export const interactionSystem = (world: GameWorld): void => {
     debug("Interact pressed!");
 
     const entities = findEntitiesAtInteractionZone(world, eid);
-    debug("Found entities at interaction zone: %o", entities);
 
-    for (const entityEid of entities) {
-      debug(
-        "Entity %d - Holdable: %s, Counter: %s",
-        entityEid,
-        hasComponent(world, entityEid, Holdable),
-        hasComponent(world, entityEid, Counter)
-      );
-    }
+    const heldEntity = getPlayerHeldEntity(world);
+    if (heldEntity !== null) {
+      debug("Currently holding entity: %d", heldEntity);
 
-    if (playerHeldEntity !== null) {
-      debug("Currently holding entity: %d", playerHeldEntity);
-
-      debug("Trying to drop...");
       const dropped = dropItem(world, eid);
-      debug("Drop result: %s", dropped);
 
       if (!dropped) {
         for (const entityEid of entities) {
           if (
             hasComponent(world, entityEid, Holdable) &&
-            entityEid !== playerHeldEntity
+            entityEid !== heldEntity
           ) {
-            debug("Trying to swap with entity: %d", entityEid);
             if (pickupItem(world, eid, entityEid)) {
-              debug("Swap successful!");
+              debug("Swapped with entity: %d", entityEid);
               break;
             }
           }
         }
       }
     } else {
-      debug("Not holding anything, trying to pick up...");
       for (const entityEid of entities) {
         if (hasComponent(world, entityEid, Holdable)) {
-          debug("Trying to pick up entity: %d", entityEid);
           if (pickupItem(world, eid, entityEid)) {
-            debug("Pickup successful!");
+            debug("Picked up entity: %d", entityEid);
             break;
           }
         }

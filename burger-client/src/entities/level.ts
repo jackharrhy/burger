@@ -2,7 +2,13 @@ import type { GameWorld } from "../ecs/world";
 import levelData from "../burger.json";
 import { createPlayer } from "./player";
 import { createWall, createCounter, createFloor } from "./tiles";
-import { createStove, createUncookedPatty, createCookedPatty } from "./items";
+import {
+  createStove,
+  createUncookedPatty,
+  createCookedPatty,
+  linkStovesToCounters,
+  linkPattiesToCounters,
+} from "./items";
 
 let playerEntityId: number | null = null;
 
@@ -38,6 +44,20 @@ export const createLevel = (world: GameWorld): void => {
     playerSpawn.__worldY
   );
 
+  for (const tile of worldLayer.gridTiles) {
+    switch (tile.t) {
+      case 0: // Wall (red-brick)
+        createWall(world, tile.px[0], tile.px[1], "red-brick");
+        break;
+      case 1: // Floor (black-floor)
+        createFloor(world, tile.px[0], tile.px[1], "black-floor");
+        break;
+      case 6: // Counter
+        createCounter(world, tile.px[0], tile.px[1]);
+        break;
+    }
+  }
+
   for (const entity of entitiesLayer.entityInstances) {
     switch (entity.__identifier) {
       case "Stove":
@@ -52,17 +72,6 @@ export const createLevel = (world: GameWorld): void => {
     }
   }
 
-  for (const tile of worldLayer.gridTiles) {
-    switch (tile.t) {
-      case 0: // Wall (red-brick)
-        createWall(world, tile.px[0], tile.px[1], "red-brick");
-        break;
-      case 1: // Floor (black-floor)
-        createFloor(world, tile.px[0], tile.px[1], "black-floor");
-        break;
-      case 6: // Counter
-        createCounter(world, tile.px[0], tile.px[1]);
-        break;
-    }
-  }
+  linkStovesToCounters(world);
+  linkPattiesToCounters(world);
 };

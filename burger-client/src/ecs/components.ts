@@ -1,5 +1,6 @@
 import type * as Pixi from "pixi.js";
 import type RAPIER from "@dimforge/rapier2d-compat";
+import { createRelation, makeExclusive } from "bitecs";
 
 const MAX_ENTITIES = 10000;
 
@@ -27,14 +28,16 @@ export const Input = {
   interactPressed: new Uint8Array(MAX_ENTITIES),
 };
 
-export const HeldBy = {
-  holder: new Uint32Array(MAX_ENTITIES),
-};
+// Relation: Item can only be held by ONE entity (exclusive)
+export const HeldBy = createRelation(makeExclusive);
 
 export const CookingTimer = {
   elapsed: new Float32Array(MAX_ENTITIES),
   duration: new Float32Array(MAX_ENTITIES),
 };
+
+// Relation: Item can only sit on ONE counter (exclusive)
+export const SittingOn = createRelation(makeExclusive);
 
 export const FollowsEntity = {
   target: new Uint32Array(MAX_ENTITIES),

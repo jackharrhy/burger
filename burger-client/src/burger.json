@@ -650,22 +650,6 @@
 						},
 						{
 							"__identifier": "Uncooked_Patty",
-							"__grid": [9,6],
-							"__pivot": [0.5,0.5],
-							"__tags": [],
-							"__tile": { "tilesetUid": 2, "x": 0, "y": 160, "w": 32, "h": 32 },
-							"__smartColor": "#EAD4AA",
-							"iid": "c0361c50-d380-11f0-a043-294f35ed5513",
-							"width": 32,
-							"height": 32,
-							"defUid": 9,
-							"px": [304,208],
-							"fieldInstances": [],
-							"__worldX": 304,
-							"__worldY": 208
-						},
-						{
-							"__identifier": "Uncooked_Patty",
 							"__grid": [10,6],
 							"__pivot": [0.5,0.5],
 							"__tags": [],
@@ -678,6 +662,22 @@
 							"px": [336,208],
 							"fieldInstances": [],
 							"__worldX": 336,
+							"__worldY": 208
+						},
+						{
+							"__identifier": "Uncooked_Patty",
+							"__grid": [9,6],
+							"__pivot": [0.5,0.5],
+							"__tags": [],
+							"__tile": { "tilesetUid": 2, "x": 0, "y": 160, "w": 32, "h": 32 },
+							"__smartColor": "#EAD4AA",
+							"iid": "5ed82400-d380-11f0-a043-45dfd16dd8d3",
+							"width": 32,
+							"height": 32,
+							"defUid": 9,
+							"px": [304,208],
+							"fieldInstances": [],
+							"__worldX": 304,
 							"__worldY": 208
 						}
 					]

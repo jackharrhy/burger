@@ -1,36 +1,32 @@
 import { query } from "bitecs";
 import type { GameWorld } from "../world";
 import { debugGraphics, showDebug } from "../../setup";
-import { getRapierWorld } from "./physics";
+import { getRapierWorld, getEntityPosition } from "./physics";
 import {
-  Position,
   FacingDirection,
   Sprite,
   FollowsEntity,
   InteractionZone,
+  RigidBody,
 } from "../components";
 import { PLAYER_SIZE } from "../../vars";
 
 export const interactionZoneDebugSystem = (world: GameWorld): void => {
-  for (const eid of query(world, [
-    InteractionZone,
-    FollowsEntity,
-    Position,
-    Sprite,
-  ])) {
+  for (const eid of query(world, [InteractionZone, FollowsEntity, Sprite])) {
     const targetEid = FollowsEntity.target[eid];
     if (!targetEid) continue;
 
     const sprite = Sprite[eid];
     if (!sprite) continue;
 
-    const interactionX =
-      Position.x[targetEid] + FacingDirection.x[targetEid] * PLAYER_SIZE;
-    const interactionY =
-      Position.y[targetEid] + FacingDirection.y[targetEid] * PLAYER_SIZE;
+    if (!RigidBody[targetEid]) continue;
 
-    Position.x[eid] = interactionX;
-    Position.y[eid] = interactionY;
+    const targetPos = getEntityPosition(targetEid);
+    const interactionX =
+      targetPos.x + FacingDirection.x[targetEid] * PLAYER_SIZE;
+    const interactionY =
+      targetPos.y + FacingDirection.y[targetEid] * PLAYER_SIZE;
+
     sprite.x = interactionX;
     sprite.y = interactionY;
   }

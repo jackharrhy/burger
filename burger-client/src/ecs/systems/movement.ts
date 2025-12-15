@@ -2,7 +2,6 @@ import { query } from "bitecs";
 import {
   Player,
   Input,
-  Position,
   RigidBody,
   Collider,
   CharacterController,
@@ -13,12 +12,11 @@ import { PLAYER_SPEED } from "../../vars";
 
 export const playerMovementSystem = (
   world: GameWorld,
-  timeStep: number
+  timeStep: number,
 ): void => {
   for (const eid of query(world, [
     Player,
     Input,
-    Position,
     RigidBody,
     Collider,
     CharacterController,

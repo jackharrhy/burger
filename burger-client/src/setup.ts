@@ -5,6 +5,8 @@ import { Howl } from "howler";
 export const pixi = new Pixi.Application();
 
 await pixi.init({
+  roundPixels: true,
+  antialias: false,
   background: 0x000000,
   resizeTo: window,
 });

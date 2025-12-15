@@ -1,7 +1,14 @@
 import type RAPIER from "@dimforge/rapier2d-compat";
 import type { GameWorld } from "../world";
+import { RigidBody } from "../components";
 
 let rapierWorld: RAPIER.World | null = null;
+
+export const getEntityPosition = (eid: number): { x: number; y: number } => {
+  const body = RigidBody[eid];
+  if (!body) throw new Error(`Entity ${eid} has no RigidBody`);
+  return body.translation();
+};
 
 export const setRapierWorld = (world: RAPIER.World): void => {
   rapierWorld = world;
@@ -17,7 +24,7 @@ export const physicsSystem = (_world: GameWorld): void => {
 
 export const runPhysicsWithAccumulator = (
   world: GameWorld,
-  movementSystem: (world: GameWorld, timeStep: number) => void
+  movementSystem: (world: GameWorld, timeStep: number) => void,
 ): number => {
   const { physics, time } = world;
   physics.accumulator += time.delta;

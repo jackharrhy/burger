@@ -6,6 +6,7 @@ export {
   setRapierWorld,
   getRapierWorld,
   runPhysicsWithAccumulator,
+  getEntityPosition,
 } from "./physics";
 export { interactionSystem, getPlayerHeldEntity } from "./interaction";
 export { heldItemSystem } from "./held-item";

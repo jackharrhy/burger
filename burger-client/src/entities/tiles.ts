@@ -25,7 +25,6 @@ export const createWall = (
 
   const eid = addEntity(world);
 
-  addComponent(world, eid, Position);
   addComponent(world, eid, Wall);
   addComponent(world, eid, Sprite);
   addComponent(world, eid, RigidBody);
@@ -33,8 +32,6 @@ export const createWall = (
 
   const centerX = x + TILE_WIDTH / 2;
   const centerY = y + TILE_HEIGHT / 2;
-  Position.x[eid] = centerX;
-  Position.y[eid] = centerY;
 
   const sprite = new Pixi.Sprite(Pixi.Assets.get(spriteName));
   sprite.width = TILE_WIDTH;
@@ -72,7 +69,6 @@ export const createCounter = (
 
   const eid = addEntity(world);
 
-  addComponent(world, eid, Position);
   addComponent(world, eid, Counter);
   addComponent(world, eid, Sprite);
   addComponent(world, eid, RigidBody);
@@ -80,8 +76,6 @@ export const createCounter = (
 
   const centerX = x + TILE_WIDTH / 2;
   const centerY = y + TILE_HEIGHT / 2;
-  Position.x[eid] = centerX;
-  Position.y[eid] = centerY;
 
   const sprite = new Pixi.Sprite(Pixi.Assets.get("counter"));
   sprite.width = TILE_WIDTH;
