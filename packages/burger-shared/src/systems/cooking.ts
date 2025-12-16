@@ -50,7 +50,6 @@ export const setupCookingObservers = (world: any): void => {
       hasComponent(world, eid, UncookedPatty) &&
       !isCounterOccupiedByItem(world, counterEid, eid)
     ) {
-      // Only initialize timer if it doesn't exist (preserve elapsed time)
       if (!hasComponent(world, eid, CookingTimer)) {
         addComponent(world, eid, CookingTimer);
         CookingTimer.duration[eid] = COOKING_DURATION;
@@ -62,7 +61,6 @@ export const setupCookingObservers = (world: any): void => {
           stoveEid
         );
       } else {
-        // Timer already exists, cooking resumes from where it left off
         debug(
           "Cooking resumed: patty=%d counter=%d elapsed=%d",
           eid,
@@ -75,18 +73,16 @@ export const setupCookingObservers = (world: any): void => {
 };
 
 export const cookingSystem = (world: any, deltaTime: number): void => {
-  // Only cook items that are on a counter with a stove
   for (const eid of query(world, [
     CookingTimer,
     UncookedPatty,
     SittingOn(Wildcard),
   ])) {
-    // Verify this counter actually has a stove
     const [counterEid] = getRelationTargets(world, eid, SittingOn);
     if (!counterEid) continue;
 
     const stoveEid = getStoveOnCounter(world, counterEid);
-    if (stoveEid === 0) continue; // Not on a stove, don't cook
+    if (stoveEid === 0) continue;
 
     CookingTimer.elapsed[eid] += deltaTime;
 

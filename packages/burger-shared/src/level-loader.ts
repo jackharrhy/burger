@@ -1,5 +1,6 @@
 import levelData from "./burger.json";
-import type { ItemType } from "./schema/ItemSchema";
+
+export type ItemType = "uncooked-patty" | "cooked-patty";
 
 export type EntityInstance = {
   id: string;
@@ -12,7 +13,7 @@ export type LevelData = {
   items: EntityInstance[];
   stoves: EntityInstance[];
   playerSpawn: { x: number; y: number } | null;
-  stovePositions: Set<string>; // "x,y" format for fast lookup
+  stovePositions: Set<string>; // "x,y"
 };
 
 export const getRawLevelData = () => levelData;
@@ -62,9 +63,9 @@ export const loadLevelData = (): LevelData => {
 export const entityTypeToItemType = (entityType: string): ItemType | null => {
   switch (entityType) {
     case "Cooked_Patty":
-      return "cooked_patty";
+      return "cooked-patty";
     case "Uncooked_Patty":
-      return "uncooked_patty";
+      return "uncooked-patty";
     default:
       return null;
   }

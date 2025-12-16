@@ -9,17 +9,20 @@ import {
   SittingOn,
   Counter,
   Stove,
+  Wall,
+  Floor,
   Player,
+  Networked,
   TILE_WIDTH,
   TILE_HEIGHT,
 } from "@burger-king/shared";
 import type { ServerWorld } from "./world";
-import { hashItemId, registerItemMapping, registerPlayerMapping } from "./sync";
+import { registerItemMapping, registerPlayerMapping } from "./sync";
 
 export const createServerItem = (
   world: ServerWorld,
   itemId: string,
-  itemType: "uncooked_patty" | "cooked_patty",
+  itemType: "uncooked-patty" | "cooked-patty",
   x: number,
   y: number,
   counterEid: number
@@ -29,12 +32,13 @@ export const createServerItem = (
   addComponent(world, eid, Position);
   addComponent(world, eid, Holdable);
   addComponent(world, eid, NetworkId);
+  addComponent(world, eid, Networked);
 
   Position.x[eid] = x;
   Position.y[eid] = y;
-  NetworkId.id[eid] = hashItemId(itemId);
+  NetworkId.id[eid] = itemId;
 
-  if (itemType === "uncooked_patty") {
+  if (itemType === "uncooked-patty") {
     addComponent(world, eid, UncookedPatty);
   } else {
     addComponent(world, eid, CookedPatty);
@@ -56,17 +60,21 @@ export const createServerPlayer = (
   y: number
 ): number => {
   const eid = addEntity(world);
+  const networkId = `player-${sessionId}`;
 
   addComponent(world, eid, Position);
   addComponent(world, eid, FacingDirection);
   addComponent(world, eid, Player);
+  addComponent(world, eid, NetworkId);
+  addComponent(world, eid, Networked);
 
   Position.x[eid] = x;
   Position.y[eid] = y;
   FacingDirection.x[eid] = 1;
   FacingDirection.y[eid] = 0;
+  NetworkId.id[eid] = networkId;
 
-  registerPlayerMapping(sessionId, eid);
+  registerPlayerMapping(sessionId, eid, networkId);
 
   return eid;
 };
@@ -82,10 +90,12 @@ export const createServerStove = (
   addComponent(world, eid, Position);
   addComponent(world, eid, Stove);
   addComponent(world, eid, SittingOn(counterEid));
+  addComponent(world, eid, NetworkId);
+  addComponent(world, eid, Networked);
 
-  // Position at center to match counter and item positions
   Position.x[eid] = x + TILE_WIDTH / 2;
   Position.y[eid] = y + TILE_HEIGHT / 2;
+  NetworkId.id[eid] = `stove-${x}-${y}`;
 
   return eid;
 };
@@ -99,8 +109,44 @@ export const createServerCounter = (
 
   addComponent(world, eid, Position);
   addComponent(world, eid, Counter);
+  addComponent(world, eid, NetworkId);
+  addComponent(world, eid, Networked);
 
-  // Position at center to match client physics and item positions
+  Position.x[eid] = x + TILE_WIDTH / 2;
+  Position.y[eid] = y + TILE_HEIGHT / 2;
+  NetworkId.id[eid] = `counter-${x}-${y}`;
+
+  return eid;
+};
+
+export const createServerWall = (
+  world: ServerWorld,
+  x: number,
+  y: number
+): number => {
+  const eid = addEntity(world);
+
+  addComponent(world, eid, Position);
+  addComponent(world, eid, Wall);
+  addComponent(world, eid, Networked);
+
+  Position.x[eid] = x + TILE_WIDTH / 2;
+  Position.y[eid] = y + TILE_HEIGHT / 2;
+
+  return eid;
+};
+
+export const createServerFloor = (
+  world: ServerWorld,
+  x: number,
+  y: number
+): number => {
+  const eid = addEntity(world);
+
+  addComponent(world, eid, Position);
+  addComponent(world, eid, Floor);
+  addComponent(world, eid, Networked);
+
   Position.x[eid] = x + TILE_WIDTH / 2;
   Position.y[eid] = y + TILE_HEIGHT / 2;
 

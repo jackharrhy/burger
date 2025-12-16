@@ -1,18 +1,18 @@
-export { connect, getRoom, getSessionId, disconnect } from "./client";
-export { setupPlayerSync, sendInput } from "./player-sync";
-export { networkInputSystem } from "./network-input";
 export {
-  setupItemSync,
-  getEntityForServerItem,
-  getServerItemForEntity,
-  getAllServerItemIds,
-} from "./item-sync";
+  connect,
+  disconnect,
+  isConnected,
+  getSessionId,
+  getLocalNetworkId,
+  getLocalPlayerEid,
+  getIdMap,
+  sendMove,
+  sendInteract,
+} from "./client";
+
 export {
-  initOptimistic,
-  applyOptimisticPickup,
-  applyOptimisticDrop,
-  reconcileWithServer,
-  cleanupPendingActions,
-  hasPendingAction,
-} from "./optimistic";
-export type { BurgerRoomState } from "./types";
+  addPlayerVisuals,
+  addItemVisuals,
+  addStoveVisuals,
+  removeVisuals,
+} from "./visuals";

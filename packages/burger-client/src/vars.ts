@@ -9,9 +9,20 @@ export {
   holdableItems,
 } from "@burger-king/shared";
 
+export { TILE_WIDTH as TILE_SIZE } from "@burger-king/shared";
+
 export const ASSETS_DIR = "/assets";
 export const FONTS_DIR = `${ASSETS_DIR}/fonts`;
 export const SPRITES_DIR = `${ASSETS_DIR}/sprites`;
 export const SOUNDS_DIR = `${ASSETS_DIR}/sounds`;
 
 export const CAMERA_ZOOM = 2.75;
+
+// Collision groups for Rapier physics
+export const COLLISION_GROUP_PLAYER = 0x0001;
+export const COLLISION_GROUP_WALLS = 0x0002;
+export const COLLISION_GROUP_ITEMS = 0x0004;
+
+// Helper to create collision groups mask (membership << 16 | filter)
+export const makeCollisionGroups = (membership: number, filter: number): number =>
+  (membership << 16) | filter;
