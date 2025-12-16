@@ -93,8 +93,8 @@ export const createServerStove = (
   addComponent(world, eid, NetworkId);
   addComponent(world, eid, Networked);
 
-  Position.x[eid] = x + TILE_WIDTH / 2;
-  Position.y[eid] = y + TILE_HEIGHT / 2;
+  Position.x[eid] = x;
+  Position.y[eid] = y;
   NetworkId.id[eid] = `stove-${x}-${y}`;
 
   return eid;
