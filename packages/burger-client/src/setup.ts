@@ -48,8 +48,15 @@ const counterSound = new Howl({
   volume: 0.5,
 });
 
+const grillingSound = new Howl({
+  src: [`${SOUNDS_DIR}/grilling-meat.mp3`],
+  loop: true,
+  volume: 0,
+});
+
 export const sounds = {
   counter: counterSound,
+  grilling: grillingSound,
 };
 
 export let showDebug = false;

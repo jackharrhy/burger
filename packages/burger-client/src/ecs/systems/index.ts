@@ -19,3 +19,4 @@ export {
   isCounterOccupiedByItem,
   cookingVisualsSystem,
 } from "./cooking";
+export { grillingSoundSystem } from "./grilling-sound";

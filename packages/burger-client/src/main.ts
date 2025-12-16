@@ -17,6 +17,7 @@ import {
   debugRenderSystem,
   interactionZoneDebugSystem,
   cookingVisualsSystem,
+  grillingSoundSystem,
 } from "./ecs/systems";
 import { connect, isConnected, getLocalPlayerEid, sendMove } from "./network";
 import { FacingDirection } from "./ecs/components";
@@ -66,16 +67,19 @@ const startGame = async () => {
     // 8. Update cooking visuals
     cookingVisualsSystem(gameWorld);
 
-    // 9. Sync render positions from physics
+    // 9. Update grilling sounds based on proximity
+    grillingSoundSystem(gameWorld);
+
+    // 10. Sync render positions from physics
     renderSyncSystem(gameWorld);
 
-    // 10. Update camera to follow player
+    // 11. Update camera to follow player
     cameraSystem(gameWorld);
 
-    // 11. Update interaction zone debug sprite
+    // 12. Update interaction zone debug sprite
     interactionZoneDebugSystem(gameWorld);
 
-    // 12. Render debug shapes
+    // 13. Render debug shapes
     debugRenderSystem(gameWorld);
   });
 };
