@@ -19,7 +19,7 @@ await Rapier.init();
 
 export const world = new Rapier.World(GRAVITY);
 
-await Pixi.Assets.load([
+const textureAssets = [
   { alias: "player", src: `${SPRITES_DIR}/player.png` },
   { alias: "red-brick", src: `${SPRITES_DIR}/red-brick.png` },
   { alias: "black-floor", src: `${SPRITES_DIR}/black-floor.png` },
@@ -28,7 +28,16 @@ await Pixi.Assets.load([
   { alias: "uncooked-patty", src: `${SPRITES_DIR}/uncooked-patty.png` },
   { alias: "cooked-patty", src: `${SPRITES_DIR}/cooked-patty.png` },
   { alias: "debug", src: `${SPRITES_DIR}/debug.png` },
-]);
+];
+
+await Pixi.Assets.load(textureAssets);
+
+for (const asset of textureAssets) {
+  const texture = Pixi.Assets.get(asset.alias);
+  if (texture?.source) {
+    texture.source.scaleMode = "nearest";
+  }
+}
 
 const fontFace = new FontFace("ComicSans", `url(${FONTS_DIR}/ComicSansMS.ttf)`);
 await fontFace.load();
@@ -43,7 +52,7 @@ export const sounds = {
   counter: counterSound,
 };
 
-export let showDebug = true;
+export let showDebug = false;
 
 export const worldContainer = new Pixi.Container();
 export const levelContainer = new Pixi.Container();
