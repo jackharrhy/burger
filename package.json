@@ -1,0 +1,12 @@
+{
+  "name": "burger",
+  "version": "0.1.0",
+  "description": "hi, may i take your order?",
+  "main": "index.js",
+  "scripts": {
+    "dev:client": "pnpm --filter burger-client dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
