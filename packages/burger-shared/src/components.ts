@@ -21,6 +21,30 @@ export const CookedPatty = {};
 export const UncookedPatty = {};
 export const Networked = {};
 
+// Surface behaviors (tag components)
+export const Surface = {}; // Base: can be interacted with
+export const AcceptsItems = {}; // Items can be placed here
+export const DestroysItems = {}; // Items placed here are destroyed (bin)
+export const SpawnsItems = {}; // Interact to get an item (box)
+export const AcceptsOrders = {}; // Cooked patties fulfill orders here
+
+// Bin entity tag
+export const Bin = {};
+
+// Box/spawner data components
+export const ItemStock = { count: u8([]), maxCount: u8([]) };
+export const SpawnType = { itemType: str([]) };
+
+// Order system
+export const Order = {
+  requiredCount: u8([]), // How many patties needed
+  fulfilledCount: u8([]), // How many delivered
+  timeLimit: f32([]), // Optional time limit (0 = no limit)
+  elapsed: f32([]), // Time elapsed
+};
+export const OrderQueue = {}; // Tag for order window entity
+export const OrderWindow = {}; // Tag for order window visual
+
 export const InteractionZone = {};
 
 export const FollowsEntity = {
@@ -59,4 +83,21 @@ export const networkedComponents = [
   CookedPatty,
   UncookedPatty,
   Networked,
+
+  // Surface behaviors
+  Surface,
+  AcceptsItems,
+  DestroysItems,
+  SpawnsItems,
+  AcceptsOrders,
+  Bin,
+
+  // Box/spawner
+  ItemStock,
+  SpawnType,
+
+  // Order system
+  Order,
+  OrderQueue,
+  OrderWindow,
 ];

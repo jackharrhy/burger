@@ -14,9 +14,5 @@ export { heldItemSyncSystem } from "./held-item-sync";
 export { cameraSystem, cameraOffset } from "./camera";
 export { renderSyncSystem } from "./render";
 export { debugRenderSystem, interactionZoneDebugSystem } from "./debug";
-export {
-  getStoveOnCounter,
-  isCounterOccupiedByItem,
-  cookingVisualsSystem,
-} from "./cooking";
+export { isSurfaceOccupiedByItem, cookingVisualsSystem } from "./cooking";
 export { grillingSoundSystem } from "./grilling-sound";

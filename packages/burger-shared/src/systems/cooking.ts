@@ -21,50 +21,43 @@ import {
 
 const debug = debugFactory("burger:shared:cooking");
 
-export const getStoveOnCounter = (world: any, counterEid: number): number => {
-  const stoves = query(world, [Stove, SittingOn(counterEid)]);
-  return stoves.length > 0 ? stoves[0] : 0;
-};
-
-export const isCounterOccupiedByItem = (
+/**
+ * Check if a surface is occupied by a holdable item
+ */
+export const isSurfaceOccupiedByItem = (
   world: any,
-  counterEid: number,
+  surfaceEid: number,
   excludeEid: number = 0
 ): boolean => {
-  for (const eid of query(world, [SittingOn(counterEid)])) {
+  for (const eid of query(world, [SittingOn(surfaceEid)])) {
     if (eid === excludeEid) continue;
     if (hasComponent(world, eid, Holdable)) return true;
   }
   return false;
 };
 
+// Backwards compatibility alias
+export const isCounterOccupiedByItem = isSurfaceOccupiedByItem;
+
 export const setupCookingObservers = (world: any): void => {
   observe(world, onAdd(SittingOn(Wildcard)), (eid) => {
-    const [counterEid] = getRelationTargets(world, eid, SittingOn);
-    if (!counterEid) return;
+    const [targetEid] = getRelationTargets(world, eid, SittingOn);
+    if (!targetEid) return;
 
-    const stoveEid = getStoveOnCounter(world, counterEid);
-    if (stoveEid === 0) return;
+    // Simplified: directly check if sitting on a stove
+    if (!hasComponent(world, targetEid, Stove)) return;
 
-    if (
-      hasComponent(world, eid, UncookedPatty) &&
-      !isCounterOccupiedByItem(world, counterEid, eid)
-    ) {
+    if (hasComponent(world, eid, UncookedPatty)) {
       if (!hasComponent(world, eid, CookingTimer)) {
         addComponent(world, eid, CookingTimer);
         CookingTimer.duration[eid] = COOKING_DURATION;
         CookingTimer.elapsed[eid] = 0;
-        debug(
-          "Cooking started: patty=%d counter=%d stove=%d",
-          eid,
-          counterEid,
-          stoveEid
-        );
+        debug("Cooking started: patty=%d stove=%d", eid, targetEid);
       } else {
         debug(
-          "Cooking resumed: patty=%d counter=%d elapsed=%d",
+          "Cooking resumed: patty=%d stove=%d elapsed=%d",
           eid,
-          counterEid,
+          targetEid,
           CookingTimer.elapsed[eid]
         );
       }
@@ -73,16 +66,17 @@ export const setupCookingObservers = (world: any): void => {
 };
 
 export const cookingSystem = (world: any, deltaTime: number): void => {
+  // Query for patties with cooking timer sitting on something
   for (const eid of query(world, [
     CookingTimer,
     UncookedPatty,
     SittingOn(Wildcard),
   ])) {
-    const [counterEid] = getRelationTargets(world, eid, SittingOn);
-    if (!counterEid) continue;
+    const [targetEid] = getRelationTargets(world, eid, SittingOn);
+    if (!targetEid) continue;
 
-    const stoveEid = getStoveOnCounter(world, counterEid);
-    if (stoveEid === 0) continue;
+    // Simplified: directly check if sitting on a stove
+    if (!hasComponent(world, targetEid, Stove)) continue;
 
     CookingTimer.elapsed[eid] += deltaTime;
 

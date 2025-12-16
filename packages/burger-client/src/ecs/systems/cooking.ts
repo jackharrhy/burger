@@ -1,6 +1,5 @@
 import { query, hasComponent } from "bitecs";
 import {
-  Stove,
   SittingOn,
   Holdable,
   CookingTimer,
@@ -10,20 +9,15 @@ import {
 import { getCookingTint, COOKING_DURATION } from "@burger-king/shared";
 import type { GameWorld } from "../world";
 
-export const getStoveOnCounter = (
+/**
+ * Check if a surface is occupied by a holdable item
+ */
+export const isSurfaceOccupiedByItem = (
   world: GameWorld,
-  counterEid: number
-): number => {
-  const stoves = query(world, [Stove, SittingOn(counterEid)]);
-  return stoves.length > 0 ? stoves[0] : 0;
-};
-
-export const isCounterOccupiedByItem = (
-  world: GameWorld,
-  counterEid: number,
+  surfaceEid: number,
   excludeEid: number = 0
 ): boolean => {
-  for (const eid of query(world, [SittingOn(counterEid)])) {
+  for (const eid of query(world, [SittingOn(surfaceEid)])) {
     if (eid === excludeEid) continue;
     if (hasComponent(world, eid, Holdable)) {
       return true;

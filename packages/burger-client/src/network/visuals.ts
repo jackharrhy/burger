@@ -257,6 +257,114 @@ export const updateItemToCooked = (eid: number): void => {
   sprite.tint = 0xffffff;
 };
 
+export const addBinVisuals = (world: GameWorld, eid: number): void => {
+  const rapierWorld = getRapierWorld();
+  if (!rapierWorld) return;
+
+  if (Sprite[eid]) return;
+
+  const x = Position.x[eid];
+  const y = Position.y[eid];
+
+  addComponent(world, eid, Sprite);
+  const sprite = new Pixi.Sprite(Pixi.Assets.get("bin"));
+  sprite.width = TILE_SIZE;
+  sprite.height = TILE_SIZE;
+  sprite.anchor.set(0.5);
+  sprite.x = x;
+  sprite.y = y;
+  levelContainer.addChild(sprite);
+  Sprite[eid] = sprite;
+
+  addComponent(world, eid, RigidBody);
+  addComponent(world, eid, Collider);
+
+  const bodyDesc = Rapier.RigidBodyDesc.fixed().setTranslation(x, y);
+  const rigidBody = rapierWorld.createRigidBody(bodyDesc);
+  RigidBody[eid] = rigidBody;
+
+  const colliderDesc = Rapier.ColliderDesc.cuboid(
+    TILE_SIZE / 2,
+    TILE_SIZE / 2
+  ).setCollisionGroups(
+    makeCollisionGroups(COLLISION_GROUP_WALLS, COLLISION_GROUP_PLAYER)
+  );
+  const collider = rapierWorld.createCollider(colliderDesc, rigidBody);
+  Collider[eid] = collider;
+};
+
+export const addPattyBoxVisuals = (world: GameWorld, eid: number): void => {
+  const rapierWorld = getRapierWorld();
+  if (!rapierWorld) return;
+
+  if (Sprite[eid]) return;
+
+  const x = Position.x[eid];
+  const y = Position.y[eid];
+
+  addComponent(world, eid, Sprite);
+  const sprite = new Pixi.Sprite(Pixi.Assets.get("patty-box"));
+  sprite.width = TILE_SIZE;
+  sprite.height = TILE_SIZE;
+  sprite.anchor.set(0.5);
+  sprite.x = x;
+  sprite.y = y;
+  levelContainer.addChild(sprite);
+  Sprite[eid] = sprite;
+
+  addComponent(world, eid, RigidBody);
+  addComponent(world, eid, Collider);
+
+  const bodyDesc = Rapier.RigidBodyDesc.fixed().setTranslation(x, y);
+  const rigidBody = rapierWorld.createRigidBody(bodyDesc);
+  RigidBody[eid] = rigidBody;
+
+  const colliderDesc = Rapier.ColliderDesc.cuboid(
+    TILE_SIZE / 2,
+    TILE_SIZE / 2
+  ).setCollisionGroups(
+    makeCollisionGroups(COLLISION_GROUP_WALLS, COLLISION_GROUP_PLAYER)
+  );
+  const collider = rapierWorld.createCollider(colliderDesc, rigidBody);
+  Collider[eid] = collider;
+};
+
+export const addOrderWindowVisuals = (world: GameWorld, eid: number): void => {
+  const rapierWorld = getRapierWorld();
+  if (!rapierWorld) return;
+
+  if (Sprite[eid]) return;
+
+  const x = Position.x[eid];
+  const y = Position.y[eid];
+
+  addComponent(world, eid, Sprite);
+  const sprite = new Pixi.Sprite(Pixi.Assets.get("order-window"));
+  sprite.width = TILE_SIZE;
+  sprite.height = TILE_SIZE;
+  sprite.anchor.set(0.5);
+  sprite.x = x;
+  sprite.y = y;
+  levelContainer.addChild(sprite);
+  Sprite[eid] = sprite;
+
+  addComponent(world, eid, RigidBody);
+  addComponent(world, eid, Collider);
+
+  const bodyDesc = Rapier.RigidBodyDesc.fixed().setTranslation(x, y);
+  const rigidBody = rapierWorld.createRigidBody(bodyDesc);
+  RigidBody[eid] = rigidBody;
+
+  const colliderDesc = Rapier.ColliderDesc.cuboid(
+    TILE_SIZE / 2,
+    TILE_SIZE / 2
+  ).setCollisionGroups(
+    makeCollisionGroups(COLLISION_GROUP_WALLS, COLLISION_GROUP_PLAYER)
+  );
+  const collider = rapierWorld.createCollider(colliderDesc, rigidBody);
+  Collider[eid] = collider;
+};
+
 export const removeVisuals = (_world: GameWorld, eid: number): void => {
   const rapierWorld = getRapierWorld();
 

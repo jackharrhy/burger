@@ -28,15 +28,47 @@ const textureAssets = [
   { alias: "uncooked-patty", src: `${SPRITES_DIR}/uncooked-patty.png` },
   { alias: "cooked-patty", src: `${SPRITES_DIR}/cooked-patty.png` },
   { alias: "debug", src: `${SPRITES_DIR}/debug.png` },
+  // New entity types - will use placeholders if files don't exist
+  { alias: "bin", src: `${SPRITES_DIR}/bin.png` },
+  { alias: "patty-box", src: `${SPRITES_DIR}/patty-box.png` },
+  { alias: "order-window", src: `${SPRITES_DIR}/order-window.png` },
 ];
 
-await Pixi.Assets.load(textureAssets);
+// Load textures, create placeholders for missing ones
+for (const asset of textureAssets) {
+  try {
+    await Pixi.Assets.load(asset);
+  } catch {
+    // Create placeholder texture for missing assets
+    console.warn(`Missing texture: ${asset.alias}, creating placeholder`);
+    createPlaceholderTexture(asset.alias);
+  }
+}
 
 for (const asset of textureAssets) {
   const texture = Pixi.Assets.get(asset.alias);
   if (texture?.source) {
     texture.source.scaleMode = "nearest";
   }
+}
+
+// Create placeholder textures for missing sprites
+function createPlaceholderTexture(alias: string) {
+  const colors: Record<string, number> = {
+    bin: 0x8b4513, // Brown for bin
+    "patty-box": 0xffa500, // Orange for patty box
+    "order-window": 0x4169e1, // Royal blue for order window
+  };
+
+  const color = colors[alias] ?? 0xff00ff; // Magenta fallback
+
+  const graphics = new Pixi.Graphics();
+  graphics.rect(0, 0, 16, 16);
+  graphics.fill(color);
+  graphics.stroke({ width: 2, color: 0x000000 });
+
+  const texture = pixi.renderer.generateTexture(graphics);
+  Pixi.Assets.cache.set(alias, texture);
 }
 
 const fontFace = new FontFace("ComicSans", `url(${FONTS_DIR}/ComicSansMS.ttf)`);

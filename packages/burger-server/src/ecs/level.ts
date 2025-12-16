@@ -7,30 +7,31 @@ import {
 } from "@burger-king/shared";
 import debugFactory from "debug";
 import { query } from "bitecs";
-import { Counter, Position } from "@burger-king/shared";
+import { Counter, Position, Surface } from "@burger-king/shared";
 import type { ServerWorld } from "./world";
 import {
   createServerCounter,
-  createServerStove,
   createServerItem,
   createServerWall,
   createServerFloor,
+  createEntityFromRegistry,
+  isRegisteredEntityType,
 } from "./entities";
 
 const debug = debugFactory("burger:server:level");
 
 export type LevelSetup = {
   itemEids: Map<string, number>;
-  stoveEids: Map<string, number>;
   counterEids: Map<string, number>;
+  surfaceEids: Map<string, number>;
   playerSpawn: { x: number; y: number };
 };
 
 export const setupServerLevel = (world: ServerWorld): LevelSetup => {
   const levelDataResult = loadLevelData();
   const itemEids = new Map<string, number>();
-  const stoveEids = new Map<string, number>();
   const counterEids = new Map<string, number>();
+  const surfaceEids = new Map<string, number>();
 
   const rawLevelData = getRawLevelData();
   const level = rawLevelData.levels[0];
@@ -70,36 +71,70 @@ export const setupServerLevel = (world: ServerWorld): LevelSetup => {
 
   debug("Created %d walls and %d floors", wallCount, floorCount);
 
-  debug("Level data has %d stoves to process", levelDataResult.stoves.length);
+  // Process all surface entity types (Stove, Bin, PattyBox, OrderWindow)
+  debug(
+    "Level data has %d surfaces to process",
+    levelDataResult.surfaces.length
+  );
 
-  for (const stoveEntity of levelDataResult.stoves) {
-    const stoveX = stoveEntity.x;
-    const stoveY = stoveEntity.y;
+  for (const surfaceEntity of levelDataResult.surfaces) {
+    const entityType = surfaceEntity.type;
 
-    debug("Processing stove at (%d, %d)", stoveX, stoveY);
-
-    let counterEid = 0;
-    for (const [posKey, cid] of counterEids) {
-      const [cx, cy] = posKey.split(",").map(Number);
-      const dx = Math.abs(cx - stoveX);
-      const dy = Math.abs(cy - stoveY);
-      if (dx <= TILE_WIDTH / 2 && dy <= TILE_HEIGHT / 2) {
-        counterEid = cid;
-        debug("Matched stove to counter %d at (%d, %d)", cid, cx, cy);
-        break;
-      }
-    }
-
-    if (counterEid === 0) {
-      debug("No counter found for stove at (%d, %d)", stoveX, stoveY);
+    if (!isRegisteredEntityType(entityType)) {
+      debug(
+        "Skipping surface %s - unknown type %s",
+        surfaceEntity.id,
+        entityType
+      );
       continue;
     }
 
-    const stoveEid = createServerStove(world, stoveX, stoveY, counterEid);
-    stoveEids.set(stoveEntity.id, stoveEid);
+    debug(
+      "Processing surface %s type=%s at (%d, %d)",
+      surfaceEntity.id,
+      entityType,
+      surfaceEntity.x,
+      surfaceEntity.y
+    );
+
+    const surfaceEid = createEntityFromRegistry(
+      world,
+      entityType,
+      surfaceEntity.x,
+      surfaceEntity.y,
+      {
+        stock: surfaceEntity.stock,
+        spawnType: surfaceEntity.spawnType,
+      }
+    );
+    surfaceEids.set(surfaceEntity.id, surfaceEid);
   }
 
   debug("Level data has %d items to process", levelDataResult.items.length);
+
+  // Find surface (stove or counter) at position for item placement
+  const findSurfaceAtPosition = (x: number, y: number): number => {
+    // First check surfaces (stoves, etc.)
+    for (const [_id, surfaceEid] of surfaceEids) {
+      const sx = Position.x[surfaceEid];
+      const sy = Position.y[surfaceEid];
+      const dx = Math.abs(sx - x);
+      const dy = Math.abs(sy - y);
+      if (dx <= TILE_WIDTH / 2 && dy <= TILE_HEIGHT / 2) {
+        return surfaceEid;
+      }
+    }
+    // Then check counters
+    for (const [posKey, cid] of counterEids) {
+      const [cx, cy] = posKey.split(",").map(Number);
+      const dx = Math.abs(cx - x);
+      const dy = Math.abs(cy - y);
+      if (dx <= TILE_WIDTH / 2 && dy <= TILE_HEIGHT / 2) {
+        return cid;
+      }
+    }
+    return 0;
+  };
 
   for (const entityItem of levelDataResult.items) {
     const itemType = entityTypeToItemType(entityItem.type);
@@ -120,27 +155,14 @@ export const setupServerLevel = (world: ServerWorld): LevelSetup => {
       entityItem.y
     );
 
-    let counterEid = 0;
-    for (const [posKey, cid] of counterEids) {
-      const [cx, cy] = posKey.split(",").map(Number);
-      const dx = Math.abs(cx - entityItem.x);
-      const dy = Math.abs(cy - entityItem.y);
-      if (dx <= TILE_WIDTH / 2 && dy <= TILE_HEIGHT / 2) {
-        counterEid = cid;
-        debug("Matched item to counter %d at (%d, %d)", cid, cx, cy);
-        break;
-      }
-    }
+    const surfaceEid = findSurfaceAtPosition(entityItem.x, entityItem.y);
 
-    if (counterEid === 0) {
+    if (surfaceEid === 0) {
       debug(
-        "No counter found for item at (%d, %d). Available counters:",
+        "No surface found for item at (%d, %d)",
         entityItem.x,
         entityItem.y
       );
-      for (const [posKey, cid] of counterEids) {
-        debug("  Counter %d at %s", cid, posKey);
-      }
       continue;
     }
 
@@ -150,7 +172,7 @@ export const setupServerLevel = (world: ServerWorld): LevelSetup => {
       itemType,
       entityItem.x,
       entityItem.y,
-      counterEid
+      surfaceEid
     );
     itemEids.set(entityItem.id, itemEid);
   }
@@ -158,13 +180,13 @@ export const setupServerLevel = (world: ServerWorld): LevelSetup => {
   const playerSpawn = levelDataResult.playerSpawn || { x: 104, y: 104 };
 
   debug(
-    "Server level setup: %d counters, %d stoves, %d items",
+    "Server level setup: %d counters, %d surfaces, %d items",
     counterEids.size,
-    stoveEids.size,
+    surfaceEids.size,
     itemEids.size
   );
 
-  return { itemEids, stoveEids, counterEids, playerSpawn };
+  return { itemEids, counterEids, surfaceEids, playerSpawn };
 };
 
 export const findCounterAtPosition = (

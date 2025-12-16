@@ -7,13 +7,18 @@ export type EntityInstance = {
   type: string;
   x: number;
   y: number;
+  fieldInstances?: Array<{ __identifier: string; __value: unknown }>;
+};
+
+export type SurfaceEntityInstance = EntityInstance & {
+  stock?: number;
+  spawnType?: string;
 };
 
 export type LevelData = {
   items: EntityInstance[];
-  stoves: EntityInstance[];
+  surfaces: SurfaceEntityInstance[]; // Stoves, Bins, PattyBoxes, OrderWindows
   playerSpawn: { x: number; y: number } | null;
-  stovePositions: Set<string>; // "x,y"
 };
 
 export const getRawLevelData = () => levelData;
@@ -30,8 +35,7 @@ export const loadLevelData = (): LevelData => {
   }
 
   const items: EntityInstance[] = [];
-  const stoves: EntityInstance[] = [];
-  const stovePositions = new Set<string>();
+  const surfaces: SurfaceEntityInstance[] = [];
   let playerSpawn: { x: number; y: number } | null = null;
 
   for (const entity of entitiesLayer.entityInstances) {
@@ -40,6 +44,7 @@ export const loadLevelData = (): LevelData => {
       type: entity.__identifier,
       x: entity.__worldX,
       y: entity.__worldY,
+      fieldInstances: entity.fieldInstances,
     };
 
     switch (entity.__identifier) {
@@ -47,17 +52,35 @@ export const loadLevelData = (): LevelData => {
       case "Uncooked_Patty":
         items.push(instance);
         break;
-      case "Stove":
-        stoves.push(instance);
-        stovePositions.add(`${entity.__worldX},${entity.__worldY}`);
-        break;
       case "Player":
         playerSpawn = { x: entity.__worldX, y: entity.__worldY };
         break;
+      case "Stove":
+      case "Bin":
+      case "PattyBox":
+      case "OrderWindow": {
+        // Extract custom fields for surfaces
+        const surfaceInstance: SurfaceEntityInstance = { ...instance };
+
+        // Parse field instances for config
+        if (entity.fieldInstances) {
+          for (const field of entity.fieldInstances) {
+            if (field.__identifier === "stock" && typeof field.__value === "number") {
+              surfaceInstance.stock = field.__value;
+            }
+            if (field.__identifier === "spawnType" && typeof field.__value === "string") {
+              surfaceInstance.spawnType = field.__value;
+            }
+          }
+        }
+
+        surfaces.push(surfaceInstance);
+        break;
+      }
     }
   }
 
-  return { items, stoves, playerSpawn, stovePositions };
+  return { items, surfaces, playerSpawn };
 };
 
 export const entityTypeToItemType = (entityType: string): ItemType | null => {

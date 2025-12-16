@@ -13,6 +13,11 @@ import { setupServerLevel, type LevelSetup } from "./ecs/level";
 import { createServerPlayer } from "./ecs/entities";
 import { cookingSystem } from "./ecs/systems/cooking";
 import {
+  initializeOrderSystem,
+  orderSpawnSystem,
+  orderTimeoutSystem,
+} from "./ecs/systems/order-system";
+import {
   createSerializers,
   createClientObserver,
   tagMessage,
@@ -49,12 +54,13 @@ const initialize = () => {
   world = createServerWorld();
   levelSetup = setupServerLevel(world);
   setupCookingObservers(world);
+  initializeOrderSystem(world);
   serializers = createSerializers(world);
 
   debug(
-    "Server initialized: %d counters, %d stoves, %d items",
+    "Server initialized: %d counters, %d surfaces, %d items",
     levelSetup.counterEids.size,
-    levelSetup.stoveEids.size,
+    levelSetup.surfaceEids.size,
     levelSetup.itemEids.size
   );
 };
@@ -136,6 +142,8 @@ const gameLoop = () => {
   lastTime = now;
 
   cookingSystem(world, deltaSeconds);
+  orderSpawnSystem(world, deltaMs);
+  orderTimeoutSystem(world, deltaMs);
 
   broadcastState();
 };

@@ -10,12 +10,6 @@ import {
   Networked,
   NetworkId,
   MessageType,
-  Player,
-  Holdable,
-  Stove,
-  Wall,
-  Floor,
-  Counter,
   CookedPatty,
 } from "@burger-king/shared";
 import type { GameWorld } from "../ecs/world";
@@ -26,8 +20,12 @@ import {
   addWallVisuals,
   addFloorVisuals,
   addCounterVisuals,
+  addBinVisuals,
+  addPattyBoxVisuals,
+  addOrderWindowVisuals,
   updateItemToCooked,
 } from "./visuals";
+import { getVisualConfig } from "./visual-registry";
 
 const debug = debugFactory("burger:client:network");
 
@@ -236,33 +234,57 @@ const ensureEntityVisuals = (eid: number): void => {
   if (!world) return;
   if (entitiesWithVisuals.has(eid)) return;
 
+  const config = getVisualConfig(world, eid);
+  if (!config) return;
+
   const networkId = NetworkId.id[eid];
 
-  if (hasComponent(world, eid, Player)) {
-    const isLocal = networkId === localNetworkId;
-    addPlayerVisuals(world, eid, isLocal);
-    entitiesWithVisuals.add(eid);
-    debug("Added player visuals: eid=%d isLocal=%s", eid, isLocal);
-  } else if (hasComponent(world, eid, Holdable)) {
-    const isCooked = hasComponent(world, eid, CookedPatty);
-    addItemVisuals(world, eid, isCooked);
-    entitiesWithVisuals.add(eid);
-    debug("Added item visuals: eid=%d cooked=%s", eid, isCooked);
-  } else if (hasComponent(world, eid, Stove)) {
-    addStoveVisuals(world, eid);
-    entitiesWithVisuals.add(eid);
-    debug("Added stove visuals: eid=%d", eid);
-  } else if (hasComponent(world, eid, Wall)) {
-    addWallVisuals(world, eid);
-    entitiesWithVisuals.add(eid);
-  } else if (hasComponent(world, eid, Floor)) {
-    addFloorVisuals(world, eid);
-    entitiesWithVisuals.add(eid);
-  } else if (hasComponent(world, eid, Counter)) {
-    addCounterVisuals(world, eid);
-    entitiesWithVisuals.add(eid);
-    debug("Added counter visuals: eid=%d", eid);
+  // Use specific visual functions based on texture type
+  // This allows for type-specific setup (colliders, etc.)
+  switch (config.texture) {
+    case "player":
+      const isLocal = networkId === localNetworkId;
+      addPlayerVisuals(world, eid, isLocal);
+      debug("Added player visuals: eid=%d isLocal=%s", eid, isLocal);
+      break;
+    case "cooked-patty":
+    case "uncooked-patty":
+      const isCooked = hasComponent(world, eid, CookedPatty);
+      addItemVisuals(world, eid, isCooked);
+      debug("Added item visuals: eid=%d cooked=%s", eid, isCooked);
+      break;
+    case "stove":
+      addStoveVisuals(world, eid);
+      debug("Added stove visuals: eid=%d", eid);
+      break;
+    case "bin":
+      addBinVisuals(world, eid);
+      debug("Added bin visuals: eid=%d", eid);
+      break;
+    case "patty-box":
+      addPattyBoxVisuals(world, eid);
+      debug("Added patty-box visuals: eid=%d", eid);
+      break;
+    case "order-window":
+      addOrderWindowVisuals(world, eid);
+      debug("Added order-window visuals: eid=%d", eid);
+      break;
+    case "counter":
+      addCounterVisuals(world, eid);
+      debug("Added counter visuals: eid=%d", eid);
+      break;
+    case "red-brick":
+      addWallVisuals(world, eid);
+      break;
+    case "black-floor":
+      addFloorVisuals(world, eid);
+      break;
+    default:
+      debug("Unknown texture type: %s for eid=%d", config.texture, eid);
+      return;
   }
+
+  entitiesWithVisuals.add(eid);
 };
 
 const setupCookingObserver = (gameWorld: GameWorld): void => {

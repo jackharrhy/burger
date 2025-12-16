@@ -1,9 +1,13 @@
-import { query, getRelationTargets } from "bitecs";
+import { query, getRelationTargets, hasComponent } from "bitecs";
 import {
   Position,
   Holdable,
-  Counter,
+  Surface,
   HeldBy,
+  AcceptsItems,
+  DestroysItems,
+  SpawnsItems,
+  AcceptsOrders,
   getInteractionPosition,
   calculateOverlapArea,
   MIN_OVERLAP_AREA,
@@ -19,11 +23,15 @@ export type BestHoldableResult = {
   y: number;
 } | null;
 
-export type BestCounterResult = {
+export type BestSurfaceResult = {
   eid: number;
   x: number;
   y: number;
   occupied: boolean;
+  acceptsItems: boolean;
+  destroysItems: boolean;
+  spawnsItems: boolean;
+  acceptsOrders: boolean;
 } | null;
 
 export const findBestHoldable = (
@@ -66,13 +74,13 @@ export const findBestHoldable = (
   return best;
 };
 
-export const findBestCounter = (
+export const findBestSurface = (
   world: ServerWorld,
   playerX: number,
   playerY: number,
   facingX: number,
   facingY: number
-): BestCounterResult => {
+): BestSurfaceResult => {
   const interactionPos = getInteractionPosition(
     playerX,
     playerY,
@@ -80,34 +88,50 @@ export const findBestCounter = (
     facingY
   );
 
-  let bestCounter: BestCounterResult = null;
-  let bestUnoccupied: BestCounterResult = null;
+  let bestSurface: BestSurfaceResult = null;
+  let bestUnoccupied: BestSurfaceResult = null;
   let maxOverlapArea = 0;
   let maxUnoccupiedOverlapArea = 0;
 
-  for (const eid of query(world, [Counter, Position])) {
+  for (const eid of query(world, [Surface, Position])) {
     const entityPos = { x: Position.x[eid], y: Position.y[eid] };
     const overlapArea = calculateOverlapArea(interactionPos, entityPos);
     if (overlapArea < MIN_OVERLAP_AREA) continue;
 
     const occupied = isCounterOccupiedByItem(world, eid);
+    const acceptsItems = hasComponent(world, eid, AcceptsItems);
+    const destroysItems = hasComponent(world, eid, DestroysItems);
+    const spawnsItems = hasComponent(world, eid, SpawnsItems);
+    const acceptsOrders = hasComponent(world, eid, AcceptsOrders);
+
+    const result: BestSurfaceResult = {
+      eid,
+      x: entityPos.x,
+      y: entityPos.y,
+      occupied,
+      acceptsItems,
+      destroysItems,
+      spawnsItems,
+      acceptsOrders,
+    };
 
     if (overlapArea > maxOverlapArea) {
       maxOverlapArea = overlapArea;
-      bestCounter = { eid, x: entityPos.x, y: entityPos.y, occupied };
+      bestSurface = result;
     }
 
     if (!occupied && overlapArea > maxUnoccupiedOverlapArea) {
       maxUnoccupiedOverlapArea = overlapArea;
-      bestUnoccupied = { eid, x: entityPos.x, y: entityPos.y, occupied: false };
+      bestUnoccupied = { ...result, occupied: false };
     }
   }
 
-  if (bestCounter?.occupied && bestUnoccupied) {
+  // Prefer unoccupied surfaces when holding an item (for dropping)
+  if (bestSurface?.occupied && bestUnoccupied) {
     if (maxUnoccupiedOverlapArea / maxOverlapArea > 0.6) {
       return bestUnoccupied;
     }
   }
 
-  return bestCounter;
+  return bestSurface;
 };
