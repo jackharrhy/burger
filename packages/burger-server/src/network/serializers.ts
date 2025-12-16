@@ -1,14 +1,30 @@
-import { createSnapshotSerializer } from "bitecs/serialization";
-import { networkedComponents, MessageType } from "@burger-king/shared";
+import {
+  createSnapshotSerializer,
+  createObserverSerializer,
+  createSoASerializer,
+} from "bitecs/serialization";
+import {
+  networkedComponents,
+  Networked,
+  MessageType,
+} from "@burger-king/shared";
 import type { ServerWorld } from "../ecs/world";
 
 export type Serializers = {
   snapshot: ReturnType<typeof createSnapshotSerializer>;
+  soa: ReturnType<typeof createSoASerializer>;
 };
+
+export type ClientObserver = ReturnType<typeof createObserverSerializer>;
 
 export const createSerializers = (world: ServerWorld): Serializers => {
   const snapshot = createSnapshotSerializer(world, networkedComponents);
-  return { snapshot };
+  const soa = createSoASerializer(networkedComponents);
+  return { snapshot, soa };
+};
+
+export const createClientObserver = (world: ServerWorld): ClientObserver => {
+  return createObserverSerializer(world, Networked, networkedComponents);
 };
 
 export const tagMessage = (

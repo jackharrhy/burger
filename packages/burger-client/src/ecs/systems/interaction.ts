@@ -6,10 +6,6 @@ import { sendInteract, isConnected } from "../../network";
 
 const debug = debugFactory("burger:ecs:systems:interaction");
 
-/**
- * Interaction system - sends interact intent to server when player presses interact button.
- * The server handles all interaction logic (pickup, drop, swap) and sends back the updated state.
- */
 export const interactionSystem = (world: GameWorld): void => {
   if (!isConnected()) return;
 

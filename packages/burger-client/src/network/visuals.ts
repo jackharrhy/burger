@@ -138,7 +138,7 @@ export const addItemVisuals = (
 
   const colliderDesc = Rapier.ColliderDesc.cuboid(TILE_SIZE / 2, TILE_SIZE / 2)
     .setSensor(true)
-    .setCollisionGroups(makeCollisionGroups(COLLISION_GROUP_ITEMS, 0)); // collides with nothing
+    .setCollisionGroups(makeCollisionGroups(COLLISION_GROUP_ITEMS, 0));
   const collider = rapierWorld.createCollider(colliderDesc, rigidBody);
   Collider[eid] = collider;
 };
@@ -247,6 +247,14 @@ export const addCounterVisuals = (world: GameWorld, eid: number): void => {
   );
   const collider = rapierWorld.createCollider(colliderDesc, rigidBody);
   Collider[eid] = collider;
+};
+
+export const updateItemToCooked = (eid: number): void => {
+  const sprite = Sprite[eid];
+  if (!sprite) return;
+
+  sprite.texture = Pixi.Assets.get("cooked-patty");
+  sprite.tint = 0xffffff;
 };
 
 export const removeVisuals = (_world: GameWorld, eid: number): void => {

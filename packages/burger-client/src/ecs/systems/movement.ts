@@ -17,7 +17,7 @@ import {
 
 export const playerMovementSystem = (
   world: GameWorld,
-  timeStep: number,
+  timeStep: number
 ): void => {
   for (const eid of query(world, [
     Player,
@@ -62,8 +62,8 @@ export const playerMovementSystem = (
       controller.computeColliderMovement(
         collider,
         desiredTranslation,
-        undefined, // filterFlags
-        makeCollisionGroups(COLLISION_GROUP_PLAYER, COLLISION_GROUP_WALLS) // filterGroups
+        undefined,
+        makeCollisionGroups(COLLISION_GROUP_PLAYER, COLLISION_GROUP_WALLS)
       );
 
       const correctedMovement = controller.computedMovement();

@@ -1,5 +1,5 @@
-import { query, hasComponent } from "bitecs";
-import { Position, RigidBody, Networked, HeldBy } from "../components";
+import { query } from "bitecs";
+import { Position, RigidBody, Networked } from "../components";
 import type { GameWorld } from "../world";
 import { getLocalPlayerEid } from "../../network/client";
 

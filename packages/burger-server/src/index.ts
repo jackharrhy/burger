@@ -4,6 +4,7 @@ import { query, removeEntity } from "bitecs";
 import {
   setupCookingObservers,
   Networked,
+  Position,
   MessageType,
   TILE_WIDTH,
 } from "@burger-king/shared";
@@ -13,8 +14,10 @@ import { createServerPlayer } from "./ecs/entities";
 import { cookingSystem } from "./ecs/systems/cooking";
 import {
   createSerializers,
+  createClientObserver,
   tagMessage,
   type Serializers,
+  type ClientObserver,
 } from "./network/serializers";
 import {
   handleMessage,
@@ -35,6 +38,7 @@ let serializers: Serializers;
 
 type ClientState = ClientInfo & {
   ws: WebSocket;
+  observer: ClientObserver;
 };
 
 const clients = new Map<WebSocket, ClientState>();
@@ -68,11 +72,14 @@ const startServer = () => {
     const playerEid = createServerPlayer(world, sessionId, playerX, playerY);
     const networkId = getNetworkId(sessionId)!;
 
+    const observer = createClientObserver(world);
+
     const clientState: ClientState = {
       sessionId,
       playerEid,
       networkId,
       ws,
+      observer,
     };
     clients.set(ws, clientState);
 
@@ -136,14 +143,20 @@ const gameLoop = () => {
 const broadcastState = () => {
   if (clients.size === 0) return;
 
-  const snapshot = serializers.snapshot();
+  const networkedEntities = query(world, [Networked, Position]);
+  const soaData = serializers.soa(Array.from(networkedEntities));
 
   for (const [_ws, client] of clients) {
-    const { ws } = client;
+    const { ws, observer } = client;
 
     if (ws.readyState !== WebSocket.OPEN) continue;
 
-    ws.send(tagMessage(MessageType.SNAPSHOT, snapshot));
+    const observerData = observer();
+    if (observerData.byteLength > 0) {
+      ws.send(tagMessage(MessageType.OBSERVER, observerData));
+    }
+
+    ws.send(tagMessage(MessageType.SOA, soaData));
   }
 };
 
