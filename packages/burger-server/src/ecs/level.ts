@@ -6,32 +6,32 @@ import {
   TILE_HEIGHT,
 } from "@burger-king/shared";
 import debugFactory from "debug";
-import { query, hasComponent } from "bitecs";
-import { Counter, Stove, Position, SittingOn } from "@burger-king/shared";
+import { query } from "bitecs";
+import { Counter, Position } from "@burger-king/shared";
 import type { ServerWorld } from "./world";
 import {
   createServerCounter,
   createServerStove,
   createServerItem,
+  createServerWall,
+  createServerFloor,
 } from "./entities";
-import { syncItemEcsToSchema } from "./sync";
-import { ItemSchema } from "@burger-king/shared";
 
 const debug = debugFactory("burger:server:level");
 
-export const setupServerLevel = (
-  world: ServerWorld
-): {
+export type LevelSetup = {
   itemEids: Map<string, number>;
   stoveEids: Map<string, number>;
   counterEids: Map<string, number>;
-} => {
+  playerSpawn: { x: number; y: number };
+};
+
+export const setupServerLevel = (world: ServerWorld): LevelSetup => {
   const levelDataResult = loadLevelData();
   const itemEids = new Map<string, number>();
   const stoveEids = new Map<string, number>();
   const counterEids = new Map<string, number>();
 
-  // Load level JSON to get counter positions from World layer
   const rawLevelData = getRawLevelData();
   const level = rawLevelData.levels[0];
   const worldLayer = level.layerInstances.find(
@@ -42,30 +42,42 @@ export const setupServerLevel = (
     throw new Error("World layer not found");
   }
 
-  // Create counters from grid tiles
+  let wallCount = 0;
+  let floorCount = 0;
+
   for (const tile of worldLayer.gridTiles) {
-    if (tile.t === 6) {
-      // Counter tile
-      const x = tile.px[0];
-      const y = tile.px[1];
-      const centerX = x + TILE_WIDTH / 2;
-      const centerY = y + TILE_HEIGHT / 2;
-      const counterEid = createServerCounter(world, x, y);
-      // Store by center position for matching with items
-      counterEids.set(`${centerX},${centerY}`, counterEid);
+    const x = tile.px[0];
+    const y = tile.px[1];
+
+    switch (tile.t) {
+      case 0: // Wall
+        createServerWall(world, x, y);
+        wallCount++;
+        break;
+      case 1: // Floor
+        createServerFloor(world, x, y);
+        floorCount++;
+        break;
+      case 6: {
+        const centerX = x + TILE_WIDTH / 2;
+        const centerY = y + TILE_HEIGHT / 2;
+        const counterEid = createServerCounter(world, x, y);
+        counterEids.set(`${centerX},${centerY}`, counterEid);
+        break;
+      }
     }
   }
 
-  // Create stoves and link them to counters
+  debug("Created %d walls and %d floors", wallCount, floorCount);
+
   debug("Level data has %d stoves to process", levelDataResult.stoves.length);
-  
+
   for (const stoveEntity of levelDataResult.stoves) {
     const stoveX = stoveEntity.x;
     const stoveY = stoveEntity.y;
 
     debug("Processing stove at (%d, %d)", stoveX, stoveY);
 
-    // Try matching stove position directly (may already be center coords)
     let counterEid = 0;
     for (const [posKey, cid] of counterEids) {
       const [cx, cy] = posKey.split(",").map(Number);
@@ -87,13 +99,16 @@ export const setupServerLevel = (
     stoveEids.set(stoveEntity.id, stoveEid);
   }
 
-  // Create items and link them to counters
   debug("Level data has %d items to process", levelDataResult.items.length);
-  
+
   for (const entityItem of levelDataResult.items) {
     const itemType = entityTypeToItemType(entityItem.type);
     if (!itemType) {
-      debug("Skipping item %s - unknown type %s", entityItem.id, entityItem.type);
+      debug(
+        "Skipping item %s - unknown type %s",
+        entityItem.id,
+        entityItem.type
+      );
       continue;
     }
 
@@ -105,7 +120,6 @@ export const setupServerLevel = (
       entityItem.y
     );
 
-    // Items in LDtk may already be at center position - try matching directly first
     let counterEid = 0;
     for (const [posKey, cid] of counterEids) {
       const [cx, cy] = posKey.split(",").map(Number);
@@ -141,6 +155,8 @@ export const setupServerLevel = (
     itemEids.set(entityItem.id, itemEid);
   }
 
+  const playerSpawn = levelDataResult.playerSpawn || { x: 104, y: 104 };
+
   debug(
     "Server level setup: %d counters, %d stoves, %d items",
     counterEids.size,
@@ -148,23 +164,7 @@ export const setupServerLevel = (
     itemEids.size
   );
 
-  return { itemEids, stoveEids, counterEids };
-};
-
-export const createInitialSchemaFromEcs = (
-  world: ServerWorld,
-  itemEids: Map<string, number>
-): Map<string, ItemSchema> => {
-  const itemsSchema = new Map<string, ItemSchema>();
-
-  for (const [itemId, eid] of itemEids) {
-    const itemSchema = new ItemSchema();
-    itemSchema.id = itemId;
-    syncItemEcsToSchema(world, eid, itemSchema);
-    itemsSchema.set(itemId, itemSchema);
-  }
-
-  return itemsSchema;
+  return { itemEids, stoveEids, counterEids, playerSpawn };
 };
 
 export const findCounterAtPosition = (

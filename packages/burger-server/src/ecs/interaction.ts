@@ -47,7 +47,6 @@ export const findBestHoldable = (
   for (const eid of query(world, [Holdable, Position])) {
     if (eid === excludeEid) continue;
 
-    // Skip if already held
     const [heldByEid] = getRelationTargets(world, eid, HeldBy);
     if (heldByEid) continue;
 
@@ -104,7 +103,6 @@ export const findBestCounter = (
     }
   }
 
-  // Fallback to unoccupied if overlap is significant
   if (bestCounter?.occupied && bestUnoccupied) {
     if (maxUnoccupiedOverlapArea / maxOverlapArea > 0.6) {
       return bestUnoccupied;

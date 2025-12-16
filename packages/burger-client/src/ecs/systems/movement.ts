@@ -8,7 +8,12 @@ import {
   FacingDirection,
 } from "../components";
 import type { GameWorld } from "../world";
-import { PLAYER_SPEED } from "../../vars";
+import {
+  PLAYER_SPEED,
+  COLLISION_GROUP_PLAYER,
+  COLLISION_GROUP_WALLS,
+  makeCollisionGroups,
+} from "../../vars";
 
 export const playerMovementSystem = (
   world: GameWorld,
@@ -54,7 +59,12 @@ export const playerMovementSystem = (
 
     if (moveX !== 0 || moveY !== 0) {
       const desiredTranslation = { x: moveX, y: moveY };
-      controller.computeColliderMovement(collider, desiredTranslation);
+      controller.computeColliderMovement(
+        collider,
+        desiredTranslation,
+        undefined, // filterFlags
+        makeCollisionGroups(COLLISION_GROUP_PLAYER, COLLISION_GROUP_WALLS) // filterGroups
+      );
 
       const correctedMovement = controller.computedMovement();
       const currentPos = rigidBody.translation();

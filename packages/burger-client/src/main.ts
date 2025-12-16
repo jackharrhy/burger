@@ -10,20 +10,17 @@ import {
   runPhysicsWithAccumulator,
   setRapierWorld,
   interactionSystem,
-  heldItemSystem,
+  networkPositionSyncSystem,
+  heldItemSyncSystem,
   cameraSystem,
   renderSyncSystem,
   debugRenderSystem,
   interactionZoneDebugSystem,
+  cookingVisualsSystem,
 } from "./ecs/systems";
-import { createLevel, getPlayerEntityId } from "./entities";
-import {
-  connect,
-  setupPlayerSync,
-  setupItemSync,
-  initOptimistic,
-  networkInputSystem,
-} from "./network";
+import { connect, isConnected, getLocalPlayerEid, sendMove } from "./network";
+import { FacingDirection } from "./ecs/components";
+import { getEntityPosition } from "./ecs/systems/physics";
 
 const startGame = async () => {
   const gameWorld = createGameWorld();
@@ -36,24 +33,12 @@ const startGame = async () => {
     }
   });
 
-  createLevel(gameWorld);
-
-  // Initialize optimistic updates with player entity
-  const playerEid = getPlayerEntityId();
-  if (playerEid !== null) {
-    initOptimistic(gameWorld, playerEid);
-  }
-
   try {
-    const room = await connect();
-    setupPlayerSync(room, gameWorld);
-    setupItemSync(room, gameWorld);
+    await connect(gameWorld);
     console.log("Connected to multiplayer server");
   } catch (error) {
-    console.warn(
-      "Failed to connect to server, running in offline mode:",
-      error
-    );
+    console.error("Failed to connect to server:", error);
+    return;
   }
 
   pixi.ticker.add(() => {
@@ -63,30 +48,49 @@ const startGame = async () => {
     // 2. Read input
     inputSystem(gameWorld);
 
-    // 3. Send input to server
-    networkInputSystem(gameWorld);
-
-    // 4. Run physics with fixed timestep (includes movement)
+    // 3. Run physics with fixed timestep (includes movement)
     runPhysicsWithAccumulator(gameWorld, playerMovementSystem);
+
+    // 4. Send position to server (only for local player)
+    sendNetworkInput();
 
     // 5. Handle interactions (pickup/drop)
     interactionSystem(gameWorld);
 
-    // 6. Update held items to follow player
-    heldItemSystem(gameWorld);
+    // 6. Update held item positions for local player (optimistic)
+    heldItemSyncSystem(gameWorld);
 
-    // 7. Sync render positions from physics
+    // 7. Sync network positions to rigid bodies (except local player)
+    networkPositionSyncSystem(gameWorld);
+
+    // 8. Update cooking visuals
+    cookingVisualsSystem(gameWorld);
+
+    // 9. Sync render positions from physics
     renderSyncSystem(gameWorld);
 
-    // 8. Update camera to follow player
+    // 10. Update camera to follow player
     cameraSystem(gameWorld);
 
-    // 9. Update interaction zone debug sprite
+    // 11. Update interaction zone debug sprite
     interactionZoneDebugSystem(gameWorld);
 
-    // 10. Render debug shapes
+    // 12. Render debug shapes
     debugRenderSystem(gameWorld);
   });
+};
+
+const sendNetworkInput = (): void => {
+  if (!isConnected()) return;
+
+  const playerEid = getLocalPlayerEid();
+  if (!playerEid) return;
+
+  const pos = getEntityPosition(playerEid);
+  const facingX = FacingDirection.x[playerEid];
+  const facingY = FacingDirection.y[playerEid];
+
+  sendMove(pos.x, pos.y, facingX, facingY);
 };
 
 startGame();

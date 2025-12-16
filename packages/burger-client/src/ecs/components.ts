@@ -2,7 +2,6 @@ import type * as Pixi from "pixi.js";
 import type RAPIER from "@dimforge/rapier2d-compat";
 
 export {
-  MAX_ENTITIES,
   Position,
   Velocity,
   FacingDirection,
@@ -21,6 +20,8 @@ export {
   CookedPatty,
   UncookedPatty,
   NetworkId,
+  Networked,
+  networkedComponents,
 } from "@burger-king/shared";
 
 export const Sprite = [] as (Pixi.Sprite | null)[];
