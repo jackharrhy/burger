@@ -5,11 +5,6 @@ import type { GameWorld } from "../world";
 import { getLocalPlayerEid } from "../../network/client";
 import { getEntityPosition } from "./physics";
 
-/**
- * Updates the position of items held by the local player.
- * This provides optimistic updates so held items follow the player
- * smoothly without waiting for server updates.
- */
 export const heldItemSyncSystem = (world: GameWorld): void => {
   const localPlayerEid = getLocalPlayerEid();
   if (!localPlayerEid) return;

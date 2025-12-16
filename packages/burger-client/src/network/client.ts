@@ -1,8 +1,13 @@
 import debugFactory from "debug";
-import { createSnapshotDeserializer } from "bitecs/serialization";
-import { hasComponent } from "bitecs";
+import {
+  createSnapshotDeserializer,
+  createObserverDeserializer,
+  createSoADeserializer,
+} from "bitecs/serialization";
+import { hasComponent, observe, onAdd } from "bitecs";
 import {
   networkedComponents,
+  Networked,
   NetworkId,
   MessageType,
   Player,
@@ -21,6 +26,7 @@ import {
   addWallVisuals,
   addFloorVisuals,
   addCounterVisuals,
+  updateItemToCooked,
 } from "./visuals";
 
 const debug = debugFactory("burger:client:network");
@@ -52,6 +58,8 @@ let localPlayerEid: number = 0;
 let connected: boolean = false;
 
 let snapshotDeserializer: ReturnType<typeof createSnapshotDeserializer>;
+let observerDeserializer: ReturnType<typeof createObserverDeserializer>;
+let soaDeserializer: ReturnType<typeof createSoADeserializer>;
 
 const entitiesWithVisuals = new Set<number>();
 
@@ -66,6 +74,14 @@ export const connect = async (
       world,
       networkedComponents
     );
+    observerDeserializer = createObserverDeserializer(
+      world,
+      Networked,
+      networkedComponents
+    );
+    soaDeserializer = createSoADeserializer(networkedComponents);
+
+    setupCookingObserver(world);
 
     ws = new WebSocket(serverUrl);
     ws.binaryType = "arraybuffer";
@@ -152,13 +168,24 @@ const handleMessage = (
   const messageType = view[0];
   const payload = view.slice(1).buffer;
 
-  if (messageType === MessageType.SNAPSHOT) {
-    snapshotDeserializer(payload, idMap);
-    onSnapshotReceived();
-    if (onConnected) {
-      connected = true;
-      onConnected();
-    }
+  switch (messageType) {
+    case MessageType.SNAPSHOT:
+      snapshotDeserializer(payload, idMap);
+      onSnapshotReceived();
+      if (onConnected) {
+        connected = true;
+        onConnected();
+      }
+      break;
+
+    case MessageType.OBSERVER:
+      observerDeserializer(payload, idMap);
+      onObserverReceived();
+      break;
+
+    case MessageType.SOA:
+      soaDeserializer(payload, idMap);
+      break;
   }
 };
 
@@ -173,6 +200,16 @@ const handleWelcome = (message: WelcomeMessage): void => {
 };
 
 const onSnapshotReceived = (): void => {
+  if (!world) return;
+
+  findLocalPlayer();
+
+  for (const [_serverEid, clientEid] of idMap) {
+    ensureEntityVisuals(clientEid);
+  }
+};
+
+const onObserverReceived = (): void => {
   if (!world) return;
 
   findLocalPlayer();
@@ -226,4 +263,11 @@ const ensureEntityVisuals = (eid: number): void => {
     entitiesWithVisuals.add(eid);
     debug("Added counter visuals: eid=%d", eid);
   }
+};
+
+const setupCookingObserver = (gameWorld: GameWorld): void => {
+  observe(gameWorld, onAdd(CookedPatty), (eid: number) => {
+    debug("Patty became cooked: eid=%d", eid);
+    updateItemToCooked(eid);
+  });
 };
