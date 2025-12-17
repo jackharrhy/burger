@@ -18,3 +18,5 @@ export const sharedComponents = {
   Velocity,
   Networked,
 };
+
+export const networkedComponents = [Player, Position, Velocity];

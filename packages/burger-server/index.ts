@@ -1,6 +1,16 @@
 import debugFactory from "debug";
-import { MESSAGE_TYPES } from "burger-shared";
-import { createWorld, addEntity, addComponent, removeEntity } from "bitecs";
+import {
+  sharedComponents,
+  MESSAGE_TYPES,
+  networkedComponents,
+} from "burger-shared";
+import {
+  createWorld,
+  addEntity,
+  addComponent,
+  removeEntity,
+  query,
+} from "bitecs";
 import {
   createObserverSerializer,
   createSnapshotSerializer,
@@ -13,10 +23,7 @@ const debug = debugFactory("burger:main");
 
 const world = createWorld({
   components: {
-    Player: { name: str([]) },
-    Position: { x: f32([]), y: f32([]) },
-    Velocity: { x: f32([]), y: f32([]) },
-    Networked: {},
+    ...sharedComponents,
   },
   time: {
     delta: 0,
@@ -49,9 +56,8 @@ const createPlayer = (world: World, name: string) => {
 
 const observerSerializers = new Map();
 
-const { Player, Position, Velocity } = world.components;
-const networkedComponents = [Player, Position, Velocity];
 const snapshotSerializer = createSnapshotSerializer(world, networkedComponents);
+const soaSerializer = createSoASerializer(networkedComponents);
 
 const playerEntities = new Map();
 
@@ -99,17 +105,44 @@ const server = Bun.serve({
       observerSerializers.delete(ws);
     },
     message(ws, message) {
-      const playerEntity = playerEntities.get(ws);
-      debug("received message from client from", playerEntity);
+      const playerEid = playerEntities.get(ws);
+      const data = JSON.parse(message.toString());
+      const { Position, Velocity } = world.components;
 
-      const observerSerializer = observerSerializers.get(ws);
-      const updates = observerSerializer();
-      if (updates.byteLength > 0) {
-        debug("sending OBSERVER update");
-        ws.send(tagMessage(MESSAGE_TYPES.OBSERVER, updates));
+      switch (data.type) {
+        case "position": {
+          Position.x[playerEid] = data.x;
+          Position.y[playerEid] = data.y;
+          Velocity.x[playerEid] = data.xVel;
+          Velocity.y[playerEid] = data.yVel;
+          break;
+        }
       }
     },
   },
 });
+
+const TICK_RATE = 1000 / 20;
+
+setInterval(() => {
+  const { Networked, Position } = world.components;
+
+  if (playerEntities.size === 0) return;
+
+  const soaUpdates = soaSerializer(
+    Array.from(query(world, [Networked, Position])),
+  );
+  const taggedSoa = tagMessage(MESSAGE_TYPES.SOA, soaUpdates);
+
+  for (const [ws] of playerEntities) {
+    ws.send(taggedSoa);
+
+    const observerSerializer = observerSerializers.get(ws);
+    const updates = observerSerializer();
+    if (updates.byteLength > 0) {
+      ws.send(tagMessage(MESSAGE_TYPES.OBSERVER, updates));
+    }
+  }
+}, TICK_RATE);
 
 console.log(`WebSocket server running on ${server.hostname}:${server.port}`);
