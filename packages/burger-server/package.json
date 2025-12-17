@@ -1,0 +1,22 @@
+{
+  "name": "burger-server",
+  "version": "0.1.0",
+  "description": "hi, may i take your order?",
+  "type": "module",
+  "module": "index.ts",
+  "scripts": {
+    "dev": "DEBUG=* bun --watch index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/debug": "^4.1.12"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "burger-shared": "workspace:*",
+    "bitecs": "^0.4.0",
+    "debug": "^4.4.3"
+  }
+}

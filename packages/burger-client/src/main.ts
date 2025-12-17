@@ -1,6 +1,7 @@
 import "./style.css";
 
 import debugFactory from "debug";
+import { sharedComponents, MESSAGE_TYPES } from "burger-shared";
 import {
   Application,
   Assets,
@@ -8,16 +9,19 @@ import {
   Sprite as PixiSprite,
   Texture,
 } from "pixi.js";
-import { createWorld, query, addEntity, addComponent } from "bitecs";
+import { createWorld, query, addComponent, observe, onAdd } from "bitecs";
 import { ACCELERATION, FRICTION, PLAYER_SIZE, PLAYER_SPEED } from "./consts";
+import {
+  createObserverDeserializer,
+  createSnapshotDeserializer,
+  createSoADeserializer,
+} from "bitecs/serialization";
 
 const debug = debugFactory("burger:main");
 
 const world = createWorld({
   components: {
-    Position: { x: [] as number[], y: [] as number[] },
-    Velocity: { x: [] as number[], y: [] as number[] },
-    Player: [] as { name: string }[],
+    ...sharedComponents,
     Input: [] as {
       up: boolean;
       down: boolean;
@@ -45,6 +49,9 @@ type Context = {
     keys: Record<string, boolean>;
     prevInteract: string | boolean;
   };
+  me: {
+    eid: number | null;
+  };
 };
 
 declare global {
@@ -53,43 +60,42 @@ declare global {
   }
 }
 
-const addPlayer = (
-  { world, assets, container }: Context,
-  { name }: { name: string },
-) => {
-  const { Position, Velocity, Player, Sprite, Input } = world.components;
-  const eid = addEntity(world);
+const setupPlayerObserver = ({ world, assets, container, me }: Context) => {
+  const { Player, Sprite, Input } = world.components;
 
-  addComponent(world, eid, Player);
-  Player[eid] = { name };
+  observe(world, onAdd(Player), (eid) => {
+    if (me.eid === null) {
+      throw new Error(
+        "myEid is not set, this might have been us, but we don't know our eid yet!",
+      );
+    }
 
-  addComponent(world, eid, Position);
-  Position.x[eid] = 0;
-  Position.y[eid] = 0;
+    if (eid === me.eid) {
+      debug("setting up input for our own player");
+      addComponent(world, eid, Input);
+      Input[eid] = {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        interact: false,
+        interactPressed: false,
+      };
+    }
 
-  addComponent(world, eid, Velocity);
-  Velocity.x[eid] = 0;
-  Velocity.y[eid] = 0;
+    addComponent(world, eid, Sprite);
+    const sprite = new PixiSprite(assets.player);
+    sprite.width = PLAYER_SIZE;
+    sprite.height = PLAYER_SIZE;
+    sprite.anchor.set(0.5);
+    container.addChild(sprite);
+    Sprite[eid] = sprite;
 
-  addComponent(world, eid, Input);
-  Input[eid] = {
-    up: false,
-    down: false,
-    left: false,
-    right: false,
-    interact: false,
-    interactPressed: false,
-  };
-
-  addComponent(world, eid, Sprite);
-  const sprite = new PixiSprite(assets.player);
-  sprite.width = PLAYER_SIZE;
-  sprite.height = PLAYER_SIZE;
-  sprite.anchor.set(0.5);
-  container.addChild(sprite);
-  Sprite[eid] = sprite;
-
-  debug("adding player: name=%s, eid=%s", name, eid);
+    queueMicrotask(() => {
+      const name = Player.name[eid];
+      debug("player added: name=%s, eid=%s", name, eid);
+    });
+  });
 };
 
 const timeSystem = ({ world }: Context) => {
@@ -216,7 +222,12 @@ const setupRenderer = async () => {
       keys: {},
       prevInteract: false,
     },
+    me: {
+      eid: null,
+    },
   };
+
+  setupPlayerObserver(context);
 
   window.context = context;
 
@@ -228,13 +239,108 @@ const setupRenderer = async () => {
     context.input.keys[e.key.toLowerCase()] = false;
   });
 
-  addPlayer(context, {
-    name: "Harrhy",
-  });
-
   app.ticker.add(() => {
     update(context);
   });
+
+  return context;
 };
 
-setupRenderer();
+const setupSocket = (context: Context) => {
+  const { Player, Position, Velocity, Networked } = world.components;
+  const networkedComponents = [Player, Position, Velocity];
+  const snapshotDeserializer = createSnapshotDeserializer(
+    world,
+    networkedComponents,
+  );
+  const observerDeserializer = createObserverDeserializer(
+    world,
+    Networked,
+    networkedComponents,
+  );
+  const soaDeserializer = createSoADeserializer(networkedComponents);
+
+  const idMap = new Map();
+
+  const socket = new WebSocket("ws://localhost:5001");
+  socket.binaryType = "arraybuffer";
+
+  socket.addEventListener("open", () => {
+    console.log("connected to server");
+
+    const UPDATE_RATE = 1000 / 15;
+
+    let lastX: number | null = null;
+    let lastY: number | null = null;
+
+    setInterval(() => {
+      const eid = context.me.eid;
+      if (eid === null) return;
+
+      const newX = Position.x[eid];
+      const newY = Position.y[eid];
+
+      let changed = false;
+
+      if (lastX !== newX) {
+        changed = true;
+      }
+      if (lastY !== newY) {
+        changed = true;
+      }
+
+      if (changed) {
+        debug("CHANGED!");
+      }
+
+      lastX = newX;
+      lastY = newY;
+    }, UPDATE_RATE);
+  });
+
+  socket.addEventListener("message", async (event) => {
+    const messageView = new Uint8Array(event.data);
+    const type = messageView[0];
+
+    debug("handling message from server: %s", type);
+
+    const payload = messageView.slice(1).buffer as ArrayBuffer;
+
+    switch (type) {
+      case MESSAGE_TYPES.SNAPSHOT:
+        debug("received SNAPSHOT message");
+        snapshotDeserializer(payload, idMap);
+        break;
+      case MESSAGE_TYPES.OBSERVER:
+        debug("received OBSERVER message");
+        observerDeserializer(payload, idMap);
+        break;
+      case MESSAGE_TYPES.SOA:
+        debug("received SOA message");
+        soaDeserializer(payload, idMap);
+        break;
+      case MESSAGE_TYPES.YOUR_EID:
+        debug("received YOUR_EID message");
+        // TODO should we map the eid to our eid? maybe these don't lineup?
+        const view = new Int32Array(payload);
+        const myEid = view[0];
+        context.me.eid = myEid;
+        break;
+    }
+  });
+
+  socket.addEventListener("close", () => {
+    console.log("disconnected from server");
+  });
+
+  socket.addEventListener("error", (error) => {
+    console.error("WebSocket error:", error);
+  });
+};
+
+const setup = async () => {
+  const context = await setupRenderer();
+  setupSocket(context);
+};
+
+setup();
