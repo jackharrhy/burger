@@ -1,5 +1,5 @@
 import { addComponent, removeEntity } from "bitecs";
-import { Box, Circle, Vec2 } from "planck";
+import { Box, Vec2 } from "planck";
 import { PLAYER_SIZE, TILE_SIZE } from "./consts.shared";
 import { PhysicsBody, PhysicsShape, PhysicsVelocity } from "./ecs.shared";
 import { getPhysicsWorld } from "./physics.shared";
@@ -15,8 +15,9 @@ export const createPhysicsPlayer = (
   addComponent(world, eid, PhysicsShape);
   addComponent(world, eid, PhysicsVelocity);
 
-  PhysicsShape.shapeType[eid] = "circle";
-  PhysicsShape.radius[eid] = PLAYER_SIZE / 2;
+  PhysicsShape.shapeType[eid] = "box";
+  PhysicsShape.width[eid] = PLAYER_SIZE;
+  PhysicsShape.height[eid] = PLAYER_SIZE;
   PhysicsShape.density[eid] = 1.0;
   PhysicsShape.friction[eid] = 0.3;
   PhysicsShape.restitution[eid] = 0.0;
@@ -38,7 +39,7 @@ export const createPhysicsPlayer = (
   });
 
   body.createFixture({
-    shape: new Circle(PLAYER_SIZE / 2),
+    shape: new Box(PLAYER_SIZE / 2, PLAYER_SIZE / 2),
     density: 1.0,
     friction: 0.3,
     restitution: 0.0,
