@@ -1,0 +1,20 @@
+export const PLAYER_SPEED = 0.4;
+export const ACCELERATION = 0.012;
+export const FRICTION = 0.015;
+export const TILE_SIZE = 32;
+export const PLAYER_SIZE = TILE_SIZE;
+
+export const MESSAGE_TYPES = {
+  SNAPSHOT: 0,
+  OBSERVER: 1,
+  YOUR_EID: 3,
+  INPUT: 4,
+  GAME_STATE: 5,
+} as const;
+
+export const TILE_TYPES = {
+  FLOOR: 0,
+  WALL: 1,
+} as const;
+
+export type TileType = typeof TILE_TYPES;
