@@ -4,7 +4,8 @@ import { Vec2 } from "planck";
 import {
   sharedComponents,
   PLAYER_SIZE,
-  TILE_SIZE, TICK_RATE_MS,
+  TILE_SIZE,
+  TICK_RATE_MS,
   applyInputToVelocity,
   physicsSystem,
   resetPhysicsDirtyFlags,
@@ -15,6 +16,7 @@ import {
   Application,
   Assets,
   Container,
+  Graphics,
   Sprite as PixiSprite,
   Text as PixiText,
   Texture,
@@ -63,6 +65,7 @@ type Context = {
   world: World;
   app: Application;
   container: Container;
+  wireframeGraphics: Graphics;
   assets: Awaited<ReturnType<typeof loadAssets>>;
   input: { keys: Record<string, boolean>; prevInteract: boolean };
   me: PlayerIdentity;
@@ -81,6 +84,7 @@ const setupPlayerObserver = ({ world, assets, container }: Context) => {
     Velocity,
     PhysicsVelocity,
     Sprite,
+    PhysicsShape,
     DebugText,
     RenderPosition,
     PositionHistory,
@@ -94,6 +98,15 @@ const setupPlayerObserver = ({ world, assets, container }: Context) => {
     sprite.anchor.set(0.5);
     container.addChild(sprite);
     Sprite[eid] = sprite;
+
+    addComponent(world, eid, PhysicsShape);
+    PhysicsShape.shapeType[eid] = "box";
+    PhysicsShape.width[eid] = PLAYER_SIZE;
+    PhysicsShape.height[eid] = PLAYER_SIZE;
+    PhysicsShape.density[eid] = 1.0;
+    PhysicsShape.friction[eid] = 0.3;
+    PhysicsShape.restitution[eid] = 0.0;
+    PhysicsShape.isSensor[eid] = false;
 
     addComponent(world, eid, Velocity);
     Velocity.x[eid] = 0;
@@ -128,7 +141,8 @@ const setupPlayerObserver = ({ world, assets, container }: Context) => {
 };
 
 const createTileSprites = ({ world, assets, container }: Context) => {
-  const { Tile, Position, Sprite } = world.components;
+  const { Tile, Position, Sprite, RenderPosition, PhysicsShape } =
+    world.components;
 
   for (const eid of query(world, [Tile, Position])) {
     if (Sprite[eid]) continue;
@@ -139,10 +153,21 @@ const createTileSprites = ({ world, assets, container }: Context) => {
     sprite.height = TILE_SIZE;
     sprite.anchor.set(0.5);
     sprite.tint = 0x333333;
-    sprite.x = Position.x[eid];
-    sprite.y = Position.y[eid];
     container.addChild(sprite);
     Sprite[eid] = sprite;
+
+    addComponent(world, eid, RenderPosition);
+    RenderPosition.x[eid] = Position.x[eid];
+    RenderPosition.y[eid] = Position.y[eid];
+
+    addComponent(world, eid, PhysicsShape);
+    PhysicsShape.shapeType[eid] = "box";
+    PhysicsShape.width[eid] = TILE_SIZE;
+    PhysicsShape.height[eid] = TILE_SIZE;
+    PhysicsShape.density[eid] = 0;
+    PhysicsShape.friction[eid] = 0.3;
+    PhysicsShape.restitution[eid] = 0.0;
+    PhysicsShape.isSensor[eid] = false;
   }
 };
 
@@ -269,13 +294,52 @@ const interpolationSystem = ({ world, me, network }: Context) => {
   }
 };
 
-const spritesSystem = ({ world }: Context) => {
-  const { RenderPosition, Sprite } = world.components;
-  for (const eid of query(world, [RenderPosition, Sprite])) {
-    const sprite = Sprite[eid];
-    if (!sprite) continue;
-    sprite.x = RenderPosition.x[eid];
-    sprite.y = RenderPosition.y[eid];
+const displaySystem = ({ world, wireframeGraphics }: Context) => {
+  const { RenderPosition, PhysicsShape, Sprite, Player } = world.components;
+  if (showDebug) {
+    // Render wireframes
+    wireframeGraphics.clear();
+    for (const eid of query(world, [RenderPosition, PhysicsShape])) {
+      wireframeGraphics.position.set(
+        RenderPosition.x[eid],
+        RenderPosition.y[eid],
+      );
+      wireframeGraphics.rotation = 0; // No local physics, default to 0
+
+      const color = Player.name[eid] !== undefined ? 0xff0000 : 0x0000ff; // red for players, blue for tiles
+
+      const shapeType = PhysicsShape.shapeType[eid];
+      const width = PhysicsShape.width[eid];
+      const height = PhysicsShape.height[eid];
+      const radius = PhysicsShape.radius[eid];
+
+      try {
+        if (shapeType === "box") {
+          wireframeGraphics
+            .rect(-width / 2, -height / 2, width, height)
+            .stroke({ width: 4, color });
+        } else if (shapeType === "circle") {
+          wireframeGraphics.circle(0, 0, radius).stroke({ width: 4, color });
+        } else {
+          // Fallback
+          wireframeGraphics.rect(-10, -10, 20, 20).stroke({ width: 4, color });
+        }
+      } catch (error) {
+        console.warn(`Failed to draw shape for eid=${eid}:`, error);
+        wireframeGraphics.rect(-10, -10, 20, 20).stroke({ width: 4, color });
+      }
+
+      wireframeGraphics.position.set(0, 0);
+      wireframeGraphics.rotation = 0;
+    }
+  } else {
+    // Render sprites
+    for (const eid of query(world, [RenderPosition, Sprite])) {
+      const sprite = Sprite[eid];
+      if (!sprite) continue;
+      sprite!.x = RenderPosition.x[eid];
+      sprite!.y = RenderPosition.y[eid];
+    }
   }
 };
 
@@ -310,7 +374,7 @@ const update = (context: Context) => {
   resetPhysicsDirtyFlags(context.world);
 
   interpolationSystem(context);
-  spritesSystem(context);
+  displaySystem(context);
   debugSystem(context);
 };
 
@@ -330,10 +394,14 @@ const setupRenderer = async () => {
   container.y = app.screen.height / 2;
   app.stage.addChild(container);
 
+  const wireframeGraphics = new Graphics();
+  container.addChild(wireframeGraphics);
+
   const context: Context = {
     world,
     app,
     container,
+    wireframeGraphics,
     assets,
     input: { keys: {}, prevInteract: false },
     me: {
