@@ -25,7 +25,14 @@ import {
   type NetworkState,
   type PlayerIdentity,
 } from "./network.client";
-import { ERROR_DECAY_RATE, INTERP_DELAY } from "./consts.client";
+import {
+  CAMERA_LERP_FACTOR,
+  DEADZONE_HEIGHT,
+  DEADZONE_WIDTH,
+  ERROR_DECAY_RATE,
+  INTERP_DELAY,
+  ZOOM,
+} from "./consts.client";
 import debugFactory from "debug";
 
 const debug = debugFactory("burger:client");
@@ -65,6 +72,7 @@ type Context = {
   input: { keys: Record<string, boolean>; prevInteract: boolean };
   me: PlayerIdentity;
   network: NetworkState;
+  camera: { x: number; y: number; initialized: boolean };
 };
 
 declare global {
@@ -274,6 +282,42 @@ const interpolationSystem = ({ world, me, network }: Context) => {
   }
 };
 
+const cameraSystem = ({ world, app, container, me, camera }: Context) => {
+  if (me.eid === null) return;
+
+  const { RenderPosition } = world.components;
+  const px = RenderPosition.x[me.eid];
+  const py = RenderPosition.y[me.eid];
+
+  if (!camera.initialized) {
+    camera.x = px;
+    camera.y = py;
+    camera.initialized = true;
+  }
+
+  let cameraTargetX = camera.x;
+  let cameraTargetY = camera.y;
+
+  if (px < camera.x - DEADZONE_WIDTH / 2) {
+    cameraTargetX = px + DEADZONE_WIDTH / 2;
+  } else if (px > camera.x + DEADZONE_WIDTH / 2) {
+    cameraTargetX = px - DEADZONE_WIDTH / 2;
+  }
+
+  if (py < camera.y - DEADZONE_HEIGHT / 2) {
+    cameraTargetY = py + DEADZONE_HEIGHT / 2;
+  } else if (py > camera.y + DEADZONE_HEIGHT / 2) {
+    cameraTargetY = py - DEADZONE_HEIGHT / 2;
+  }
+
+  camera.x = lerp(camera.x, cameraTargetX, CAMERA_LERP_FACTOR);
+  camera.y = lerp(camera.y, cameraTargetY, CAMERA_LERP_FACTOR);
+
+  container.scale.set(ZOOM, ZOOM);
+  container.x = app.screen.width / 2 - camera.x * ZOOM;
+  container.y = app.screen.height / 2 - camera.y * ZOOM;
+};
+
 const spritesSystem = ({ world }: Context) => {
   const { RenderPosition, Sprite } = world.components;
   for (const eid of query(world, [RenderPosition, Sprite])) {
@@ -311,6 +355,7 @@ const update = (context: Context) => {
   networkSendSystem(context);
   errorDecaySystem(context);
   interpolationSystem(context);
+  cameraSystem(context);
   spritesSystem(context);
   debugSystem(context);
 };
@@ -327,8 +372,6 @@ const setupRenderer = async () => {
 
   const assets = await loadAssets();
   const container = new Container();
-  container.x = app.screen.width / 2;
-  container.y = app.screen.height / 2;
   app.stage.addChild(container);
 
   const context: Context = {
@@ -349,6 +392,7 @@ const setupRenderer = async () => {
       predictionError: { x: 0, y: 0 },
       idMap: new Map(),
     },
+    camera: { x: 0, y: 0, initialized: false },
   };
 
   setupPlayerObserver(context);

@@ -1,7 +1,7 @@
 import { query } from "bitecs";
 import { PLAYER_SIZE, TILE_SIZE } from "./const.shared";
 
-const CORNER_CORRECTION = 6;
+const CORNER_CORRECTION = 2;
 
 export const moveAndSlide = (
   world: {
