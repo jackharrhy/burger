@@ -1,3 +1,8 @@
+import type { World as BitecsWorld } from "bitecs";
+import type { sharedComponents } from "./ecs.shared";
+
+export type World = BitecsWorld<{ components: typeof sharedComponents }>;
+
 export type InputCmd = {
   seq: number; // monotonic sequence number for reconciliation
   msec: number; // delta time in ms

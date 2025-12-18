@@ -1,5 +1,5 @@
 import { addEntity, addComponent, type World } from "bitecs";
-import { TILE_SIZE, TILE_TYPES, type sharedComponents } from "burger-shared";
+import { TILE_SIZE, TILE_TYPES, type sharedComponents, createPhysicsWall } from "burger-shared";
 import invariant from "tiny-invariant";
 
 const MAZE_LAYOUT = [
@@ -43,11 +43,22 @@ export const createMaze = (
         Position.x[eid] = offsetX + x * TILE_SIZE;
         Position.y[eid] = offsetY + y * TILE_SIZE;
 
-        addComponent(world as any, eid, Tile);
-        Tile.type[eid] = TILE_TYPES.WALL;
-
         addComponent(world as any, eid, Solid);
         addComponent(world as any, eid, Networked);
+
+        // Create physics wall
+        createPhysicsWall(
+          world as any,
+          eid,
+          offsetX + x * TILE_SIZE,
+          offsetY + y * TILE_SIZE,
+          TILE_SIZE,
+          TILE_SIZE
+        );
+
+        // Add tile component for identification
+        addComponent(world as any, eid, Tile);
+        Tile.type[eid] = TILE_TYPES.WALL;
       }
     }
   }

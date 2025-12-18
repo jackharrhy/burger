@@ -32,10 +32,11 @@ import {
   MESSAGE_TYPES,
   networkedComponents,
   applyInputToVelocity,
-  moveAndSlide,
+  physicsSystem,
   type InputCmd,
   type GameStateMessage,
 } from "burger-shared";
+import { Vec2 } from "planck";
 import {
   createObserverDeserializer,
   createSnapshotDeserializer,
@@ -184,7 +185,7 @@ const reconcile = (
   me: PlayerIdentity,
   serverState: GameStateMessage,
 ): void => {
-  const { Position, Velocity, PositionHistory } = world.components;
+  const { Position, Velocity, PositionHistory, PhysicsVelocity } = world.components;
   const { idMap, pendingInputs, predictionError } = network;
 
   for (const playerState of serverState.players) {
@@ -217,19 +218,12 @@ const reconcile = (
           cmd,
           cmd.msec,
         );
-        Velocity.x[eid] = newVel.vx;
-        Velocity.y[eid] = newVel.vy;
 
-        const newPos = moveAndSlide(
-          world,
-          Position.x[eid],
-          Position.y[eid],
-          Velocity.x[eid],
-          Velocity.y[eid],
-          cmd.msec,
-        );
-        Position.x[eid] = newPos.x;
-        Position.y[eid] = newPos.y;
+        // Set physics velocity
+        PhysicsVelocity.linearVelocity[eid] = new Vec2(newVel.vx, newVel.vy);
+
+        // Step physics
+        physicsSystem(world, cmd.msec / 1000);
       }
 
       const errorX = predictedX - Position.x[eid];

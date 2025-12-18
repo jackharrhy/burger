@@ -1,4 +1,12 @@
-import { ACCELERATION, FRICTION, PLAYER_SPEED } from "./const.shared";
+import { query } from "bitecs";
+import {
+  ACCELERATION,
+  FRICTION,
+  PLAYER_SPEED,
+  TILE_SIZE,
+} from "./consts.shared";
+import { Position, Solid } from "./ecs.shared";
+import type { World } from "./types.shared";
 
 export const lerp = (a: number, b: number, t: number): number =>
   a + (b - a) * Math.min(t, 1);
@@ -45,5 +53,41 @@ export const applyVelocityToPosition = (
   return {
     x: x + vx * dt,
     y: y + vy * dt,
+  };
+};
+
+export const moveAndSlide = (
+  world: World,
+  x: number,
+  y: number,
+  vx: number,
+  vy: number,
+  dt: number,
+): { x: number; y: number } => {
+  const newX = x + vx * dt;
+  const newY = y + vy * dt;
+  const playerSize = 15;
+  let collidedX = false;
+  let collidedY = false;
+  for (const eid of query(world, [Solid, Position])) {
+    const sx = Position.x[eid]!;
+    const sy = Position.y[eid]!;
+    const size = TILE_SIZE / 2;
+    if (
+      Math.abs(newX - sx) < playerSize + size &&
+      Math.abs(y - sy) < playerSize + size
+    ) {
+      collidedX = true;
+    }
+    if (
+      Math.abs(x - sx) < playerSize + size &&
+      Math.abs(newY - sy) < playerSize + size
+    ) {
+      collidedY = true;
+    }
+  }
+  return {
+    x: collidedX ? x : newX,
+    y: collidedY ? y : newY,
   };
 };

@@ -1,11 +1,13 @@
 import "./style.css";
 
+import { Vec2 } from "planck";
 import {
   sharedComponents,
   PLAYER_SIZE,
-  TILE_SIZE,
+  TILE_SIZE, TICK_RATE_MS,
   applyInputToVelocity,
-  moveAndSlide,
+  physicsSystem,
+  resetPhysicsDirtyFlags,
   lerp,
   type InputCmd,
 } from "burger-shared";
@@ -77,6 +79,7 @@ const setupPlayerObserver = ({ world, assets, container }: Context) => {
   const {
     Player,
     Velocity,
+    PhysicsVelocity,
     Sprite,
     DebugText,
     RenderPosition,
@@ -95,6 +98,12 @@ const setupPlayerObserver = ({ world, assets, container }: Context) => {
     addComponent(world, eid, Velocity);
     Velocity.x[eid] = 0;
     Velocity.y[eid] = 0;
+
+    addComponent(world, eid, PhysicsVelocity);
+    PhysicsVelocity.linearVelocity[eid] = new Vec2(0, 0);
+    PhysicsVelocity.angularVelocity[eid] = 0;
+    PhysicsVelocity.force[eid] = new Vec2(0, 0);
+    PhysicsVelocity.torque[eid] = 0;
 
     addComponent(world, eid, RenderPosition);
     RenderPosition.x[eid] = 0;
@@ -119,9 +128,9 @@ const setupPlayerObserver = ({ world, assets, container }: Context) => {
 };
 
 const createTileSprites = ({ world, assets, container }: Context) => {
-  const { Tile, Solid, Position, Sprite } = world.components;
+  const { Tile, Position, Sprite } = world.components;
 
-  for (const eid of query(world, [Tile, Solid, Position])) {
+  for (const eid of query(world, [Tile, Position])) {
     if (Sprite[eid]) continue;
 
     addComponent(world, eid, Sprite);
@@ -165,33 +174,19 @@ const inputSystem = ({ world, input }: Context): void => {
 };
 
 const predictionSystem = ({ world, me, network }: Context): void => {
-  const { Input, Velocity, Position } = world.components;
-  const dt = world.time.delta;
+  const { Input, PhysicsVelocity } = world.components;
+  const dt = TICK_RATE_MS;
 
   if (me.eid === null) return;
   const eid = me.eid;
   const input = Input[eid];
   if (!input) return;
 
-  const newVel = applyInputToVelocity(
-    Velocity.x[eid],
-    Velocity.y[eid],
-    input,
-    dt,
-  );
-  Velocity.x[eid] = newVel.vx;
-  Velocity.y[eid] = newVel.vy;
+  const currentVel = PhysicsVelocity.linearVelocity[eid];
+  const newVel = applyInputToVelocity(currentVel.x, currentVel.y, input, dt);
 
-  const newPos = moveAndSlide(
-    world,
-    Position.x[eid],
-    Position.y[eid],
-    Velocity.x[eid],
-    Velocity.y[eid],
-    dt,
-  );
-  Position.x[eid] = newPos.x;
-  Position.y[eid] = newPos.y;
+  // Set physics velocity instead of direct velocity
+  PhysicsVelocity.linearVelocity[eid] = new Vec2(newVel.vx, newVel.vy);
 
   const cmd: InputCmd = {
     seq: network.inputSeq++,
@@ -310,6 +305,10 @@ const update = (context: Context) => {
   predictionSystem(context);
   networkSendSystem(context);
   errorDecaySystem(context);
+
+  physicsSystem(context.world, context.world.time.delta / 1000);
+  resetPhysicsDirtyFlags(context.world);
+
   interpolationSystem(context);
   spritesSystem(context);
   debugSystem(context);

@@ -1,12 +1,16 @@
 import invariant from "tiny-invariant";
 import { addEntity, addComponent } from "bitecs";
-import { moveAndSlide } from "burger-shared";
+import { Vec2 } from "planck";
+import { createPhysicsPlayer } from "burger-shared";
 import type { World } from "./server";
+import debugFactory from "debug";
+
+const debug = debugFactory("burger:ai");
 
 const AI_COUNT = 10;
-const WANDER_RADIUS = 200;
-const AI_SPEED = 0.15;
-const DIRECTION_CHANGE_INTERVAL = 2000;
+const WANDER_RADIUS = 400;
+const AI_SPEED = 100;
+const DIRECTION_CHANGE_INTERVAL = 1000;
 
 type AiState = {
   eid: number;
@@ -37,6 +41,9 @@ export const spawnAiPlayers = (world: World): void => {
 
     addComponent(world, eid, Networked);
 
+    // Create physics for AI
+    createPhysicsPlayer(world, eid, Position.x[eid], Position.y[eid]);
+
     aiEntities.push({
       eid,
       targetAngle: Math.random() * Math.PI * 2,
@@ -45,11 +52,11 @@ export const spawnAiPlayers = (world: World): void => {
     });
   }
 
-  console.log(`Spawned ${AI_COUNT} AI bots`);
+  debug(`spawned ${AI_COUNT} ai bots`);
 };
 
 export const updateAiPlayers = (world: World, tickRateMs: number): void => {
-  const { Position, Velocity } = world.components;
+  const { Position, PhysicsVelocity } = world.components;
   const now = performance.now();
 
   for (const ai of aiEntities) {
@@ -57,8 +64,6 @@ export const updateAiPlayers = (world: World, tickRateMs: number): void => {
 
     invariant(Position.x[eid] !== undefined);
     invariant(Position.y[eid] !== undefined);
-    invariant(Velocity.x[eid] !== undefined);
-    invariant(Velocity.y[eid] !== undefined);
 
     const distFromCenter = Math.sqrt(
       Position.x[eid] ** 2 + Position.y[eid] ** 2,
@@ -79,19 +84,11 @@ export const updateAiPlayers = (world: World, tickRateMs: number): void => {
         Math.random() * DIRECTION_CHANGE_INTERVAL;
     }
 
-    Velocity.x[eid] = Math.cos(ai.targetAngle) * AI_SPEED;
-    Velocity.y[eid] = Math.sin(ai.targetAngle) * AI_SPEED;
-
-    const newPos = moveAndSlide(
-      world,
-      Position.x[eid],
-      Position.y[eid],
-      Velocity.x[eid],
-      Velocity.y[eid],
-      tickRateMs,
+    // Set physics velocity
+    PhysicsVelocity.linearVelocity[eid] = new Vec2(
+      Math.cos(ai.targetAngle) * AI_SPEED,
+      Math.sin(ai.targetAngle) * AI_SPEED,
     );
-    Position.x[eid] = newPos.x;
-    Position.y[eid] = newPos.y;
   }
 };
 

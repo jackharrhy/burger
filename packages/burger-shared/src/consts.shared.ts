@@ -1,8 +1,8 @@
-export const PLAYER_SPEED = 0.4;
-export const ACCELERATION = 0.012;
+export const PLAYER_SPEED = 250;
+export const ACCELERATION = 0.016;
 export const FRICTION = 0.015;
 export const TILE_SIZE = 32;
-export const PLAYER_SIZE = TILE_SIZE;
+export const PLAYER_SIZE = 30;
 
 export const MESSAGE_TYPES = {
   SNAPSHOT: 0,
@@ -18,3 +18,4 @@ export const TILE_TYPES = {
 } as const;
 
 export type TileType = typeof TILE_TYPES;
+export const TICK_RATE_MS = 1000 / 60;

@@ -1,8 +1,13 @@
 import invariant from "tiny-invariant";
+import { Vec2 } from "planck";
 import {
   sharedComponents,
   applyInputToVelocity,
-  moveAndSlide,
+  physicsSystem,
+  resetPhysicsDirtyFlags,
+  createPhysicsPlayer,
+  createPhysicsWall,
+  destroyPhysicsEntity,
   type PlayerState,
 } from "burger-shared";
 import { createWorld, addEntity, addComponent, removeEntity } from "bitecs";
@@ -14,6 +19,10 @@ import {
 } from "./network.server";
 import { spawnAiPlayers, updateAiPlayers, getAiEntities } from "./ai";
 import { createMaze } from "./maze";
+import debugFactory from "debug";
+import { TICK_RATE_MS } from "burger-shared";
+
+const debug = debugFactory("burger:server");
 
 const world = createWorld({
   components: { ...sharedComponents },
@@ -23,11 +32,13 @@ const world = createWorld({
 export type World = typeof world;
 
 const createPlayer = (world: World, name: string): number => {
-  const { Player, Position, Velocity, Networked } = world.components;
+  const { Player, Networked, Position, Velocity } = world.components;
   const eid = addEntity(world);
 
   addComponent(world, eid, Player);
   Player.name[eid] = name;
+
+  addComponent(world, eid, Networked);
 
   addComponent(world, eid, Position);
   Position.x[eid] = 0;
@@ -37,15 +48,16 @@ const createPlayer = (world: World, name: string): number => {
   Velocity.x[eid] = 0;
   Velocity.y[eid] = 0;
 
-  addComponent(world, eid, Networked);
+  // Create physics player
+  createPhysicsPlayer(world, eid, 0, 0);
+
+  debug("created player: eid=%s name=%s", eid, name);
 
   return eid;
 };
 
-const TICK_RATE_MS = 1000 / 40;
-
 const gameTick = () => {
-  const { Position, Velocity } = world.components;
+  const { Position, Velocity, PhysicsVelocity } = world.components;
 
   updateAiPlayers(world, TICK_RATE_MS);
 
@@ -59,22 +71,15 @@ const gameTick = () => {
       Velocity.x[eid],
       Velocity.y[eid],
       cmd,
-      cmd.msec,
+      TICK_RATE_MS,
     );
-    Velocity.x[eid] = newVel.vx;
-    Velocity.y[eid] = newVel.vy;
 
-    const newPos = moveAndSlide(
-      world,
-      Position.x[eid],
-      Position.y[eid],
-      Velocity.x[eid],
-      Velocity.y[eid],
-      cmd.msec,
-    );
-    Position.x[eid] = newPos.x;
-    Position.y[eid] = newPos.y;
+    // Set physics velocity instead of direct velocity
+    PhysicsVelocity.linearVelocity[eid] = new Vec2(newVel.vx, newVel.vy);
   });
+
+  // Run physics simulation
+  physicsSystem(world, TICK_RATE_MS / 1000);
 
   const playerStates: PlayerState[] = [];
 
@@ -113,6 +118,9 @@ const gameTick = () => {
   }
 
   broadcastGameState({ playerStates });
+
+  // Reset dirty flags for next frame
+  resetPhysicsDirtyFlags(world);
 };
 
 createMaze(world);
@@ -121,7 +129,7 @@ createServer({
   port: 5001,
   world,
   onPlayerJoin: () => createPlayer(world, "Player"),
-  onPlayerLeave: (eid) => removeEntity(world, eid),
+  onPlayerLeave: (eid) => destroyPhysicsEntity(world, eid),
 });
 
 spawnAiPlayers(world);
