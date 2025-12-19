@@ -100,10 +100,6 @@ const setupPlayerObserver = ({ world, assets, container }: Context) => {
     container.addChild(sprite);
     Sprite[eid] = sprite;
 
-    addComponent(world, eid, Velocity);
-    Velocity.x[eid] = 0;
-    Velocity.y[eid] = 0;
-
     addComponent(world, eid, RenderPosition);
     RenderPosition.x[eid] = 0;
     RenderPosition.y[eid] = 0;
