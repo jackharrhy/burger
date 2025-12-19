@@ -37,17 +37,17 @@ export const createMaze = (
       invariant(row);
       const char = row[x];
       if (char === "#") {
-        const eid = addEntity(world as any);
+        const eid = addEntity(world);
 
-        addComponent(world as any, eid, Position);
+        addComponent(world, eid, Position);
         Position.x[eid] = offsetX + x * TILE_SIZE;
         Position.y[eid] = offsetY + y * TILE_SIZE;
 
-        addComponent(world as any, eid, Tile);
+        addComponent(world, eid, Tile);
         Tile.type[eid] = TILE_TYPES.WALL;
 
-        addComponent(world as any, eid, Solid);
-        addComponent(world as any, eid, Networked);
+        addComponent(world, eid, Solid);
+        addComponent(world, eid, Networked);
       }
     }
   }

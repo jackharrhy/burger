@@ -34,6 +34,7 @@ import {
   ZOOM,
 } from "./consts.client";
 import debugFactory from "debug";
+import { GUI } from "lil-gui";
 
 const debug = debugFactory("burger:client");
 
@@ -73,6 +74,27 @@ type Context = {
   me: PlayerIdentity;
   network: NetworkState;
   camera: { x: number; y: number; initialized: boolean };
+  metrics: {
+    updatesHz: number;
+    updatesCount: number;
+    lastUpdateTime: number;
+    lastBytesSent: number;
+    lastBytesReceived: number;
+    bytesSentPerSec: number;
+    bytesReceivedPerSec: number;
+    serverTicksCount: number;
+    lastServerTickTime: number;
+    serverTickrate: number;
+  };
+  debugMetrics: {
+    updatesHz: number;
+    tickrate: number;
+    bytesSentPerSec: number;
+    bytesReceivedPerSec: number;
+    lag: number;
+    jitter: number;
+  };
+  gui?: GUI;
 };
 
 declare global {
@@ -217,8 +239,38 @@ const predictionSystem = ({ world, me, network }: Context): void => {
   }
 };
 
-const networkSendSystem = ({ network, me }: Context) => {
-  sendInputs(network, me.eid);
+const networkSendSystem = ({ network, me, metrics }: Context) => {
+  sendInputs(network, me.eid, metrics);
+};
+
+const metricsSystem = ({ network, metrics, debugMetrics }: Context) => {
+  const now = performance.now();
+
+  if (now - metrics.lastUpdateTime >= 1000) {
+    const deltaTime = (now - metrics.lastUpdateTime) / 1000;
+    metrics.updatesHz = metrics.updatesCount;
+    metrics.updatesCount = 0;
+    metrics.bytesSentPerSec =
+      (network.bytesSent - metrics.lastBytesSent) / deltaTime;
+    metrics.lastBytesSent = network.bytesSent;
+    metrics.bytesReceivedPerSec =
+      (network.bytesReceived - metrics.lastBytesReceived) / deltaTime;
+    metrics.lastBytesReceived = network.bytesReceived;
+    metrics.lastUpdateTime = now;
+  }
+
+  if (now - metrics.lastServerTickTime >= 1000) {
+    metrics.serverTickrate = metrics.serverTicksCount;
+    metrics.serverTicksCount = 0;
+    metrics.lastServerTickTime = now;
+  }
+
+  debugMetrics.updatesHz = metrics.updatesHz;
+  debugMetrics.tickrate = metrics.serverTickrate;
+  debugMetrics.bytesSentPerSec = Math.round(metrics.bytesSentPerSec);
+  debugMetrics.bytesReceivedPerSec = Math.round(metrics.bytesReceivedPerSec);
+  network.lagMs = debugMetrics.lag;
+  network.jitterMs = debugMetrics.jitter;
 };
 
 const errorDecaySystem = ({ network }: Context) => {
@@ -357,6 +409,7 @@ const update = (context: Context) => {
   interpolationSystem(context);
   cameraSystem(context);
   spritesSystem(context);
+  metricsSystem(context);
   debugSystem(context);
 };
 
@@ -391,12 +444,62 @@ const setupRenderer = async () => {
       pendingInputs: [],
       predictionError: { x: 0, y: 0 },
       idMap: new Map(),
+      bytesSent: 0,
+      bytesReceived: 0,
+      lagMs: 0,
+      jitterMs: 0,
     },
     camera: { x: 0, y: 0, initialized: false },
+    metrics: {
+      updatesHz: 0,
+      updatesCount: 0,
+      lastUpdateTime: 0,
+      lastBytesSent: 0,
+      lastBytesReceived: 0,
+      bytesSentPerSec: 0,
+      bytesReceivedPerSec: 0,
+      serverTicksCount: 0,
+      lastServerTickTime: 0,
+      serverTickrate: 0,
+    },
+    debugMetrics: {
+      updatesHz: 0,
+      tickrate: 0,
+      bytesSentPerSec: 0,
+      bytesReceivedPerSec: 0,
+      lag: 0,
+      jitter: 0,
+    },
   };
 
   setupPlayerObserver(context);
   window.context = context;
+
+  if (showDebug) {
+    const gui = new GUI();
+    gui.add(context.debugMetrics, "updatesHz").name("Updates/sec").listen();
+    gui
+      .add(context.debugMetrics, "tickrate")
+      .name("Server Tickrate (Hz)")
+      .listen();
+    gui
+      .add(context.debugMetrics, "bytesSentPerSec")
+      .name("Bytes Sent/sec")
+      .listen();
+    gui
+      .add(context.debugMetrics, "bytesReceivedPerSec")
+      .name("Bytes Received/sec")
+      .listen();
+    gui.add(context.debugMetrics, "lag", 0, 1000).name("Lag (ms)").listen();
+    gui
+      .add(context.debugMetrics, "jitter", 0, 500)
+      .name("Jitter (ms)")
+      .listen();
+    gui.domElement.style.position = "absolute";
+    gui.domElement.style.top = "10px";
+    gui.domElement.style.right = "10px";
+    context.gui = gui;
+  }
 
   window.addEventListener("keydown", (e) => {
     context.input.keys[e.key.toLowerCase()] = true;
@@ -435,6 +538,7 @@ const setup = async () => {
       debug("snapshot received");
       createTileSprites(context);
     },
+    context,
   });
 };
 

@@ -56,6 +56,10 @@ export type NetworkState = {
   pendingInputs: InputCmd[];
   predictionError: { x: number; y: number };
   idMap: Map<number, number>; // Server EID -> Client EID
+  bytesSent: number;
+  bytesReceived: number;
+  lagMs: number;
+  jitterMs: number;
 };
 
 export type PlayerIdentity = {
@@ -69,12 +73,14 @@ export const setupSocket = ({
   me,
   onLocalPlayerReady,
   onSnapshotReceived,
+  context,
 }: {
   world: World;
   network: NetworkState;
   me: PlayerIdentity;
   onLocalPlayerReady: () => void;
   onSnapshotReceived: () => void;
+  context: any;
 }): void => {
   const { Networked } = world.components;
   const { idMap } = network;
@@ -98,36 +104,42 @@ export const setupSocket = ({
   });
 
   socket.addEventListener("message", (event) => {
-    const messageView = new Uint8Array(event.data);
-    const type = messageView[0];
-    const payload = messageView.slice(1).buffer;
+    network.bytesReceived += event.data.byteLength;
 
-    switch (type) {
-      case MESSAGE_TYPES.SNAPSHOT:
-        snapshotDeserializer(payload, idMap);
-        tryMapLocalPlayer(me, idMap, onLocalPlayerReady);
-        onSnapshotReceived();
-        break;
+    const delay = network.lagMs + Math.random() * network.jitterMs;
+    setTimeout(() => {
+      const messageView = new Uint8Array(event.data);
+      const type = messageView[0];
+      const payload = messageView.slice(1).buffer;
 
-      case MESSAGE_TYPES.OBSERVER:
-        observerDeserializer(payload, idMap);
-        tryMapLocalPlayer(me, idMap, onLocalPlayerReady);
-        break;
+      switch (type) {
+        case MESSAGE_TYPES.SNAPSHOT:
+          snapshotDeserializer(payload, idMap);
+          tryMapLocalPlayer(me, idMap, onLocalPlayerReady);
+          onSnapshotReceived();
+          break;
 
-      case MESSAGE_TYPES.GAME_STATE: {
-        const decoder = new TextDecoder();
-        const json = decoder.decode(payload);
-        const gameState: GameStateMessage = JSON.parse(json);
-        reconcile(world, network, me, gameState);
-        break;
+        case MESSAGE_TYPES.OBSERVER:
+          observerDeserializer(payload, idMap);
+          tryMapLocalPlayer(me, idMap, onLocalPlayerReady);
+          break;
+
+        case MESSAGE_TYPES.GAME_STATE: {
+          const decoder = new TextDecoder();
+          const json = decoder.decode(payload);
+          const gameState = JSON.parse(json);
+          reconcile(world, network, me, gameState);
+          context.metrics.serverTicksCount++;
+          break;
+        }
+
+        case MESSAGE_TYPES.YOUR_EID: {
+          const view = new Int32Array(payload);
+          me.serverEid = view[0];
+          break;
+        }
       }
-
-      case MESSAGE_TYPES.YOUR_EID: {
-        const view = new Int32Array(payload);
-        me.serverEid = view[0];
-        break;
-      }
-    }
+    }, delay);
   });
 
   socket.addEventListener("close", () => {
@@ -159,6 +171,7 @@ let lastSendTime = 0;
 export const sendInputs = (
   network: NetworkState,
   meEid: number | null,
+  metrics?: { updatesCount: number },
 ): void => {
   const now = performance.now();
   if (now - lastSendTime < CLIENT_UPDATE_RATE) return;
@@ -172,13 +185,19 @@ export const sendInputs = (
   if (unsentInputs.length === 0) return;
 
   for (const cmd of unsentInputs) {
-    socket.send(JSON.stringify({ type: "input", ...cmd }));
+    const msg = JSON.stringify({ type: "input", ...cmd });
+    const delay = network.lagMs + Math.random() * network.jitterMs;
+    setTimeout(() => {
+      network.bytesSent += msg.length;
+      socket.send(msg);
+    }, delay);
   }
 
   network.lastSentSeq = unsentInputs[unsentInputs.length - 1].seq;
+  if (metrics) metrics.updatesCount++;
 };
 
-const reconcile = (
+export const reconcile = (
   world: World,
   network: NetworkState,
   me: PlayerIdentity,

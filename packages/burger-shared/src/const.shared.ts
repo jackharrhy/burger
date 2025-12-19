@@ -10,11 +10,14 @@ export const MESSAGE_TYPES = {
   YOUR_EID: 3,
   INPUT: 4,
   GAME_STATE: 5,
+  PING: 6,
+  PONG: 7,
 } as const;
 
 export const TILE_TYPES = {
   FLOOR: 0,
   WALL: 1,
+  COUNTER: 2,
 } as const;
 
-export type TileType = typeof TILE_TYPES;
+export type TileType = (typeof TILE_TYPES)[keyof typeof TILE_TYPES];

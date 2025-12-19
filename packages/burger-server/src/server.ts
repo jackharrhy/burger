@@ -13,14 +13,20 @@ import {
   broadcastGameState,
 } from "./network.server";
 import { spawnAiPlayers, updateAiPlayers, getAiEntities } from "./ai";
-import { createMaze } from "./maze";
+import { createLevel } from "./level";
 
 const world = createWorld({
   components: { ...sharedComponents },
   time: { delta: 0, elapsed: 0, then: performance.now() },
+  playerSpawns: [] as { x: number; y: number }[],
 });
 
 export type World = typeof world;
+
+const randomItem = <T>(list: readonly T[]): T | undefined => {
+  if (list.length === 0) return undefined;
+  return list[Math.floor(Math.random() * list.length)];
+};
 
 const createPlayer = (world: World, name: string): number => {
   const { Player, Position, Velocity, Networked } = world.components;
@@ -29,9 +35,12 @@ const createPlayer = (world: World, name: string): number => {
   addComponent(world, eid, Player);
   Player.name[eid] = name;
 
+  const spawn = randomItem(world.playerSpawns);
+  invariant(spawn);
+
   addComponent(world, eid, Position);
-  Position.x[eid] = 0;
-  Position.y[eid] = 0;
+  Position.x[eid] = spawn.x;
+  Position.y[eid] = spawn.y;
 
   addComponent(world, eid, Velocity);
   Velocity.x[eid] = 0;
@@ -42,7 +51,7 @@ const createPlayer = (world: World, name: string): number => {
   return eid;
 };
 
-const TICK_RATE_MS = 1000 / 40;
+const TICK_RATE_MS = 1000 / 60;
 
 const gameTick = () => {
   const { Position, Velocity } = world.components;
@@ -122,6 +131,8 @@ createServer({
   onPlayerLeave: (eid) => removeEntity(world, eid),
 });
 
-spawnAiPlayers(world);
+// spawnAiPlayers(world);
+
+createLevel(world);
 
 setInterval(gameTick, TICK_RATE_MS);
