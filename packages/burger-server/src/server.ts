@@ -115,8 +115,6 @@ const gameTick = () => {
   broadcastGameState({ playerStates });
 };
 
-createMaze(world);
-
 createServer({
   port: 5001,
   world,

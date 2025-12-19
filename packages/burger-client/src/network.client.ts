@@ -100,7 +100,7 @@ export const setupSocket = ({
   socket.addEventListener("message", (event) => {
     const messageView = new Uint8Array(event.data);
     const type = messageView[0];
-    const payload = messageView.slice(1).buffer as ArrayBuffer;
+    const payload = messageView.slice(1).buffer;
 
     switch (type) {
       case MESSAGE_TYPES.SNAPSHOT:

@@ -84,9 +84,9 @@ declare global {
 const setupPlayerObserver = ({ world, assets, container }: Context) => {
   const {
     Player,
-    Velocity,
     Sprite,
     DebugText,
+    Velocity,
     RenderPosition,
     PositionHistory,
   } = world.components;
@@ -99,6 +99,10 @@ const setupPlayerObserver = ({ world, assets, container }: Context) => {
     sprite.anchor.set(0.5);
     container.addChild(sprite);
     Sprite[eid] = sprite;
+
+    addComponent(world, eid, Velocity);
+    Velocity.x[eid] = 0;
+    Velocity.y[eid] = 0;
 
     addComponent(world, eid, RenderPosition);
     RenderPosition.x[eid] = 0;
