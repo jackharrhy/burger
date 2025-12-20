@@ -15,7 +15,9 @@ import {
   Container,
   Sprite as PixiSprite,
   Text as PixiText,
+  Rectangle,
   Texture,
+  TextureSource,
 } from "pixi.js";
 import { createWorld, query, addComponent, observe, onAdd } from "bitecs";
 import {
@@ -61,6 +63,7 @@ const world = createWorld({
     elapsed: 0,
     then: performance.now(),
   },
+  typeIdToAtlasSrc: {} as Record<number, [number, number]>,
 });
 
 export type World = typeof world;
@@ -68,7 +71,12 @@ export type World = typeof world;
 type Context = {
   world: World;
   app: Application;
-  container: Container;
+  containers: {
+    main: Container;
+    tiles: Container;
+    entities: Container;
+    debug: Container;
+  };
   assets: Awaited<ReturnType<typeof loadAssets>>;
   input: { keys: Record<string, boolean>; prevInteract: boolean };
   me: PlayerIdentity;
@@ -103,7 +111,7 @@ declare global {
   }
 }
 
-const setupPlayerObserver = ({ world, assets, container }: Context) => {
+const setupPlayerObserver = ({ world, assets, containers }: Context) => {
   const {
     Player,
     Sprite,
@@ -119,7 +127,7 @@ const setupPlayerObserver = ({ world, assets, container }: Context) => {
     sprite.width = PLAYER_SIZE;
     sprite.height = PLAYER_SIZE;
     sprite.anchor.set(0.5);
-    container.addChild(sprite);
+    containers.entities.addChild(sprite);
     Sprite[eid] = sprite;
 
     addComponent(world, eid, Velocity);
@@ -140,7 +148,7 @@ const setupPlayerObserver = ({ world, assets, container }: Context) => {
         style: { fontFamily: "monospace", fontSize: 12, fill: 0x000000 },
       });
       debugText.anchor.set(0.5, 0);
-      container.addChild(debugText);
+      containers.debug.addChild(debugText);
       DebugText[eid] = debugText;
     }
 
@@ -148,21 +156,22 @@ const setupPlayerObserver = ({ world, assets, container }: Context) => {
   });
 };
 
-const createTileSprites = ({ world, assets, container }: Context) => {
-  const { Tile, Solid, Position, Sprite } = world.components;
+const createTileSprites = ({ world, assets, containers }: Context) => {
+  const { Tile, Position, Sprite } = world.components;
 
-  for (const eid of query(world, [Tile, Solid, Position])) {
+  for (const eid of query(world, [Tile, Position])) {
     if (Sprite[eid]) continue;
 
+    const tileId = Tile.type[eid];
+
     addComponent(world, eid, Sprite);
-    const sprite = new PixiSprite(assets.player);
+    const sprite = new PixiSprite(assets.tiles[tileId]);
     sprite.width = TILE_SIZE;
     sprite.height = TILE_SIZE;
     sprite.anchor.set(0.5);
-    sprite.tint = 0x333333;
     sprite.x = Position.x[eid];
     sprite.y = Position.y[eid];
-    container.addChild(sprite);
+    containers.tiles.addChild(sprite);
     Sprite[eid] = sprite;
   }
 };
@@ -334,7 +343,7 @@ const interpolationSystem = ({ world, me, network }: Context) => {
   }
 };
 
-const cameraSystem = ({ world, app, container, me, camera }: Context) => {
+const cameraSystem = ({ world, app, containers, me, camera }: Context) => {
   if (me.eid === null) return;
 
   const { RenderPosition } = world.components;
@@ -365,9 +374,9 @@ const cameraSystem = ({ world, app, container, me, camera }: Context) => {
   camera.x = lerp(camera.x, cameraTargetX, CAMERA_LERP_FACTOR);
   camera.y = lerp(camera.y, cameraTargetY, CAMERA_LERP_FACTOR);
 
-  container.scale.set(ZOOM, ZOOM);
-  container.x = app.screen.width / 2 - camera.x * ZOOM;
-  container.y = app.screen.height / 2 - camera.y * ZOOM;
+  containers.main.scale.set(ZOOM, ZOOM);
+  containers.main.x = app.screen.width / 2 - camera.x * ZOOM;
+  containers.main.y = app.screen.height / 2 - camera.y * ZOOM;
 };
 
 const spritesSystem = ({ world }: Context) => {
@@ -383,7 +392,7 @@ const spritesSystem = ({ world }: Context) => {
 const debugSystem = ({ world }: Context) => {
   if (!showDebug) return;
 
-  const { RenderPosition, Velocity, DebugText } = world.components;
+  const { Player, RenderPosition, Velocity, DebugText } = world.components;
 
   for (const eid of query(world, [RenderPosition, Velocity, DebugText])) {
     const debugText = DebugText[eid];
@@ -394,7 +403,15 @@ const debugSystem = ({ world }: Context) => {
     const vx = Velocity.x[eid].toFixed(2);
     const vy = Velocity.y[eid].toFixed(2);
 
-    debugText.text = `pos: (${px}, ${py})\nvel: (${vx}, ${vy})`;
+    let text = `pos: (${px}, ${py})\nvel: (${vx}, ${vy})`;
+
+    const playerName = Player.name[eid];
+
+    if (playerName) {
+      text = `name: ${playerName}\n${text}`;
+    }
+
+    debugText.text = text;
     debugText.x = RenderPosition.x[eid];
     debugText.y = RenderPosition.y[eid] + PLAYER_SIZE / 2 + 4;
   }
@@ -414,23 +431,61 @@ const update = (context: Context) => {
 };
 
 const loadAssets = async () => {
+  const atlas = await Assets.load<TextureSource>("/assets/atlas.png");
+  atlas.source.scaleMode = "nearest";
   const player = await Assets.load<Texture>("/assets/sprites/player.png");
-  return { player };
+  player.source.scaleMode = "nearest";
+
+  const typeIdToAtlasSrc = await (
+    await fetch("http://localhost:5001/api/atlas")
+  ).json();
+
+  const tiles = Object.fromEntries(
+    Object.entries(typeIdToAtlasSrc).map(([k, v]) => {
+      const [x, y] = v as any;
+      return [
+        k,
+        new Texture({
+          source: atlas,
+          frame: new Rectangle(x, y, TILE_SIZE, TILE_SIZE),
+        }),
+      ];
+    }),
+  );
+
+  return { atlas, player, tiles };
 };
 
 const setupRenderer = async () => {
   const app = new Application();
-  await app.init({ background: "#87CEEB", resizeTo: window });
+  await app.init({
+    background: "#87CEEB",
+    resizeTo: window,
+    roundPixels: true,
+    antialias: false,
+  });
   document.body.appendChild(app.canvas);
 
   const assets = await loadAssets();
-  const container = new Container();
-  app.stage.addChild(container);
+  const mainContainer = new Container();
+  const tilesContainer = new Container();
+  const entitiesContainer = new Container();
+  const debugContainer = new Container();
+
+  app.stage.addChild(mainContainer);
+  mainContainer.addChild(tilesContainer);
+  mainContainer.addChild(entitiesContainer);
+  mainContainer.addChild(debugContainer);
 
   const context: Context = {
     world,
     app,
-    container,
+    containers: {
+      main: mainContainer,
+      tiles: tilesContainer,
+      entities: entitiesContainer,
+      debug: debugContainer,
+    },
     assets,
     input: { keys: {}, prevInteract: false },
     me: {

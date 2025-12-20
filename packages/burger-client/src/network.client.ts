@@ -35,16 +35,13 @@ import {
   moveAndSlide,
   type InputCmd,
   type GameStateMessage,
+  CLIENT_UPDATE_RATE,
 } from "burger-shared";
 import {
   createObserverDeserializer,
   createSnapshotDeserializer,
 } from "bitecs/serialization";
-import {
-  CLIENT_UPDATE_RATE,
-  INTERP_HISTORY_MS,
-  TELEPORT_THRESHOLD,
-} from "./consts.client";
+import { INTERP_HISTORY_MS, TELEPORT_THRESHOLD } from "./consts.client";
 import type { World } from "./client";
 
 export type PositionSnapshot = { x: number; y: number; time: number };

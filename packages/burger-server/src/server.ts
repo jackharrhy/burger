@@ -4,8 +4,9 @@ import {
   applyInputToVelocity,
   moveAndSlide,
   type PlayerState,
+  SERVER_TICK_RATE_MS,
 } from "burger-shared";
-import { createWorld, addEntity, addComponent, removeEntity } from "bitecs";
+import { createWorld, removeEntity } from "bitecs";
 import {
   createServer,
   getPlayerConnections,
@@ -14,49 +15,21 @@ import {
 } from "./network.server";
 import { spawnAiPlayers, updateAiPlayers, getAiEntities } from "./ai";
 import { createLevel } from "./level";
+import { createPlayer } from "./players";
 
 const world = createWorld({
   components: { ...sharedComponents },
   time: { delta: 0, elapsed: 0, then: performance.now() },
   playerSpawns: [] as { x: number; y: number }[],
+  typeIdToAtlasSrc: {} as Record<number, [number, number]>,
 });
 
 export type World = typeof world;
 
-const randomItem = <T>(list: readonly T[]): T | undefined => {
-  if (list.length === 0) return undefined;
-  return list[Math.floor(Math.random() * list.length)];
-};
-
-const createPlayer = (world: World, name: string): number => {
-  const { Player, Position, Velocity, Networked } = world.components;
-  const eid = addEntity(world);
-
-  addComponent(world, eid, Player);
-  Player.name[eid] = name;
-
-  const spawn = randomItem(world.playerSpawns);
-  invariant(spawn);
-
-  addComponent(world, eid, Position);
-  Position.x[eid] = spawn.x;
-  Position.y[eid] = spawn.y;
-
-  addComponent(world, eid, Velocity);
-  Velocity.x[eid] = 0;
-  Velocity.y[eid] = 0;
-
-  addComponent(world, eid, Networked);
-
-  return eid;
-};
-
-const TICK_RATE_MS = 1000 / 60;
-
 const gameTick = () => {
   const { Position, Velocity } = world.components;
 
-  updateAiPlayers(world, TICK_RATE_MS);
+  updateAiPlayers(world, SERVER_TICK_RATE_MS);
 
   processPlayerInputs(world, (eid, cmd) => {
     invariant(Velocity.x[eid] !== undefined);
@@ -131,8 +104,7 @@ createServer({
   onPlayerLeave: (eid) => removeEntity(world, eid),
 });
 
-// spawnAiPlayers(world);
-
 createLevel(world);
+spawnAiPlayers(world);
 
-setInterval(gameTick, TICK_RATE_MS);
+setInterval(gameTick, SERVER_TICK_RATE_MS);

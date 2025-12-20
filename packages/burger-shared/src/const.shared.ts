@@ -1,3 +1,6 @@
+export const SERVER_TICK_RATE_MS = 1000 / 60;
+export const CLIENT_UPDATE_RATE = 1000 / 60;
+
 export const PLAYER_SPEED = 0.2;
 export const ACCELERATION = 0.012;
 export const FRICTION = 0.015;

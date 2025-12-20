@@ -79,6 +79,17 @@ export const createServer = ({
 
   const server = Bun.serve({
     port,
+    routes: {
+      "/api/atlas": (req) => {
+        const res = Response.json(world.typeIdToAtlasSrc);
+        res.headers.set("Access-Control-Allow-Origin", "*");
+        res.headers.set(
+          "Access-Control-Allow-Methods",
+          "GET, POST, PUT, DELETE, OPTIONS",
+        );
+        return res;
+      },
+    },
     fetch(req, server) {
       if (server.upgrade(req)) return;
       return new Response("Upgrade failed", { status: 500 });

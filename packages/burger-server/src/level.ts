@@ -24,12 +24,14 @@ const parseTiles = (world: World) => {
   const levelTiles = level.layerInstances[1];
   invariant(levelTiles);
 
-  for (const { t, px } of levelTiles.gridTiles) {
+  for (const { t, px, src } of levelTiles.gridTiles) {
     const [x, y] = px;
     invariant(x !== undefined);
     invariant(y !== undefined);
     const tileType = idToType[t];
     invariant(tileType !== undefined);
+
+    world.typeIdToAtlasSrc[tileType] = [src[0]!, src[1]!];
 
     const { Position, Tile, Solid, Networked } = world.components;
 
