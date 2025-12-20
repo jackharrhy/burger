@@ -22,6 +22,8 @@
  *    - GAME_STATE: Authoritative positions
  */
 
+import { Elysia, file, type TSchema } from "elysia";
+import { staticPlugin } from "@elysiajs/static";
 import {
   MESSAGE_TYPES,
   networkedComponents,
@@ -33,8 +35,13 @@ import {
   createObserverSerializer,
   createSnapshotSerializer,
 } from "bitecs/serialization";
-import type { ServerWebSocket } from "bun";
 import type { World } from "./server";
+import { ElysiaWS } from "elysia/ws";
+import debugFactory from "debug";
+import type { ServerWebSocket } from "elysia/ws/bun";
+import type { TypeCheck } from "elysia/type-system";
+
+const debug = debugFactory("burger:network.server");
 
 export type PlayerConnection = {
   eid: number;
@@ -42,11 +49,13 @@ export type PlayerConnection = {
   lastAckedSeq: number;
 };
 
-const playerConnections = new Map<ServerWebSocket<unknown>, PlayerConnection>();
-const observerSerializers = new Map<
-  ServerWebSocket<unknown>,
-  () => ArrayBuffer
->();
+type WS = ServerWebSocket<{
+  id?: string | undefined;
+  validator?: TypeCheck<TSchema> | undefined;
+}>;
+
+const playerConnections = new Map<WS, PlayerConnection>();
+const observerSerializers = new Map<WS, () => ArrayBuffer>();
 
 let snapshotSerializer: () => ArrayBuffer;
 
@@ -70,81 +79,73 @@ export const createServer = ({
 }: {
   port: number;
   world: World;
-  onPlayerJoin: (eid: number) => number;
+  onPlayerJoin: () => number;
   onPlayerLeave: (eid: number) => void;
 }) => {
   const { Networked } = world.components;
 
   snapshotSerializer = createSnapshotSerializer(world, networkedComponents);
 
-  const server = Bun.serve({
-    port,
-    routes: {
-      "/api/atlas": (req) => {
-        const res = Response.json(world.typeIdToAtlasSrc);
-        res.headers.set("Access-Control-Allow-Origin", "*");
-        res.headers.set(
-          "Access-Control-Allow-Methods",
-          "GET, POST, PUT, DELETE, OPTIONS",
-        );
-        return res;
-      },
-    },
-    fetch(req, server) {
-      if (server.upgrade(req)) return;
-      return new Response("Upgrade failed", { status: 500 });
-    },
-    websocket: {
+  const app = new Elysia()
+    .use(
+      staticPlugin({
+        assets: "./public/assets",
+        prefix: "/assets",
+      }),
+    )
+    .get("/", file("./public/index.html"))
+    .get("/api/atlas", () => world.typeIdToAtlasSrc)
+    .ws("/", {
       open(ws) {
-        console.log("client connected");
+        const eid = onPlayerJoin();
 
-        const eid = onPlayerJoin(0);
+        console.log(`client connected: eid=${eid}`);
 
-        playerConnections.set(ws, {
+        playerConnections.set(ws.raw, {
           eid,
           inputQueue: [],
           lastAckedSeq: -1,
         });
 
         observerSerializers.set(
-          ws,
+          ws.raw,
           createObserverSerializer(world, Networked, networkedComponents),
         );
 
-        ws.send(
+        debug("sending eid & snapshot");
+        ws.sendBinary(
           tagMessage(MESSAGE_TYPES.YOUR_EID, new Int32Array([eid]).buffer),
         );
-        ws.send(tagMessage(MESSAGE_TYPES.SNAPSHOT, snapshotSerializer()));
+        ws.sendBinary(tagMessage(MESSAGE_TYPES.SNAPSHOT, snapshotSerializer()));
       },
 
       close(ws) {
         console.log("client disconnected");
-        const connection = playerConnections.get(ws);
+        const connection = playerConnections.get(ws.raw);
         if (connection) {
           onPlayerLeave(connection.eid);
         }
-        playerConnections.delete(ws);
-        observerSerializers.delete(ws);
+        playerConnections.delete(ws.raw);
+        observerSerializers.delete(ws.raw);
       },
 
-      message(ws, message) {
-        const connection = playerConnections.get(ws);
-        if (!connection) return;
+      message(ws, message: any) {
+        const connection = playerConnections.get(ws.raw);
+        if (!connection) {
+          return;
+        }
 
         try {
-          const data = JSON.parse(message.toString());
-          if (data.type === "input") {
-            handleInputMessage(connection, data);
-          }
+          handleInputMessage(connection, message);
         } catch (e) {
           console.error("Failed to parse message:", e);
         }
       },
-    },
-  });
+    })
+    .listen(5000);
 
-  console.log(`Server running on ${server.hostname}:${server.port}`);
-  return server;
+  console.log(`Server running on ${app.server?.hostname}:${app.server?.port}`);
+  return app;
 };
 
 const handleInputMessage = (connection: PlayerConnection, data: any): void => {
@@ -197,13 +198,13 @@ export const broadcastGameState = ({
   );
 
   for (const [ws] of playerConnections) {
-    ws.send(taggedState);
+    ws.sendBinary(taggedState);
 
     const observerSerializer = observerSerializers.get(ws);
     if (observerSerializer) {
       const updates = observerSerializer();
       if (updates.byteLength > 0) {
-        ws.send(tagMessage(MESSAGE_TYPES.OBSERVER, updates));
+        ws.sendBinary(tagMessage(MESSAGE_TYPES.OBSERVER, updates));
       }
     }
   }

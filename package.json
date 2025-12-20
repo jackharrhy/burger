@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "dev:client": "pnpm --filter burger-client dev",
-    "dev:server": "pnpm --filter burger-server dev"
+    "dev:server": "pnpm --filter burger-server dev",
+    "build-frontend": "pnpm --filter burger-client build",
+    "copy-frontend": "rm -rf ./packages/burger-server/public && cp -r ./packages/burger-client/dist/ ./packages/burger-server/public/",
+    "prod:server": "pnpm --filter burger-server start"
   },
   "keywords": [],
   "author": "",

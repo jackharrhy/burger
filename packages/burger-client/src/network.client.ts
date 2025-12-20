@@ -92,7 +92,7 @@ export const setupSocket = ({
     networkedComponents,
   );
 
-  const socket = new WebSocket("ws://localhost:5001");
+  const socket = new WebSocket(`ws://${window.location.host}`);
   socket.binaryType = "arraybuffer";
   network.socket = socket;
 

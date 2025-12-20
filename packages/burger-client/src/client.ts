@@ -436,9 +436,7 @@ const loadAssets = async () => {
   const player = await Assets.load<Texture>("/assets/sprites/player.png");
   player.source.scaleMode = "nearest";
 
-  const typeIdToAtlasSrc = await (
-    await fetch("http://localhost:5001/api/atlas")
-  ).json();
+  const typeIdToAtlasSrc = await (await fetch("/api/atlas")).json();
 
   const tiles = Object.fromEntries(
     Object.entries(typeIdToAtlasSrc).map(([k, v]) => {
