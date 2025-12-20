@@ -26,7 +26,9 @@ const world = createWorld({
 
 export type World = typeof world;
 
-const gameTick = () => {
+let isIdle = false;
+
+const activeTick = () => {
   const { Position, Velocity } = world.components;
 
   updateAiPlayers(world, SERVER_TICK_RATE_MS);
@@ -94,7 +96,31 @@ const gameTick = () => {
     });
   }
 
+  const hasPlayers = getPlayerConnections().size > 0;
+  if (hasPlayers) {
+    isIdle = false;
+  } else {
+    console.log("Switching to idle mode");
+    isIdle = true;
+  }
+
   broadcastGameState({ playerStates });
+
+  setTimeout(
+    isIdle ? idleTick : activeTick,
+    isIdle ? 1000 : SERVER_TICK_RATE_MS,
+  );
+};
+
+const idleTick = () => {
+  const hasPlayers = getPlayerConnections().size > 0;
+  if (hasPlayers) {
+    console.log("Switching to active mode");
+    isIdle = false;
+    setTimeout(activeTick, SERVER_TICK_RATE_MS);
+  } else {
+    setTimeout(idleTick, 1000);
+  }
 };
 
 createServer({
@@ -107,4 +133,4 @@ createServer({
 createLevel(world);
 spawnAiPlayers(world);
 
-setInterval(gameTick, SERVER_TICK_RATE_MS);
+activeTick();
