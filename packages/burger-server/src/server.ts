@@ -124,7 +124,7 @@ const idleTick = () => {
 };
 
 createServer({
-  port: 5001,
+  port: 5000,
   world,
   onPlayerJoin: () => createPlayer(world, "Player"),
   onPlayerLeave: (eid) => removeEntity(world, eid),

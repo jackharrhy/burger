@@ -22,6 +22,7 @@
  *    - GAME_STATE: Authoritative positions
  */
 
+import { existsSync, mkdirSync } from "node:fs";
 import { Elysia, file, type TSchema } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
 import {
@@ -86,6 +87,10 @@ export const createServer = ({
 
   snapshotSerializer = createSnapshotSerializer(world, networkedComponents);
 
+  if (!existsSync("./public/assets")) {
+    mkdirSync("./public/assets", { recursive: true });
+  }
+
   const app = new Elysia()
     .use(
       staticPlugin({
@@ -93,9 +98,9 @@ export const createServer = ({
         prefix: "/assets",
       }),
     )
-    .get("/", file("./public/index.html"))
+    .get("/", () => file("./public/index.html"))
     .get("/api/atlas", () => world.typeIdToAtlasSrc)
-    .ws("/", {
+    .ws("/ws", {
       open(ws) {
         const eid = onPlayerJoin();
 
@@ -142,7 +147,7 @@ export const createServer = ({
         }
       },
     })
-    .listen(5000);
+    .listen(port);
 
   console.log(`Server running on ${app.server?.hostname}:${app.server?.port}`);
   return app;

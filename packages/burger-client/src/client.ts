@@ -19,7 +19,14 @@ import {
   Texture,
   TextureSource,
 } from "pixi.js";
-import { createWorld, query, addComponent, observe, onAdd } from "bitecs";
+import {
+  createWorld,
+  query,
+  addComponent,
+  observe,
+  onAdd,
+  onRemove,
+} from "bitecs";
 import {
   setupSocket,
   sendInputs,
@@ -152,7 +159,33 @@ const setupPlayerObserver = ({ world, assets, containers }: Context) => {
       DebugText[eid] = debugText;
     }
 
-    debug("player added: eid=%s, name=%s", eid);
+    debug("player added: eid=%s, name=%s", eid, Player.name[eid]);
+  });
+
+  observe(world, onRemove(Player), (eid) => {
+    const sprite = Sprite[eid];
+    if (sprite) {
+      containers.entities.removeChild(sprite);
+      sprite.destroy();
+      delete Sprite[eid];
+    }
+
+    if (showDebug) {
+      const debugText = DebugText[eid];
+      if (debugText) {
+        containers.debug.removeChild(debugText);
+        debugText.destroy();
+        delete DebugText[eid];
+      }
+    }
+
+    delete Velocity.x[eid];
+    delete Velocity.y[eid];
+    delete RenderPosition.x[eid];
+    delete RenderPosition.y[eid];
+    PositionHistory[eid] = [];
+
+    debug("player removed: eid=%s", eid);
   });
 };
 

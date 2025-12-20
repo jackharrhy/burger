@@ -92,8 +92,8 @@ export const setupSocket = ({
     networkedComponents,
   );
 
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const socket = new WebSocket(`${protocol}//${window.location.host}`);
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
   socket.binaryType = "arraybuffer";
   network.socket = socket;
 
