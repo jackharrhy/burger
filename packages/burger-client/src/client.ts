@@ -431,10 +431,10 @@ const debugSystem = ({ world }: Context) => {
     const debugText = DebugText[eid];
     if (!debugText) continue;
 
-    const px = RenderPosition.x[eid].toFixed(1);
-    const py = RenderPosition.y[eid].toFixed(1);
-    const vx = Velocity.x[eid].toFixed(2);
-    const vy = Velocity.y[eid].toFixed(2);
+    const px = (RenderPosition.x[eid] ?? 0).toFixed(1);
+    const py = (RenderPosition.y[eid] ?? 0).toFixed(1);
+    const vx = (Velocity.x[eid] ?? 0).toFixed(2);
+    const vy = (Velocity.y[eid] ?? 0).toFixed(2);
 
     let text = `pos: (${px}, ${py})\nvel: (${vx}, ${vy})`;
 
