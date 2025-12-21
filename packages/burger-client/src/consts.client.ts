@@ -13,7 +13,7 @@ export const CAMERA_LERP_FACTOR = 0.1;
 export const VOICE_MAX_DISTANCE = 500;
 export const VOICE_MIN_DISTANCE = 100;
 
-const existingPort = Number(window.location.port);
+const existingPort = window.location.port ? Number(window.location.port) : null;
 const peerJsPort =
   existingPort ?? (window.location.protocol === "https:" ? 443 : 80);
 
