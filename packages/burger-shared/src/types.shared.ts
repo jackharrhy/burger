@@ -20,3 +20,9 @@ export type PlayerState = {
 export type GameStateMessage = {
   players: PlayerState[];
 };
+
+export type SignalMessage = {
+  from: number;
+  to: number;
+  signal: unknown;
+};

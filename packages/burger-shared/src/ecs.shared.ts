@@ -1,13 +1,25 @@
-import { f32, str } from "bitecs/serialization";
+import { str } from "bitecs/serialization";
 import type { TileType } from "./const.shared";
 
+export const MAX_ENTITIES = 2000;
+
 const Player = { name: str([]) };
-const Position = { x: f32([]), y: f32([]) };
-const Velocity = { x: f32([]), y: f32([]) };
+
+const Position = {
+  x: new Float32Array(MAX_ENTITIES),
+  y: new Float32Array(MAX_ENTITIES),
+};
+const Velocity = {
+  x: new Float32Array(MAX_ENTITIES),
+  y: new Float32Array(MAX_ENTITIES),
+};
+const AudioEmitter = { peerId: new Int32Array(MAX_ENTITIES) };
 const Tile = { type: [] as TileType[] };
+
 const Networked = {};
 const Solid = {};
 const Bot = {};
+const Radio = {};
 
 export const sharedComponents = {
   Player,
@@ -17,6 +29,16 @@ export const sharedComponents = {
   Networked,
   Solid,
   Bot,
+  Radio,
+  AudioEmitter,
 };
 
-export const networkedComponents = [Player, Position, Tile, Solid, Bot];
+export const networkedComponents = [
+  Player,
+  Position,
+  Tile,
+  Solid,
+  Bot,
+  Radio,
+  AudioEmitter,
+];

@@ -16,12 +16,17 @@ import {
 import { spawnAiPlayers, updateAiPlayers, getAiEntities } from "./ai";
 import { createLevel } from "./level";
 import { createPlayer } from "./players";
-import { PeerServer } from "peer";
+import {
+  initRadioManager,
+  startRadio,
+  shutdownRadioManager,
+} from "./radio-manager";
 
 const world = createWorld({
   components: { ...sharedComponents },
   time: { delta: 0, elapsed: 0, then: performance.now() },
   playerSpawns: [] as { x: number; y: number }[],
+  radioEntities: [] as number[],
   typeIdToAtlasSrc: {} as Record<number, [number, number]>,
 });
 
@@ -133,17 +138,43 @@ createServer({
   onPlayerLeave: (eid) => removeEntity(world, eid),
 });
 
-const PEER_SERVER_PORT = 9000;
-
-PeerServer({
-  port: PEER_SERVER_PORT,
-  path: "/peerjs",
-  proxied: true,
-});
-
-console.log(`PeerServer running on :${PEER_SERVER_PORT}`);
-
 createLevel(world);
 spawnAiPlayers(world);
+
+const initRadios = async () => {
+  if (world.radioEntities.length === 0) {
+    console.log("No radios found in level");
+    return;
+  }
+
+  try {
+    await initRadioManager({
+      onRadioReady: (eid) => console.log(`Radio ${eid} is streaming`),
+      onRadioError: (eid, err) => console.error(`Radio ${eid} error: ${err}`),
+    });
+
+    for (const radioEid of world.radioEntities) {
+      const { Position } = world.components;
+      const x = Position.x[radioEid];
+      const y = Position.y[radioEid];
+      await startRadio(radioEid, "assets/radio-music.pcm");
+      console.log(`Radio started at (${x}, ${y}) with eid=${radioEid}`);
+    }
+  } catch (err) {
+    console.error("Failed to initialize radio manager:", err);
+  }
+};
+
+initRadios();
+
+process.on("SIGTERM", () => {
+  shutdownRadioManager();
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  shutdownRadioManager();
+  process.exit(0);
+});
 
 activeTick();

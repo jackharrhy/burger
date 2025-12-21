@@ -15,6 +15,7 @@ export const MESSAGE_TYPES = {
   GAME_STATE: 5,
   PING: 6,
   PONG: 7,
+  SIGNAL: 8,
 } as const;
 
 export const TILE_TYPES = {

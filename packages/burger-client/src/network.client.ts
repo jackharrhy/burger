@@ -35,6 +35,7 @@ import {
   moveAndSlide,
   type InputCmd,
   type GameStateMessage,
+  type SignalMessage,
   CLIENT_UPDATE_RATE,
 } from "burger-shared";
 import {
@@ -57,6 +58,7 @@ export type NetworkState = {
   bytesReceived: number;
   lagMs: number;
   jitterMs: number;
+  onSignal: ((signal: SignalMessage) => void) | null;
 };
 
 export type PlayerIdentity = {
@@ -136,6 +138,16 @@ export const setupSocket = ({
           me.serverEid = view[0];
           break;
         }
+
+        case MESSAGE_TYPES.SIGNAL: {
+          const decoder = new TextDecoder();
+          const json = decoder.decode(payload);
+          const signal = JSON.parse(json) as SignalMessage;
+          if (network.onSignal) {
+            network.onSignal(signal);
+          }
+          break;
+        }
       }
     }, delay);
   });
@@ -165,6 +177,19 @@ const tryMapLocalPlayer = (
 };
 
 let lastSendTime = 0;
+
+export const sendSignal = (
+  network: NetworkState,
+  to: number,
+  signal: unknown,
+): void => {
+  const { socket } = network;
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+  const msg = JSON.stringify({ type: "signal", to, signal });
+  socket.send(msg);
+  network.bytesSent += msg.length;
+};
 
 export const sendInputs = (
   network: NetworkState,
