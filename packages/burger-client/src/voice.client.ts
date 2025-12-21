@@ -1,61 +1,56 @@
 /**
- * Proximity Voice Chat using PeerJS
+ * Proximity Voice Chat using simple-peer
  *
- * Uses WebRTC peer-to-peer connections for audio,
+ * Uses WebRTC peer-to-peer connections for audio via simple-peer,
  * with Web Audio API GainNodes for distance-based volume control.
+ * Signaling is done through the game WebSocket.
+ *
+ * AudioEmitter component provides the peerId:
+ * - Positive peerId: bidirectional audio (players send + receive)
+ * - Negative peerId: receive-only audio (radios only broadcast)
  */
 
-import Peer, { type MediaConnection } from "peerjs";
-import {
-  PEERJS_CONFIG,
-  VOICE_MAX_DISTANCE,
-  VOICE_MIN_DISTANCE,
-} from "./consts.client";
+import SimplePeer from "simple-peer";
+import { VOICE_MAX_DISTANCE, VOICE_MIN_DISTANCE } from "./consts.client";
+import { sendSignal, type NetworkState } from "./network.client";
+import type { SignalMessage } from "burger-shared";
 import debugFactory from "debug";
 
 const debug = debugFactory("burger:voice");
 
-type PeerConnection = {
-  call: MediaConnection;
+type AudioConnection = {
+  peerId: number;
+  peer: SimplePeer.Instance;
   gainNode: GainNode;
-  sourceNode: MediaStreamAudioSourceNode;
-  audioElement: HTMLAudioElement;
-  serverEid: number;
+  sourceNode: MediaStreamAudioSourceNode | null;
+  audioElement: HTMLAudioElement | null;
 };
 
 export type VoiceState = {
-  peer: Peer | null;
+  network: NetworkState;
   audioContext: AudioContext | null;
   localStream: MediaStream | null;
-  connections: Map<number, PeerConnection>; // serverEid -> connection
+  connections: Map<number, AudioConnection>; // key: peerId
   muted: boolean;
-  myServerEid: number;
-  peerReady: boolean;
+  myPeerId: number;
   vadEnabled: boolean;
   vadThreshold: number;
   analyserNode: AnalyserNode | null;
   vadActive: boolean;
 };
 
-const getPeerId = (serverEid: number): string => `burger-${serverEid}`;
-
-const parseServerEid = (peerId: string): number | null => {
-  const match = peerId.match(/^burger-(\d+)$/);
-  return match ? parseInt(match[1], 10) : null;
-};
-
 export const initVoice = async (
-  serverEid: number,
-  onReady?: () => void,
+  myPeerId: number,
+  network: NetworkState,
+  onReady?: () => void
 ): Promise<VoiceState> => {
   const state: VoiceState = {
-    peer: null,
+    network,
     audioContext: null,
     localStream: null,
     connections: new Map(),
     muted: false,
-    myServerEid: serverEid,
-    peerReady: false,
+    myPeerId,
     vadEnabled: false,
     vadThreshold: 0.02,
     analyserNode: null,
@@ -95,51 +90,15 @@ export const initVoice = async (
 
     startVadLoop(state);
 
-    const peer = new Peer(getPeerId(serverEid), PEERJS_CONFIG);
-    state.peer = peer;
+    network.onSignal = (signal: SignalMessage) => {
+      handleIncomingSignal(state, signal);
+    };
 
-    peer.on("open", (id) => {
-      debug("connected to PeerJS server with id: %s", id);
-      state.peerReady = true;
-      if (onReady) {
-        onReady();
-      }
-    });
+    debug("voice initialized for peerId %s", myPeerId);
 
-    peer.on("error", (err) => {
-      console.error("PeerJS error:", err);
-    });
-
-    peer.on("call", (call) => {
-      debug("incoming call from: %s", call.peer);
-      const callerServerEid = parseServerEid(call.peer);
-      if (callerServerEid === null) {
-        debug("ignoring call from unknown peer: %s", call.peer);
-        return;
-      }
-
-      call.answer(state.localStream!);
-
-      call.on("stream", (remoteStream) => {
-        debug("received stream from: %s", call.peer);
-        setupRemoteAudio(state, callerServerEid, call, remoteStream);
-      });
-
-      call.on("close", () => {
-        debug("call closed from: %s", call.peer);
-        cleanupConnection(state, callerServerEid);
-      });
-
-      call.on("error", (err) => {
-        console.error("Call error from %s:", call.peer, err);
-        cleanupConnection(state, callerServerEid);
-      });
-    });
-
-    peer.on("disconnected", () => {
-      debug("disconnected from PeerJS server, attempting reconnect...");
-      peer.reconnect();
-    });
+    if (onReady) {
+      onReady();
+    }
 
     return state;
   } catch (err) {
@@ -148,11 +107,83 @@ export const initVoice = async (
   }
 };
 
+const handleIncomingSignal = (
+  state: VoiceState,
+  signal: SignalMessage
+): void => {
+  const fromPeerId = signal.from;
+  let connection = state.connections.get(fromPeerId);
+
+  if (!connection) {
+    debug("creating peer for incoming connection from peerId %s", fromPeerId);
+    connection = createConnection(state, fromPeerId, false);
+  }
+
+  try {
+    connection.peer.signal(signal.signal as SimplePeer.SignalData);
+    debug("passed signal to peer %s", fromPeerId);
+  } catch (err) {
+    console.error("Failed to signal peer:", err);
+  }
+};
+
+const createConnection = (
+  state: VoiceState,
+  peerId: number,
+  initiator: boolean
+): AudioConnection => {
+  const isBidirectional = peerId > 0;
+
+  const peer = new SimplePeer({
+    initiator,
+    stream: isBidirectional ? state.localStream! : undefined,
+    trickle: true,
+  });
+
+  peer.on("signal", (data: SimplePeer.SignalData) => {
+    sendSignal(state.network, peerId, data);
+    debug("sent signal to peerId %s", peerId);
+  });
+
+  peer.on("stream", (remoteStream: MediaStream) => {
+    debug("received stream from peerId %s", peerId);
+    setupRemoteAudio(state, peerId, remoteStream);
+  });
+
+  peer.on("connect", () => {
+    debug("connected to peerId %s", peerId);
+  });
+
+  peer.on("close", () => {
+    debug("disconnected from peerId %s", peerId);
+    cleanupConnection(state, peerId);
+  });
+
+  peer.on("error", (err: Error) => {
+    console.error(`Peer error for peerId ${peerId}:`, err);
+    cleanupConnection(state, peerId);
+  });
+
+  const gainNode = state.audioContext!.createGain();
+  gainNode.gain.value = 0;
+  gainNode.connect(state.audioContext!.destination);
+
+  const connection: AudioConnection = {
+    peerId,
+    peer,
+    gainNode,
+    sourceNode: null,
+    audioElement: null,
+  };
+
+  state.connections.set(peerId, connection);
+  return connection;
+};
+
 const setupRemoteAudio = (
   state: VoiceState,
-  serverEid: number,
-  call: MediaConnection,
-  remoteStream: MediaStream,
+  peerId: number,
+  remoteStream: MediaStream
 ): void => {
   if (!state.audioContext) return;
 
@@ -161,7 +192,8 @@ const setupRemoteAudio = (
     state.audioContext.resume();
   }
 
-  cleanupConnection(state, serverEid);
+  const connection = state.connections.get(peerId);
+  if (!connection) return;
 
   const audioElement = new Audio();
   audioElement.srcObject = remoteStream;
@@ -169,122 +201,95 @@ const setupRemoteAudio = (
   audioElement.play().catch((e) => debug("audio element play failed: %s", e));
 
   const sourceNode = state.audioContext.createMediaStreamSource(remoteStream);
-  const gainNode = state.audioContext.createGain();
-  gainNode.gain.value = 0;
+  sourceNode.connect(connection.gainNode);
 
-  sourceNode.connect(gainNode);
-  gainNode.connect(state.audioContext.destination);
+  connection.sourceNode = sourceNode;
+  connection.audioElement = audioElement;
 
-  state.connections.set(serverEid, {
-    call,
-    gainNode,
-    sourceNode,
-    audioElement,
-    serverEid,
-  });
-
-  debug("audio setup complete for player: %s", serverEid);
+  debug("audio setup complete for peerId %s", peerId);
 };
 
-export const callPlayer = (
-  state: VoiceState,
-  targetServerEid: number,
-): void => {
-  if (!state.peer || !state.localStream) {
-    debug("cannot call player - peer or stream not ready");
-    return;
-  }
-
-  if (!state.peerReady) {
-    debug("cannot call player - peer not connected to server yet");
-    return;
-  }
-
-  if (state.connections.has(targetServerEid)) {
-    debug("already connected to player: %s", targetServerEid);
-    return;
-  }
-
-  if (state.myServerEid > targetServerEid) {
-    debug("skipping call to %s - they will call us", targetServerEid);
-    return;
-  }
-
-  const targetPeerId = getPeerId(targetServerEid);
-  debug("calling player: %s", targetPeerId);
-
-  const call = state.peer.call(targetPeerId, state.localStream);
-
-  call.on("stream", (remoteStream) => {
-    debug("received stream from called player: %s", targetPeerId);
-    setupRemoteAudio(state, targetServerEid, call, remoteStream);
-  });
-
-  call.on("close", () => {
-    debug("call closed to: %s", targetPeerId);
-    cleanupConnection(state, targetServerEid);
-  });
-
-  call.on("error", (err) => {
-    console.error("Call error to %s:", targetPeerId, err);
-    cleanupConnection(state, targetServerEid);
-  });
-};
-
-const cleanupConnection = (state: VoiceState, serverEid: number): void => {
-  const connection = state.connections.get(serverEid);
+const cleanupConnection = (state: VoiceState, peerId: number): void => {
+  const connection = state.connections.get(peerId);
   if (!connection) return;
 
   try {
-    connection.sourceNode.disconnect();
+    if (connection.sourceNode) {
+      connection.sourceNode.disconnect();
+    }
     connection.gainNode.disconnect();
-    connection.audioElement.pause();
-    connection.audioElement.srcObject = null;
-    connection.call.close();
+    if (connection.audioElement) {
+      connection.audioElement.pause();
+      connection.audioElement.srcObject = null;
+    }
+    connection.peer.destroy();
   } catch (e) {
-    console.warn("exceptio while cleaning up", e);
+    console.warn("exception while cleaning up connection", e);
   }
 
-  state.connections.delete(serverEid);
-  debug("cleaned up connection to player: %s", serverEid);
+  state.connections.delete(peerId);
+  debug("cleaned up connection: peerId %s", peerId);
 };
 
-export const disconnectPlayer = (
-  state: VoiceState,
-  serverEid: number,
-): void => {
-  cleanupConnection(state, serverEid);
+export const callEmitter = (state: VoiceState, peerId: number): void => {
+  if (peerId === state.myPeerId) {
+    return;
+  }
+
+  if (state.connections.has(peerId)) {
+    debug("already connected to peerId: %s", peerId);
+    return;
+  }
+
+  const isBidirectional = peerId > 0;
+
+  if (isBidirectional && state.myPeerId > peerId) {
+    debug("skipping call to %s - they will call us", peerId);
+    return;
+  }
+
+  if (isBidirectional && !state.localStream) {
+    debug("cannot call player - stream not ready");
+    return;
+  }
+
+  debug("calling peerId: %s", peerId);
+  createConnection(state, peerId, true);
 };
 
-export const updateProximityVolumes = (
+export const disconnectEmitter = (state: VoiceState, peerId: number): void => {
+  cleanupConnection(state, peerId);
+};
+
+const calculateVolume = (
+  localPos: { x: number; y: number },
+  targetPos: { x: number; y: number }
+): number => {
+  const dx = targetPos.x - localPos.x;
+  const dy = targetPos.y - localPos.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  if (distance <= VOICE_MIN_DISTANCE) {
+    return 1;
+  } else if (distance >= VOICE_MAX_DISTANCE) {
+    return 0;
+  } else {
+    return (
+      1 -
+      (distance - VOICE_MIN_DISTANCE) /
+        (VOICE_MAX_DISTANCE - VOICE_MIN_DISTANCE)
+    );
+  }
+};
+
+export const updateEmitterVolumes = (
   state: VoiceState,
   localPos: { x: number; y: number },
-  playerPositions: Map<number, { x: number; y: number }>,
+  positions: Map<number, { x: number; y: number }>
 ): void => {
-  for (const [serverEid, connection] of state.connections) {
-    const pos = playerPositions.get(serverEid);
-    if (!pos) {
-      connection.gainNode.gain.value = 0;
-      continue;
-    }
-
-    const dx = pos.x - localPos.x;
-    const dy = pos.y - localPos.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    let volume: number;
-    if (distance <= VOICE_MIN_DISTANCE) {
-      volume = 1;
-    } else if (distance >= VOICE_MAX_DISTANCE) {
-      volume = 0;
-    } else {
-      volume =
-        1 -
-        (distance - VOICE_MIN_DISTANCE) /
-          (VOICE_MAX_DISTANCE - VOICE_MIN_DISTANCE);
-    }
-
-    connection.gainNode.gain.value = volume;
+  for (const connection of state.connections.values()) {
+    const pos = positions.get(connection.peerId);
+    connection.gainNode.gain.value = pos ? calculateVolume(localPos, pos) : 0;
   }
 };
 
@@ -364,21 +369,9 @@ const startVadLoop = (state: VoiceState): void => {
   requestAnimationFrame(checkVad);
 };
 
-export const getServerEidFromClientEid = (
-  clientEid: number,
-  idMap: Map<number, number>,
-): number | null => {
-  for (const [serverEid, cEid] of idMap) {
-    if (cEid === clientEid) {
-      return serverEid;
-    }
-  }
-  return null;
-};
-
 export const destroyVoice = (state: VoiceState): void => {
-  for (const serverEid of state.connections.keys()) {
-    cleanupConnection(state, serverEid);
+  for (const peerId of state.connections.keys()) {
+    cleanupConnection(state, peerId);
   }
 
   if (state.localStream) {
@@ -391,9 +384,7 @@ export const destroyVoice = (state: VoiceState): void => {
     state.audioContext.close();
   }
 
-  if (state.peer) {
-    state.peer.destroy();
-  }
+  state.network.onSignal = null;
 
   debug("voice chat destroyed");
 };

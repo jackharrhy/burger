@@ -1,15 +1,11 @@
-import { query } from "bitecs";
+import { query, type World } from "bitecs";
 import { PLAYER_SIZE, TILE_SIZE } from "./const.shared";
+import type { sharedComponents } from "./ecs.shared";
 
 const CORNER_CORRECTION = 2;
 
 export const moveAndSlide = (
-  world: {
-    components: {
-      Position: { x: number[]; y: number[] };
-      Solid: Record<string, never>;
-    };
-  },
+  world: World<{ components: typeof sharedComponents }>,
   x: number,
   y: number,
   vx: number,

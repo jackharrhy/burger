@@ -46,13 +46,12 @@ import {
 import {
   type VoiceState,
   initVoice,
-  callPlayer,
-  disconnectPlayer,
-  updateProximityVolumes,
+  callEmitter,
+  disconnectEmitter,
+  updateEmitterVolumes,
   setMuted,
   setVadEnabled,
   setVadThreshold,
-  getServerEidFromClientEid,
 } from "./voice.client";
 import debugFactory from "debug";
 import { GUI } from "lil-gui";
@@ -131,8 +130,46 @@ declare global {
   }
 }
 
+const setupAudioEmitterObserver = (context: Context) => {
+  const { world } = context;
+  const { AudioEmitter, Radio, RenderPosition, Position } = world.components;
+
+  observe(world, onAdd(AudioEmitter), (eid) => {
+    setTimeout(() => {
+      const peerId = AudioEmitter.peerId[eid];
+
+      if (peerId === 0) {
+        debug("audio emitter added but peerId=0, skipping: eid=%s", eid);
+        return;
+      }
+
+      if (hasComponent(world, eid, Radio)) {
+        addComponent(world, eid, RenderPosition);
+        RenderPosition.x[eid] = Position.x[eid] ?? 0;
+        RenderPosition.y[eid] = Position.y[eid] ?? 0;
+      }
+
+      if (context.voiceState) {
+        callEmitter(context.voiceState, peerId);
+      }
+
+      debug("audio emitter added: eid=%s, peerId=%s", eid, peerId);
+    }, 0);
+  });
+
+  observe(world, onRemove(AudioEmitter), (eid) => {
+    const peerId = AudioEmitter.peerId[eid];
+
+    if (context.voiceState) {
+      disconnectEmitter(context.voiceState, peerId);
+    }
+
+    debug("audio emitter removed: eid=%s, peerId=%s", eid, peerId);
+  });
+};
+
 const setupPlayerObserver = (context: Context) => {
-  const { world, assets, containers, me, network } = context;
+  const { world, assets, containers } = context;
   const {
     Player,
     Sprite,
@@ -140,7 +177,6 @@ const setupPlayerObserver = (context: Context) => {
     Velocity,
     RenderPosition,
     PositionHistory,
-    Bot,
   } = world.components;
 
   observe(world, onAdd(Player), (eid) => {
@@ -174,13 +210,6 @@ const setupPlayerObserver = (context: Context) => {
       DebugText[eid] = debugText;
     }
 
-    if (context.voiceState && !hasComponent(world, eid, Bot)) {
-      const serverEid = getServerEidFromClientEid(eid, network.idMap);
-      if (serverEid !== null && serverEid !== me.serverEid) {
-        callPlayer(context.voiceState, serverEid);
-      }
-    }
-
     debug("player added: eid=%s, name=%s", eid, Player.name[eid]);
   });
 
@@ -198,13 +227,6 @@ const setupPlayerObserver = (context: Context) => {
         containers.debug.removeChild(debugText);
         debugText.destroy();
         delete DebugText[eid];
-      }
-    }
-
-    if (context.voiceState) {
-      const serverEid = getServerEidFromClientEid(eid, network.idMap);
-      if (serverEid !== null) {
-        disconnectPlayer(context.voiceState, serverEid);
       }
     }
 
@@ -479,27 +501,24 @@ const debugSystem = ({ world }: Context) => {
   }
 };
 
-const voiceSystem = ({ world, me, network, voiceState }: Context) => {
+const voiceSystem = ({ world, me, voiceState }: Context) => {
   if (!voiceState || me.eid === null) return;
 
-  const { RenderPosition, Player } = world.components;
+  const { RenderPosition, AudioEmitter, Position } = world.components;
   const localPos = {
     x: RenderPosition.x[me.eid],
     y: RenderPosition.y[me.eid],
   };
 
-  const playerPositions = new Map<number, { x: number; y: number }>();
-  for (const eid of query(world, [Player, RenderPosition])) {
-    if (eid === me.eid) continue;
-    const serverEid = getServerEidFromClientEid(eid, network.idMap);
-    if (serverEid === null) continue;
-    playerPositions.set(serverEid, {
-      x: RenderPosition.x[eid],
-      y: RenderPosition.y[eid],
-    });
+  const emitterPositions = new Map<number, { x: number; y: number }>();
+  for (const eid of query(world, [AudioEmitter])) {
+    const peerId = AudioEmitter.peerId[eid];
+    const x = RenderPosition.x[eid] ?? Position.x[eid] ?? 0;
+    const y = RenderPosition.y[eid] ?? Position.y[eid] ?? 0;
+    emitterPositions.set(peerId, { x, y });
   }
 
-  updateProximityVolumes(voiceState, localPos, playerPositions);
+  updateEmitterVolumes(voiceState, localPos, emitterPositions);
 };
 
 const update = (context: Context) => {
@@ -587,6 +606,7 @@ const setupRenderer = async () => {
       bytesReceived: 0,
       lagMs: 0,
       jitterMs: 0,
+      onSignal: null,
     },
     camera: { x: 0, y: 0, initialized: false },
     voiceState: null,
@@ -613,6 +633,7 @@ const setupRenderer = async () => {
   };
 
   setupPlayerObserver(context);
+  setupAudioEmitterObserver(context);
   window.context = context;
 
   if (showDebug) {
@@ -685,18 +706,14 @@ const setupRenderer = async () => {
   return context;
 };
 
-const callAllPlayers = (context: Context) => {
+const callAllEmitters = (context: Context) => {
   if (!context.voiceState) return;
-  if (context.me.eid === null) return;
 
-  const { Player, Bot } = world.components;
-  for (const eid of query(world, [Player])) {
-    if (eid === context.me.eid) continue;
-    if (hasComponent(world, eid, Bot)) continue;
-    const serverEid = getServerEidFromClientEid(eid, context.network.idMap);
-    if (serverEid !== null) {
-      callPlayer(context.voiceState, serverEid);
-    }
+  const { AudioEmitter } = world.components;
+  for (const eid of query(world, [AudioEmitter])) {
+    const peerId = AudioEmitter.peerId[eid];
+    if (peerId === 0) continue;
+    callEmitter(context.voiceState, peerId);
   }
 };
 
@@ -721,11 +738,16 @@ const setup = async () => {
         };
 
         if (context.me.serverEid !== null) {
-          context.voiceState = await initVoice(context.me.serverEid, () =>
-            callAllPlayers(context),
+          context.voiceState = await initVoice(
+            context.me.serverEid,
+            context.network,
+            () => {
+              setTimeout(() => callAllEmitters(context), 100);
+            },
           );
 
-          callAllPlayers(context);
+          setTimeout(() => callAllEmitters(context), 100);
+          setTimeout(() => callAllEmitters(context), 500);
         }
       }
     },

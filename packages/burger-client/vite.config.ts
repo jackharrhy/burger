@@ -1,6 +1,17 @@
 import { defineConfig } from "vite";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 export default defineConfig({
+  plugins: [
+    nodePolyfills({
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+      protocolImports: true,
+    }),
+  ],
   server: {
     proxy: {
       "/api": {
@@ -9,11 +20,6 @@ export default defineConfig({
       },
       "/ws": {
         target: "ws://localhost:5000/",
-        ws: true,
-        changeOrigin: true,
-      },
-      "/peerjs": {
-        target: "ws://localhost:9000/",
         ws: true,
         changeOrigin: true,
       },

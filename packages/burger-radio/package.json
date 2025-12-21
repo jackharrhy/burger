@@ -1,0 +1,23 @@
+{
+  "name": "burger-radio",
+  "version": "0.1.0",
+  "description": "Radio audio streaming server for burger game",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "node --import tsx src/index.ts",
+    "convert-audio": "tsx scripts/convert-audio.ts"
+  },
+  "dependencies": {
+    "@roamhq/wrtc": "^0.9.1",
+    "debug": "^4.4.3",
+    "simple-peer": "^9.11.1"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.12",
+    "@types/node": "^22.15.0",
+    "@types/simple-peer": "^9.11.9",
+    "tsx": "^4.19.0",
+    "typescript": "^5"
+  }
+}
