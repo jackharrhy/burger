@@ -16,6 +16,7 @@ import {
 import { spawnAiPlayers, updateAiPlayers, getAiEntities } from "./ai";
 import { createLevel } from "./level";
 import { createPlayer } from "./players";
+import { PeerServer } from "peer";
 
 const world = createWorld({
   components: { ...sharedComponents },
@@ -123,12 +124,24 @@ const idleTick = () => {
   }
 };
 
+const SERVER_PORT = 5000;
+
 createServer({
-  port: 5000,
+  port: SERVER_PORT,
   world,
   onPlayerJoin: () => createPlayer(world, "Player"),
   onPlayerLeave: (eid) => removeEntity(world, eid),
 });
+
+const PEER_SERVER_PORT = 9000;
+
+PeerServer({
+  port: PEER_SERVER_PORT,
+  path: "/peerjs",
+  proxied: true,
+});
+
+console.log(`PeerServer running on :${PEER_SERVER_PORT}`);
 
 createLevel(world);
 spawnAiPlayers(world);

@@ -7,6 +7,7 @@ const Velocity = { x: f32([]), y: f32([]) };
 const Tile = { type: [] as TileType[] };
 const Networked = {};
 const Solid = {};
+const Bot = {};
 
 export const sharedComponents = {
   Player,
@@ -15,6 +16,7 @@ export const sharedComponents = {
   Tile,
   Networked,
   Solid,
+  Bot,
 };
 
-export const networkedComponents = [Player, Position, Tile, Solid];
+export const networkedComponents = [Player, Position, Tile, Solid, Bot];

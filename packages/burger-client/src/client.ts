@@ -26,6 +26,7 @@ import {
   observe,
   onAdd,
   onRemove,
+  hasComponent,
 } from "bitecs";
 import {
   setupSocket,
@@ -42,6 +43,17 @@ import {
   INTERP_DELAY,
   ZOOM,
 } from "./consts.client";
+import {
+  type VoiceState,
+  initVoice,
+  callPlayer,
+  disconnectPlayer,
+  updateProximityVolumes,
+  setMuted,
+  setVadEnabled,
+  setVadThreshold,
+  getServerEidFromClientEid,
+} from "./voice.client";
 import debugFactory from "debug";
 import { GUI } from "lil-gui";
 
@@ -89,6 +101,7 @@ type Context = {
   me: PlayerIdentity;
   network: NetworkState;
   camera: { x: number; y: number; initialized: boolean };
+  voiceState: VoiceState | null;
   metrics: {
     updatesHz: number;
     updatesCount: number;
@@ -118,7 +131,8 @@ declare global {
   }
 }
 
-const setupPlayerObserver = ({ world, assets, containers }: Context) => {
+const setupPlayerObserver = (context: Context) => {
+  const { world, assets, containers, me, network } = context;
   const {
     Player,
     Sprite,
@@ -126,6 +140,7 @@ const setupPlayerObserver = ({ world, assets, containers }: Context) => {
     Velocity,
     RenderPosition,
     PositionHistory,
+    Bot,
   } = world.components;
 
   observe(world, onAdd(Player), (eid) => {
@@ -159,6 +174,13 @@ const setupPlayerObserver = ({ world, assets, containers }: Context) => {
       DebugText[eid] = debugText;
     }
 
+    if (context.voiceState && !hasComponent(world, eid, Bot)) {
+      const serverEid = getServerEidFromClientEid(eid, network.idMap);
+      if (serverEid !== null && serverEid !== me.serverEid) {
+        callPlayer(context.voiceState, serverEid);
+      }
+    }
+
     debug("player added: eid=%s, name=%s", eid, Player.name[eid]);
   });
 
@@ -176,6 +198,13 @@ const setupPlayerObserver = ({ world, assets, containers }: Context) => {
         containers.debug.removeChild(debugText);
         debugText.destroy();
         delete DebugText[eid];
+      }
+    }
+
+    if (context.voiceState) {
+      const serverEid = getServerEidFromClientEid(eid, network.idMap);
+      if (serverEid !== null) {
+        disconnectPlayer(context.voiceState, serverEid);
       }
     }
 
@@ -450,6 +479,29 @@ const debugSystem = ({ world }: Context) => {
   }
 };
 
+const voiceSystem = ({ world, me, network, voiceState }: Context) => {
+  if (!voiceState || me.eid === null) return;
+
+  const { RenderPosition, Player } = world.components;
+  const localPos = {
+    x: RenderPosition.x[me.eid],
+    y: RenderPosition.y[me.eid],
+  };
+
+  const playerPositions = new Map<number, { x: number; y: number }>();
+  for (const eid of query(world, [Player, RenderPosition])) {
+    if (eid === me.eid) continue;
+    const serverEid = getServerEidFromClientEid(eid, network.idMap);
+    if (serverEid === null) continue;
+    playerPositions.set(serverEid, {
+      x: RenderPosition.x[eid],
+      y: RenderPosition.y[eid],
+    });
+  }
+
+  updateProximityVolumes(voiceState, localPos, playerPositions);
+};
+
 const update = (context: Context) => {
   timeSystem(context);
   inputSystem(context);
@@ -461,6 +513,7 @@ const update = (context: Context) => {
   spritesSystem(context);
   metricsSystem(context);
   debugSystem(context);
+  voiceSystem(context);
 };
 
 const loadAssets = async () => {
@@ -536,6 +589,7 @@ const setupRenderer = async () => {
       jitterMs: 0,
     },
     camera: { x: 0, y: 0, initialized: false },
+    voiceState: null,
     metrics: {
       updatesHz: 0,
       updatesCount: 0,
@@ -581,6 +635,38 @@ const setupRenderer = async () => {
       .add(context.debugMetrics, "jitter", 0, 500)
       .name("Jitter (ms)")
       .listen();
+
+    const voiceFolder = gui.addFolder("Voice Chat");
+    const voiceControls = {
+      muted: false,
+      vadEnabled: false,
+      vadThreshold: 0.02,
+    };
+    voiceFolder
+      .add(voiceControls, "muted")
+      .name("Mute")
+      .onChange((muted: boolean) => {
+        if (context.voiceState) {
+          setMuted(context.voiceState, muted);
+        }
+      });
+    voiceFolder
+      .add(voiceControls, "vadEnabled")
+      .name("Voice Activation")
+      .onChange((enabled: boolean) => {
+        if (context.voiceState) {
+          setVadEnabled(context.voiceState, enabled);
+        }
+      });
+    voiceFolder
+      .add(voiceControls, "vadThreshold", 0, 0.2)
+      .name("VAD Threshold")
+      .onChange((threshold: number) => {
+        if (context.voiceState) {
+          setVadThreshold(context.voiceState, threshold);
+        }
+      });
+
     gui.domElement.style.position = "absolute";
     gui.domElement.style.top = "10px";
     gui.domElement.style.right = "10px";
@@ -599,6 +685,21 @@ const setupRenderer = async () => {
   return context;
 };
 
+const callAllPlayers = (context: Context) => {
+  if (!context.voiceState) return;
+  if (context.me.eid === null) return;
+
+  const { Player, Bot } = world.components;
+  for (const eid of query(world, [Player])) {
+    if (eid === context.me.eid) continue;
+    if (hasComponent(world, eid, Bot)) continue;
+    const serverEid = getServerEidFromClientEid(eid, context.network.idMap);
+    if (serverEid !== null) {
+      callPlayer(context.voiceState, serverEid);
+    }
+  }
+};
+
 const setup = async () => {
   const context = await setupRenderer();
 
@@ -606,7 +707,7 @@ const setup = async () => {
     world: context.world,
     network: context.network,
     me: context.me,
-    onLocalPlayerReady: () => {
+    onLocalPlayerReady: async () => {
       if (context.me.eid !== null) {
         const { Input } = world.components;
         addComponent(world, context.me.eid, Input);
@@ -618,6 +719,14 @@ const setup = async () => {
           interact: false,
           interactPressed: false,
         };
+
+        if (context.me.serverEid !== null) {
+          context.voiceState = await initVoice(context.me.serverEid, () =>
+            callAllPlayers(context),
+          );
+
+          callAllPlayers(context);
+        }
       }
     },
     onSnapshotReceived: () => {

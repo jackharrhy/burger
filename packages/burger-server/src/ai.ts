@@ -17,12 +17,14 @@ type AiState = {
 const aiEntities: AiState[] = [];
 
 export const spawnAiPlayers = (world: World): void => {
-  const { Player, Position, Velocity, Networked } = world.components;
+  const { Bot } = world.components;
 
   for (let i = 0; i < AI_COUNT; i++) {
     const botName = `Bot ${i + 1}`;
 
     const eid = createPlayer(world, botName);
+
+    addComponent(world, eid, Bot);
 
     aiEntities.push({
       eid,
