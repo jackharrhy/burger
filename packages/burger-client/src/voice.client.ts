@@ -42,7 +42,7 @@ export type VoiceState = {
 export const initVoice = async (
   myPeerId: number,
   network: NetworkState,
-  onReady?: () => void
+  onReady?: () => void,
 ): Promise<VoiceState> => {
   const state: VoiceState = {
     network,
@@ -109,7 +109,7 @@ export const initVoice = async (
 
 const handleIncomingSignal = (
   state: VoiceState,
-  signal: SignalMessage
+  signal: SignalMessage,
 ): void => {
   const fromPeerId = signal.from;
   let connection = state.connections.get(fromPeerId);
@@ -130,7 +130,7 @@ const handleIncomingSignal = (
 const createConnection = (
   state: VoiceState,
   peerId: number,
-  initiator: boolean
+  initiator: boolean,
 ): AudioConnection => {
   const isBidirectional = peerId > 0;
 
@@ -183,7 +183,7 @@ const createConnection = (
 const setupRemoteAudio = (
   state: VoiceState,
   peerId: number,
-  remoteStream: MediaStream
+  remoteStream: MediaStream,
 ): void => {
   if (!state.audioContext) return;
 
@@ -263,7 +263,7 @@ export const disconnectEmitter = (state: VoiceState, peerId: number): void => {
 
 const calculateVolume = (
   localPos: { x: number; y: number },
-  targetPos: { x: number; y: number }
+  targetPos: { x: number; y: number },
 ): number => {
   const dx = targetPos.x - localPos.x;
   const dy = targetPos.y - localPos.y;
@@ -285,7 +285,7 @@ const calculateVolume = (
 export const updateEmitterVolumes = (
   state: VoiceState,
   localPos: { x: number; y: number },
-  positions: Map<number, { x: number; y: number }>
+  positions: Map<number, { x: number; y: number }>,
 ): void => {
   for (const connection of state.connections.values()) {
     const pos = positions.get(connection.peerId);
@@ -367,6 +367,13 @@ const startVadLoop = (state: VoiceState): void => {
   };
 
   requestAnimationFrame(checkVad);
+};
+
+export const resetVoiceConnections = (state: VoiceState): void => {
+  for (const peerId of state.connections.keys()) {
+    cleanupConnection(state, peerId);
+  }
+  debug("voice connections reset (keeping local stream)");
 };
 
 export const destroyVoice = (state: VoiceState): void => {

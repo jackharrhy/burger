@@ -5,7 +5,9 @@ import type { sharedComponents } from "./ecs.shared";
 const CORNER_CORRECTION = 2;
 
 export const moveAndSlide = (
-  world: World<{ components: typeof sharedComponents }>,
+  world: World<{
+    components: Pick<typeof sharedComponents, "Position" | "Solid">;
+  }>,
   x: number,
   y: number,
   vx: number,

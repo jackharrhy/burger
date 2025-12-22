@@ -5,7 +5,13 @@
  * Streams audio to game clients via WebRTC using simple-peer.
  */
 
-import { startRadio, stopRadio, stopAllRadios, handleSignal } from "./radio.js";
+import {
+  startRadio,
+  stopRadio,
+  stopAllRadios,
+  handleSignal,
+  disconnectPlayer,
+} from "./radio.js";
 import debugFactory from "debug";
 
 const debug = debugFactory("burger:radio");
@@ -32,11 +38,17 @@ type SignalMessage = {
   signal: unknown;
 };
 
+type PlayerDisconnectMessage = {
+  type: "playerDisconnect";
+  playerEid: number;
+};
+
 type IPCMessage =
   | StartRadioMessage
   | StopRadioMessage
   | StopAllMessage
-  | SignalMessage;
+  | SignalMessage
+  | PlayerDisconnectMessage;
 
 type IPCResponse = {
   type: "ready" | "stopped" | "error" | "signal";
@@ -88,6 +100,12 @@ const handleMessage = async (message: IPCMessage): Promise<void> => {
         message.radioEid,
       );
       handleSignal(message.radioEid, message.from, message.signal);
+      break;
+    }
+
+    case "playerDisconnect": {
+      debug("player %s disconnected, cleaning up", message.playerEid);
+      disconnectPlayer(message.playerEid);
       break;
     }
   }

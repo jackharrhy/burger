@@ -52,6 +52,7 @@ import {
   setMuted,
   setVadEnabled,
   setVadThreshold,
+  resetVoiceConnections,
 } from "./voice.client";
 import debugFactory from "debug";
 import { GUI } from "lil-gui";
@@ -742,18 +743,23 @@ const setup = async () => {
             context.me.serverEid,
             context.network,
             () => {
-              setTimeout(() => callAllEmitters(context), 100);
+              callAllEmitters(context);
             },
           );
 
-          setTimeout(() => callAllEmitters(context), 100);
-          setTimeout(() => callAllEmitters(context), 500);
+          callAllEmitters(context);
         }
       }
     },
     onSnapshotReceived: () => {
       debug("snapshot received");
       createTileSprites(context);
+    },
+    onSocketClose: () => {
+      debug("socket closed, cleaning up voice connections");
+      if (context.voiceState) {
+        resetVoiceConnections(context.voiceState);
+      }
     },
     context,
   });

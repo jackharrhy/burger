@@ -256,3 +256,14 @@ export const shutdownRadioManager = (): void => {
 
   state.ready = false;
 };
+
+export const notifyPlayerDisconnect = (playerEid: number): void => {
+  if (!state.process || !state.ready) return;
+
+  sendMessage({
+    type: "playerDisconnect",
+    playerEid,
+  });
+
+  debug("notified radio of player %s disconnect", playerEid);
+};

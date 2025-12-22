@@ -42,6 +42,7 @@ import { ElysiaWS } from "elysia/ws";
 import debugFactory from "debug";
 import type { ServerWebSocket } from "elysia/ws/bun";
 import type { TypeCheck } from "elysia/type-system";
+import { notifyPlayerDisconnect } from "./radio-manager";
 
 const debug = debugFactory("burger:network.server");
 
@@ -75,7 +76,7 @@ const textEncoder = new TextEncoder();
 let radioSignalHandler: ((signal: SignalMessage) => void) | null = null;
 
 export const setRadioSignalHandler = (
-  handler: (signal: SignalMessage) => void
+  handler: (signal: SignalMessage) => void,
 ): void => {
   radioSignalHandler = handler;
 };
@@ -103,7 +104,7 @@ export const createServer = ({
   snapshotSerializer = createSnapshotSerializer(
     world,
     networkedComponents,
-    snapshotBuffer
+    snapshotBuffer,
   );
 
   if (!existsSync("./public/assets")) {
@@ -115,7 +116,7 @@ export const createServer = ({
       staticPlugin({
         assets: "./public/assets",
         prefix: "/assets",
-      })
+      }),
     )
     .get("/", () => file("./public/index.html"))
     .get("/api/atlas", () => world.typeIdToAtlasSrc)
@@ -136,12 +137,12 @@ export const createServer = ({
           ws.raw,
           createObserverSerializer(world, Networked, networkedComponents, {
             buffer: new ArrayBuffer(OBSERVER_BUFFER_SIZE),
-          })
+          }),
         );
 
         debug("sending eid & snapshot");
         ws.sendBinary(
-          tagMessage(MESSAGE_TYPES.YOUR_EID, new Int32Array([eid]).buffer)
+          tagMessage(MESSAGE_TYPES.YOUR_EID, new Int32Array([eid]).buffer),
         );
         ws.sendBinary(tagMessage(MESSAGE_TYPES.SNAPSHOT, snapshotSerializer()));
       },
@@ -151,6 +152,7 @@ export const createServer = ({
         const connection = playerConnections.get(ws.raw);
         if (connection) {
           eidToWs.delete(connection.eid);
+          notifyPlayerDisconnect(connection.eid);
           onPlayerLeave(connection.eid);
         }
         playerConnections.delete(ws.raw);
@@ -231,7 +233,7 @@ const handleSignalMessage = (fromEid: number, data: any): void => {
 
 export const sendSignalToPlayer = (
   targetEid: number,
-  signal: SignalMessage
+  signal: SignalMessage,
 ): void => {
   const targetWs = eidToWs.get(targetEid);
 
@@ -251,7 +253,7 @@ export const getPlayerConnections = () => playerConnections;
 
 export const processPlayerInputs = (
   world: World,
-  applyInput: (eid: number, cmd: InputCmd) => void
+  applyInput: (eid: number, cmd: InputCmd) => void,
 ): void => {
   for (const [_ws, connection] of playerConnections) {
     const { eid, inputQueue } = connection;
@@ -276,14 +278,14 @@ export const broadcastGameState = ({
   const jsonString = JSON.stringify(gameState);
   const { written: gameStateLength } = textEncoder.encodeInto(
     jsonString,
-    gameStateBuffer
+    gameStateBuffer,
   );
 
   taggedGameStateBuffer[0] = MESSAGE_TYPES.GAME_STATE;
   taggedGameStateBuffer.set(gameStateBuffer.subarray(0, gameStateLength), 1);
   const taggedStateView = taggedGameStateBuffer.subarray(
     0,
-    gameStateLength + 1
+    gameStateLength + 1,
   );
 
   for (const [ws] of playerConnections) {

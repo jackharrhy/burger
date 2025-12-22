@@ -1,4 +1,5 @@
 main:
+
 - ldtk level loading
 - patties
 - pick up patties
@@ -8,6 +9,7 @@ main:
 - dockerized
 
 qwirks:
+
 - myeid set incorrectly sometimes?
 - random freezes...
 - disconnects not working?

@@ -252,3 +252,20 @@ export const stopAllRadios = (): void => {
     stopRadio(eid);
   }
 };
+
+export const disconnectPlayer = (playerEid: number): void => {
+  for (const state of radios.values()) {
+    const connection = state.connections.get(playerEid);
+    if (connection) {
+      debug(
+        "disconnecting player %s from radio %s (cleanup)",
+        playerEid,
+        state.eid,
+      );
+      try {
+        connection.peer.destroy();
+      } catch (e) {}
+      state.connections.delete(playerEid);
+    }
+  }
+};

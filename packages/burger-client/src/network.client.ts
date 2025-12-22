@@ -72,6 +72,7 @@ export const setupSocket = ({
   me,
   onLocalPlayerReady,
   onSnapshotReceived,
+  onSocketClose,
   context,
 }: {
   world: World;
@@ -79,6 +80,7 @@ export const setupSocket = ({
   me: PlayerIdentity;
   onLocalPlayerReady: () => void;
   onSnapshotReceived: () => void;
+  onSocketClose?: () => void;
   context: any;
 }): void => {
   const { Networked } = world.components;
@@ -155,6 +157,7 @@ export const setupSocket = ({
   socket.addEventListener("close", () => {
     console.log("disconnected from server");
     network.socket = null;
+    onSocketClose?.();
   });
 
   socket.addEventListener("error", (error) => {

@@ -4,6 +4,7 @@
   "description": "hi, may i take your order?",
   "main": "index.js",
   "scripts": {
+    "format": "pnpx prettier --write .",
     "dev:client": "pnpm --filter burger-client dev",
     "dev:server": "pnpm --filter burger-server dev",
     "build-frontend": "pnpm --filter burger-client build",
