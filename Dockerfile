@@ -1,4 +1,4 @@
-FROM node:25-slim
+FROM platformatic/node-caged:25-slim
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/ ./packages/
