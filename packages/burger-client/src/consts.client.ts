@@ -7,6 +7,3 @@ export const ZOOM = 3;
 export const DEADZONE_WIDTH = 100 / ZOOM;
 export const DEADZONE_HEIGHT = DEADZONE_WIDTH;
 export const CAMERA_LERP_FACTOR = 0.1;
-
-export const VOICE_MAX_DISTANCE = 500;
-export const VOICE_MIN_DISTANCE = 100;

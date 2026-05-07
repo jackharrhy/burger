@@ -4,8 +4,7 @@ import { randomItem } from "./utils";
 import invariant from "tiny-invariant";
 
 export const createPlayer = (world: World, name: string): number => {
-  const { Player, Position, Velocity, Networked, AudioEmitter } =
-    world.components;
+  const { Player, Position, Velocity, Networked } = world.components;
   const eid = addEntity(world);
 
   addComponent(world, eid, Player);
@@ -23,9 +22,6 @@ export const createPlayer = (world: World, name: string): number => {
   Velocity.y[eid] = 0;
 
   addComponent(world, eid, Networked);
-
-  addComponent(world, eid, AudioEmitter);
-  AudioEmitter.peerId[eid] = eid;
 
   return eid;
 };

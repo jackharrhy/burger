@@ -16,17 +16,11 @@ import {
 import { spawnAiPlayers, updateAiPlayers, getAiEntities } from "./ai";
 import { createLevel } from "./level";
 import { createPlayer } from "./players";
-import {
-  initRadioManager,
-  startRadio,
-  shutdownRadioManager,
-} from "./radio-manager";
 
 const world = createWorld({
   components: { ...sharedComponents },
   time: { delta: 0, elapsed: 0, then: performance.now() },
   playerSpawns: [] as { x: number; y: number }[],
-  radioEntities: [] as number[],
   typeIdToAtlasSrc: {} as Record<number, [number, number]>,
 });
 
@@ -49,7 +43,7 @@ const activeTick = () => {
       Velocity.x[eid],
       Velocity.y[eid],
       cmd,
-      cmd.msec,
+      SERVER_TICK_RATE_MS,
     );
     Velocity.x[eid] = newVel.vx;
     Velocity.y[eid] = newVel.vy;
@@ -60,7 +54,7 @@ const activeTick = () => {
       Position.y[eid],
       Velocity.x[eid],
       Velocity.y[eid],
-      cmd.msec,
+      SERVER_TICK_RATE_MS,
     );
     Position.x[eid] = newPos.x;
     Position.y[eid] = newPos.y;
@@ -140,41 +134,5 @@ createServer({
 
 createLevel(world);
 spawnAiPlayers(world);
-
-const initRadios = async () => {
-  if (world.radioEntities.length === 0) {
-    console.log("No radios found in level");
-    return;
-  }
-
-  try {
-    await initRadioManager({
-      onRadioReady: (eid) => console.log(`Radio ${eid} is streaming`),
-      onRadioError: (eid, err) => console.error(`Radio ${eid} error: ${err}`),
-    });
-
-    for (const radioEid of world.radioEntities) {
-      const { Position } = world.components;
-      const x = Position.x[radioEid];
-      const y = Position.y[radioEid];
-      await startRadio(radioEid, "assets/radio-music.pcm");
-      console.log(`Radio started at (${x}, ${y}) with eid=${radioEid}`);
-    }
-  } catch (err) {
-    console.error("Failed to initialize radio manager:", err);
-  }
-};
-
-initRadios();
-
-process.on("SIGTERM", () => {
-  shutdownRadioManager();
-  process.exit(0);
-});
-
-process.on("SIGINT", () => {
-  shutdownRadioManager();
-  process.exit(0);
-});
 
 activeTick();

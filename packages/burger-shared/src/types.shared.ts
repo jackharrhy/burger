@@ -1,6 +1,5 @@
 export type InputCmd = {
-  seq: number; // monotonic sequence number for reconciliation
-  msec: number; // delta time in ms
+  seq: number;
   up: boolean;
   down: boolean;
   left: boolean;
@@ -19,10 +18,4 @@ export type PlayerState = {
 
 export type GameStateMessage = {
   players: PlayerState[];
-};
-
-export type SignalMessage = {
-  from: number;
-  to: number;
-  signal: unknown;
 };

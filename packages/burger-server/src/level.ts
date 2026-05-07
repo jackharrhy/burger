@@ -70,12 +70,6 @@ const parseEntities = (world: World) => {
           y: entity.__worldY,
         });
         break;
-
-      case "Radio": {
-        const radioEid = spawnRadio(world, entity.__worldX, entity.__worldY);
-        world.radioEntities.push(radioEid);
-        break;
-      }
     }
   }
 };
@@ -83,22 +77,4 @@ const parseEntities = (world: World) => {
 export const createLevel = (world: World) => {
   parseTiles(world);
   parseEntities(world);
-};
-
-export const spawnRadio = (world: World, x: number, y: number): number => {
-  const { Position, Radio, Networked, AudioEmitter } = world.components;
-
-  const eid = addEntity(world);
-
-  addComponent(world, eid, Position);
-  Position.x[eid] = x;
-  Position.y[eid] = y;
-
-  addComponent(world, eid, Radio);
-  addComponent(world, eid, Networked);
-
-  addComponent(world, eid, AudioEmitter);
-  AudioEmitter.peerId[eid] = -eid;
-
-  return eid;
 };

@@ -31,7 +31,6 @@ import {
   type InputCmd,
   type GameStateMessage,
   type PlayerState,
-  type SignalMessage,
 } from "burger-shared";
 import {
   createObserverSerializer,
@@ -42,7 +41,6 @@ import { ElysiaWS } from "elysia/ws";
 import debugFactory from "debug";
 import type { ServerWebSocket } from "elysia/ws/bun";
 import type { TypeCheck } from "elysia/type-system";
-import { notifyPlayerDisconnect } from "./radio-manager";
 
 const debug = debugFactory("burger:network.server");
 
@@ -58,7 +56,6 @@ type WS = ServerWebSocket<{
 }>;
 
 const playerConnections = new Map<WS, PlayerConnection>();
-const eidToWs = new Map<number, WS>(); // Reverse lookup for signaling
 const observerSerializers = new Map<WS, () => ArrayBuffer>();
 
 let snapshotSerializer: () => ArrayBuffer;
@@ -72,14 +69,6 @@ const gameStateBuffer = new Uint8Array(GAME_STATE_BUFFER_SIZE);
 const taggedGameStateBuffer = new Uint8Array(GAME_STATE_BUFFER_SIZE + 1);
 const taggedObserverBuffer = new Uint8Array(OBSERVER_BUFFER_SIZE + 1);
 const textEncoder = new TextEncoder();
-
-let radioSignalHandler: ((signal: SignalMessage) => void) | null = null;
-
-export const setRadioSignalHandler = (
-  handler: (signal: SignalMessage) => void,
-): void => {
-  radioSignalHandler = handler;
-};
 
 const tagMessage = (type: number, data: ArrayBuffer): ArrayBuffer => {
   const tagged = new Uint8Array(data.byteLength + 1);
@@ -131,7 +120,6 @@ export const createServer = ({
           inputQueue: [],
           lastAckedSeq: -1,
         });
-        eidToWs.set(eid, ws.raw);
 
         observerSerializers.set(
           ws.raw,
@@ -151,8 +139,6 @@ export const createServer = ({
         console.log("client disconnected");
         const connection = playerConnections.get(ws.raw);
         if (connection) {
-          eidToWs.delete(connection.eid);
-          notifyPlayerDisconnect(connection.eid);
           onPlayerLeave(connection.eid);
         }
         playerConnections.delete(ws.raw);
@@ -161,16 +147,9 @@ export const createServer = ({
 
       message(ws, message: any) {
         const connection = playerConnections.get(ws.raw);
-        if (!connection) {
-          return;
-        }
-
+        if (!connection) return;
         try {
-          if (message.type === "signal") {
-            handleSignalMessage(connection.eid, message);
-          } else {
-            handleInputMessage(connection, message);
-          }
+          handleInputMessage(connection, message);
         } catch (e) {
           console.error("Failed to parse message:", e);
         }
@@ -185,7 +164,6 @@ export const createServer = ({
 const handleInputMessage = (connection: PlayerConnection, data: any): void => {
   const cmd: InputCmd = {
     seq: data.seq,
-    msec: data.msec,
     up: data.up,
     down: data.down,
     left: data.left,
@@ -198,55 +176,6 @@ const handleInputMessage = (connection: PlayerConnection, data: any): void => {
   if (connection.inputQueue.length > 128) {
     connection.inputQueue.shift();
   }
-};
-
-const handleSignalMessage = (fromEid: number, data: any): void => {
-  const targetId = data.to as number;
-
-  const signalMsg: SignalMessage = {
-    from: fromEid,
-    to: targetId,
-    signal: data.signal,
-  };
-
-  if (targetId < 0) {
-    if (!radioSignalHandler) {
-      debug("radio signal handler not set");
-      return;
-    }
-    radioSignalHandler(signalMsg);
-    debug("forwarded signal from %s to radio %s", fromEid, targetId);
-  } else {
-    const targetWs = eidToWs.get(targetId);
-    if (!targetWs) {
-      debug("signal target not found: %s", targetId);
-      return;
-    }
-
-    const encoder = new TextEncoder();
-    const payload = encoder.encode(JSON.stringify(signalMsg)).buffer;
-    targetWs.sendBinary(tagMessage(MESSAGE_TYPES.SIGNAL, payload));
-
-    debug("relayed signal from %s to %s", fromEid, targetId);
-  }
-};
-
-export const sendSignalToPlayer = (
-  targetEid: number,
-  signal: SignalMessage,
-): void => {
-  const targetWs = eidToWs.get(targetEid);
-
-  if (!targetWs) {
-    debug("signal target not found: %s", targetEid);
-    return;
-  }
-
-  const encoder = new TextEncoder();
-  const payload = encoder.encode(JSON.stringify(signal)).buffer;
-  targetWs.sendBinary(tagMessage(MESSAGE_TYPES.SIGNAL, payload));
-
-  debug("sent signal to player %s", targetEid);
 };
 
 export const getPlayerConnections = () => playerConnections;

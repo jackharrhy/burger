@@ -7,7 +7,6 @@ import {
   applyInputToVelocity,
   moveAndSlide,
   lerp,
-  type InputCmd,
 } from "burger-shared";
 import {
   Application,
@@ -26,7 +25,6 @@ import {
   observe,
   onAdd,
   onRemove,
-  hasComponent,
 } from "bitecs";
 import {
   setupSocket,
@@ -34,6 +32,7 @@ import {
   type PositionSnapshot,
   type NetworkState,
   type PlayerIdentity,
+  type PendingInput,
 } from "./network.client";
 import {
   CAMERA_LERP_FACTOR,
@@ -43,17 +42,6 @@ import {
   INTERP_DELAY,
   ZOOM,
 } from "./consts.client";
-import {
-  type VoiceState,
-  initVoice,
-  callEmitter,
-  disconnectEmitter,
-  updateEmitterVolumes,
-  setMuted,
-  setVadEnabled,
-  setVadThreshold,
-  resetVoiceConnections,
-} from "./voice.client";
 import debugFactory from "debug";
 import { GUI } from "lil-gui";
 
@@ -101,7 +89,6 @@ type Context = {
   me: PlayerIdentity;
   network: NetworkState;
   camera: { x: number; y: number; initialized: boolean };
-  voiceState: VoiceState | null;
   metrics: {
     updatesHz: number;
     updatesCount: number;
@@ -130,44 +117,6 @@ declare global {
     context: Context;
   }
 }
-
-const setupAudioEmitterObserver = (context: Context) => {
-  const { world } = context;
-  const { AudioEmitter, Radio, RenderPosition, Position } = world.components;
-
-  observe(world, onAdd(AudioEmitter), (eid) => {
-    setTimeout(() => {
-      const peerId = AudioEmitter.peerId[eid];
-
-      if (peerId === 0) {
-        debug("audio emitter added but peerId=0, skipping: eid=%s", eid);
-        return;
-      }
-
-      if (hasComponent(world, eid, Radio)) {
-        addComponent(world, eid, RenderPosition);
-        RenderPosition.x[eid] = Position.x[eid] ?? 0;
-        RenderPosition.y[eid] = Position.y[eid] ?? 0;
-      }
-
-      if (context.voiceState) {
-        callEmitter(context.voiceState, peerId);
-      }
-
-      debug("audio emitter added: eid=%s, peerId=%s", eid, peerId);
-    }, 0);
-  });
-
-  observe(world, onRemove(AudioEmitter), (eid) => {
-    const peerId = AudioEmitter.peerId[eid];
-
-    if (context.voiceState) {
-      disconnectEmitter(context.voiceState, peerId);
-    }
-
-    debug("audio emitter removed: eid=%s, peerId=%s", eid, peerId);
-  });
-};
 
 const setupPlayerObserver = (context: Context) => {
   const { world, assets, containers } = context;
@@ -317,7 +266,7 @@ const predictionSystem = ({ world, me, network }: Context): void => {
   Position.x[eid] = newPos.x;
   Position.y[eid] = newPos.y;
 
-  const cmd: InputCmd = {
+  const cmd: PendingInput = {
     seq: network.inputSeq++,
     msec: dt,
     up: input.up,
@@ -502,26 +451,6 @@ const debugSystem = ({ world }: Context) => {
   }
 };
 
-const voiceSystem = ({ world, me, voiceState }: Context) => {
-  if (!voiceState || me.eid === null) return;
-
-  const { RenderPosition, AudioEmitter, Position } = world.components;
-  const localPos = {
-    x: RenderPosition.x[me.eid],
-    y: RenderPosition.y[me.eid],
-  };
-
-  const emitterPositions = new Map<number, { x: number; y: number }>();
-  for (const eid of query(world, [AudioEmitter])) {
-    const peerId = AudioEmitter.peerId[eid];
-    const x = RenderPosition.x[eid] ?? Position.x[eid] ?? 0;
-    const y = RenderPosition.y[eid] ?? Position.y[eid] ?? 0;
-    emitterPositions.set(peerId, { x, y });
-  }
-
-  updateEmitterVolumes(voiceState, localPos, emitterPositions);
-};
-
 const update = (context: Context) => {
   timeSystem(context);
   inputSystem(context);
@@ -533,7 +462,6 @@ const update = (context: Context) => {
   spritesSystem(context);
   metricsSystem(context);
   debugSystem(context);
-  voiceSystem(context);
 };
 
 const loadAssets = async () => {
@@ -607,10 +535,8 @@ const setupRenderer = async () => {
       bytesReceived: 0,
       lagMs: 0,
       jitterMs: 0,
-      onSignal: null,
     },
     camera: { x: 0, y: 0, initialized: false },
-    voiceState: null,
     metrics: {
       updatesHz: 0,
       updatesCount: 0,
@@ -634,7 +560,6 @@ const setupRenderer = async () => {
   };
 
   setupPlayerObserver(context);
-  setupAudioEmitterObserver(context);
   window.context = context;
 
   if (showDebug) {
@@ -658,37 +583,6 @@ const setupRenderer = async () => {
       .name("Jitter (ms)")
       .listen();
 
-    const voiceFolder = gui.addFolder("Voice Chat");
-    const voiceControls = {
-      muted: false,
-      vadEnabled: false,
-      vadThreshold: 0.02,
-    };
-    voiceFolder
-      .add(voiceControls, "muted")
-      .name("Mute")
-      .onChange((muted: boolean) => {
-        if (context.voiceState) {
-          setMuted(context.voiceState, muted);
-        }
-      });
-    voiceFolder
-      .add(voiceControls, "vadEnabled")
-      .name("Voice Activation")
-      .onChange((enabled: boolean) => {
-        if (context.voiceState) {
-          setVadEnabled(context.voiceState, enabled);
-        }
-      });
-    voiceFolder
-      .add(voiceControls, "vadThreshold", 0, 0.2)
-      .name("VAD Threshold")
-      .onChange((threshold: number) => {
-        if (context.voiceState) {
-          setVadThreshold(context.voiceState, threshold);
-        }
-      });
-
     gui.domElement.style.position = "absolute";
     gui.domElement.style.top = "10px";
     gui.domElement.style.right = "10px";
@@ -705,17 +599,6 @@ const setupRenderer = async () => {
   app.ticker.add(() => update(context));
 
   return context;
-};
-
-const callAllEmitters = (context: Context) => {
-  if (!context.voiceState) return;
-
-  const { AudioEmitter } = world.components;
-  for (const eid of query(world, [AudioEmitter])) {
-    const peerId = AudioEmitter.peerId[eid];
-    if (peerId === 0) continue;
-    callEmitter(context.voiceState, peerId);
-  }
 };
 
 const setup = async () => {
@@ -737,30 +620,13 @@ const setup = async () => {
           interact: false,
           interactPressed: false,
         };
-
-        if (context.me.serverEid !== null) {
-          context.voiceState = await initVoice(
-            context.me.serverEid,
-            context.network,
-            () => {
-              callAllEmitters(context);
-            },
-          );
-
-          callAllEmitters(context);
-        }
       }
     },
     onSnapshotReceived: () => {
       debug("snapshot received");
       createTileSprites(context);
     },
-    onSocketClose: () => {
-      debug("socket closed, cleaning up voice connections");
-      if (context.voiceState) {
-        resetVoiceConnections(context.voiceState);
-      }
-    },
+    onSocketClose: () => debug("socket closed"),
     context,
   });
 };
