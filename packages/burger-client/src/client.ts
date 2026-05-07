@@ -196,15 +196,20 @@ const createTileSprites = ({ world, assets, containers }: Context) => {
   for (const eid of query(world, [Tile, Position])) {
     if (Sprite[eid]) continue;
 
-    const tileId = Tile.type[eid];
+    const tileId = Tile.type[eid]!;
+    const texture = assets.tiles[tileId];
+    if (!texture) {
+      console.warn(`Missing tile texture for tileId=${tileId}`);
+      continue;
+    }
 
     addComponent(world, eid, Sprite);
-    const sprite = new PixiSprite(assets.tiles[tileId]);
+    const sprite = new PixiSprite(texture);
     sprite.width = TILE_SIZE;
     sprite.height = TILE_SIZE;
     sprite.anchor.set(0.5);
-    sprite.x = Position.x[eid];
-    sprite.y = Position.y[eid];
+    sprite.x = Position.x[eid]!;
+    sprite.y = Position.y[eid]!;
     containers.tiles.addChild(sprite);
     Sprite[eid] = sprite;
   }
@@ -247,8 +252,8 @@ const predictionSystem = ({ world, me, network }: Context): void => {
   if (!input) return;
 
   const newVel = applyInputToVelocity(
-    Velocity.x[eid],
-    Velocity.y[eid],
+    Velocity.x[eid]!,
+    Velocity.y[eid]!,
     input,
     dt,
   );
@@ -257,10 +262,10 @@ const predictionSystem = ({ world, me, network }: Context): void => {
 
   const newPos = moveAndSlide(
     world,
-    Position.x[eid],
-    Position.y[eid],
-    Velocity.x[eid],
-    Velocity.y[eid],
+    Position.x[eid]!,
+    Position.y[eid]!,
+    Velocity.x[eid]!,
+    Velocity.y[eid]!,
     dt,
   );
   Position.x[eid] = newPos.x;
@@ -332,25 +337,25 @@ const interpolationSystem = ({ world, me, network }: Context) => {
 
   for (const eid of query(world, [Position, RenderPosition, PositionHistory])) {
     if (eid === localEid) {
-      RenderPosition.x[eid] = Position.x[eid] + network.predictionError.x;
-      RenderPosition.y[eid] = Position.y[eid] + network.predictionError.y;
+      RenderPosition.x[eid] = Position.x[eid]! + network.predictionError.x;
+      RenderPosition.y[eid] = Position.y[eid]! + network.predictionError.y;
       continue;
     }
 
     const history = PositionHistory[eid];
     if (!history || history.length === 0) {
-      RenderPosition.x[eid] = Position.x[eid];
-      RenderPosition.y[eid] = Position.y[eid];
+      RenderPosition.x[eid] = Position.x[eid]!;
+      RenderPosition.y[eid] = Position.y[eid]!;
       continue;
     }
 
-    const oldest = history[0];
-    const newest = history[history.length - 1];
+    const oldest = history[0]!;
+    const newest = history[history.length - 1]!;
 
     if (renderTime >= newest.time) {
       const dt = renderTime - newest.time;
-      RenderPosition.x[eid] = newest.x + Velocity.x[eid] * dt;
-      RenderPosition.y[eid] = newest.y + Velocity.y[eid] * dt;
+      RenderPosition.x[eid] = newest.x + Velocity.x[eid]! * dt;
+      RenderPosition.y[eid] = newest.y + Velocity.y[eid]! * dt;
       continue;
     }
 
@@ -363,9 +368,11 @@ const interpolationSystem = ({ world, me, network }: Context) => {
     let p1 = oldest;
     let p2 = oldest;
     for (let i = 0; i < history.length - 1; i++) {
-      if (history[i].time <= renderTime && history[i + 1].time >= renderTime) {
-        p1 = history[i];
-        p2 = history[i + 1];
+      const a = history[i]!;
+      const b = history[i + 1]!;
+      if (a.time <= renderTime && b.time >= renderTime) {
+        p1 = a;
+        p2 = b;
         break;
       }
     }
@@ -381,8 +388,8 @@ const cameraSystem = ({ world, app, containers, me, camera }: Context) => {
   if (me.eid === null) return;
 
   const { RenderPosition } = world.components;
-  const px = RenderPosition.x[me.eid];
-  const py = RenderPosition.y[me.eid];
+  const px = RenderPosition.x[me.eid]!;
+  const py = RenderPosition.y[me.eid]!;
 
   if (!camera.initialized) {
     camera.x = px;
@@ -418,8 +425,8 @@ const spritesSystem = ({ world }: Context) => {
   for (const eid of query(world, [RenderPosition, Sprite])) {
     const sprite = Sprite[eid];
     if (!sprite) continue;
-    sprite.x = RenderPosition.x[eid];
-    sprite.y = RenderPosition.y[eid];
+    sprite.x = RenderPosition.x[eid]!;
+    sprite.y = RenderPosition.y[eid]!;
   }
 };
 
@@ -446,8 +453,8 @@ const debugSystem = ({ world }: Context) => {
     }
 
     debugText.text = text;
-    debugText.x = RenderPosition.x[eid];
-    debugText.y = RenderPosition.y[eid] + PLAYER_SIZE / 2 + 4;
+    debugText.x = RenderPosition.x[eid]!;
+    debugText.y = RenderPosition.y[eid]! + PLAYER_SIZE / 2 + 4;
   }
 };
 

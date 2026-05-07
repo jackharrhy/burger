@@ -22,8 +22,8 @@ export const moveAndSlide = (
 
   const hasCollision = (px: number, py: number): boolean => {
     for (const eid of solidEntities) {
-      const tileX = Position.x[eid];
-      const tileY = Position.y[eid];
+      const tileX = Position.x[eid]!;
+      const tileY = Position.y[eid]!;
       const overlapX = HALF_PLAYER + HALF_TILE - Math.abs(px - tileX);
       const overlapY = HALF_PLAYER + HALF_TILE - Math.abs(py - tileY);
       if (overlapX > 0 && overlapY > 0) return true;
@@ -48,8 +48,8 @@ export const moveAndSlide = (
   }
 
   for (const eid of solidEntities) {
-    const tileX = Position.x[eid];
-    const tileY = Position.y[eid];
+    const tileX = Position.x[eid]!;
+    const tileY = Position.y[eid]!;
     const overlapX = HALF_PLAYER + HALF_TILE - Math.abs(newX - tileX);
     const overlapY = HALF_PLAYER + HALF_TILE - Math.abs(newY - tileY);
     if (overlapX > 0 && overlapY > 0) {
@@ -77,8 +77,8 @@ export const moveAndSlide = (
   }
 
   for (const eid of solidEntities) {
-    const tileX = Position.x[eid];
-    const tileY = Position.y[eid];
+    const tileX = Position.x[eid]!;
+    const tileY = Position.y[eid]!;
     const overlapX = HALF_PLAYER + HALF_TILE - Math.abs(newX - tileX);
     const overlapY = HALF_PLAYER + HALF_TILE - Math.abs(newY - tileY);
     if (overlapX > 0 && overlapY > 0) {

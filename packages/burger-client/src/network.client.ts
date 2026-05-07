@@ -140,7 +140,7 @@ export const setupSocket = ({
 
         case MESSAGE_TYPES.YOUR_EID: {
           const view = new Int32Array(payload);
-          me.serverEid = view[0];
+          me.serverEid = view[0]!;
           break;
         }
       }
@@ -199,7 +199,7 @@ export const sendInputs = (
     }, delay);
   }
 
-  network.lastSentSeq = unsentInputs[unsentInputs.length - 1].seq;
+  network.lastSentSeq = unsentInputs[unsentInputs.length - 1]!.seq;
   if (metrics) metrics.updatesCount++;
 };
 
@@ -220,12 +220,12 @@ export const reconcile = (
     const isLocalPlayer = serverEid === me.serverEid;
 
     if (isLocalPlayer && me.eid !== null) {
-      const predictedX = Position.x[eid];
-      const predictedY = Position.y[eid];
+      const predictedX = Position.x[eid]!;
+      const predictedY = Position.y[eid]!;
 
       while (
         pendingInputs.length > 0 &&
-        pendingInputs[0].seq <= playerState.lastInputSeq
+        pendingInputs[0]!.seq <= playerState.lastInputSeq
       ) {
         pendingInputs.shift();
       }
@@ -237,8 +237,8 @@ export const reconcile = (
 
       for (const cmd of pendingInputs) {
         const newVel = applyInputToVelocity(
-          Velocity.x[eid],
-          Velocity.y[eid],
+          Velocity.x[eid]!,
+          Velocity.y[eid]!,
           cmd,
           cmd.msec,
         );
@@ -247,18 +247,18 @@ export const reconcile = (
 
         const newPos = moveAndSlide(
           world,
-          Position.x[eid],
-          Position.y[eid],
-          Velocity.x[eid],
-          Velocity.y[eid],
+          Position.x[eid]!,
+          Position.y[eid]!,
+          Velocity.x[eid]!,
+          Velocity.y[eid]!,
           cmd.msec,
         );
         Position.x[eid] = newPos.x;
         Position.y[eid] = newPos.y;
       }
 
-      const errorX = predictedX - Position.x[eid];
-      const errorY = predictedY - Position.y[eid];
+      const errorX = predictedX - Position.x[eid]!;
+      const errorY = predictedY - Position.y[eid]!;
       const errorLen = Math.abs(errorX) + Math.abs(errorY);
 
       if (errorLen > TELEPORT_THRESHOLD) {
@@ -280,7 +280,7 @@ export const reconcile = (
         history.push({ x: playerState.x, y: playerState.y, time: now });
 
         const cutoffTime = now - INTERP_HISTORY_MS;
-        while (history.length > 2 && history[0].time < cutoffTime) {
+        while (history.length > 2 && history[0]!.time < cutoffTime) {
           history.shift();
         }
       }
