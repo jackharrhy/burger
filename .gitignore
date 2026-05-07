@@ -3,6 +3,5 @@ node_modules
 bitECS
 tmp
 
-*.pcm
-*.mp3
 burger.json
+v3

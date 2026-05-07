@@ -35,7 +35,6 @@ import {
   moveAndSlide,
   type InputCmd,
   type GameStateMessage,
-  type SignalMessage,
   CLIENT_UPDATE_RATE,
 } from "burger-shared";
 import {
@@ -47,18 +46,22 @@ import type { World } from "./client";
 
 export type PositionSnapshot = { x: number; y: number; time: number };
 
+// Local-only extension of InputCmd. Carries the dt used during client-side prediction
+// so reconcile() can replay unacked inputs with the same timestep. The server ignores
+// any msec field; Task 4 will strip it from the wire entirely.
+export type PendingInput = InputCmd & { msec: number };
+
 export type NetworkState = {
   socket: WebSocket | null;
   inputSeq: number;
   lastSentSeq: number;
-  pendingInputs: InputCmd[];
+  pendingInputs: PendingInput[];
   predictionError: { x: number; y: number };
   idMap: Map<number, number>; // Server EID -> Client EID
   bytesSent: number;
   bytesReceived: number;
   lagMs: number;
   jitterMs: number;
-  onSignal: ((signal: SignalMessage) => void) | null;
 };
 
 export type PlayerIdentity = {
@@ -140,16 +143,6 @@ export const setupSocket = ({
           me.serverEid = view[0];
           break;
         }
-
-        case MESSAGE_TYPES.SIGNAL: {
-          const decoder = new TextDecoder();
-          const json = decoder.decode(payload);
-          const signal = JSON.parse(json) as SignalMessage;
-          if (network.onSignal) {
-            network.onSignal(signal);
-          }
-          break;
-        }
       }
     }, delay);
   });
@@ -180,19 +173,6 @@ const tryMapLocalPlayer = (
 };
 
 let lastSendTime = 0;
-
-export const sendSignal = (
-  network: NetworkState,
-  to: number,
-  signal: unknown,
-): void => {
-  const { socket } = network;
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
-
-  const msg = JSON.stringify({ type: "signal", to, signal });
-  socket.send(msg);
-  network.bytesSent += msg.length;
-};
 
 export const sendInputs = (
   network: NetworkState,
