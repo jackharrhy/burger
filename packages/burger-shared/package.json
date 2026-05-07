@@ -8,9 +8,15 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "bun test"
+  },
   "peerDependencies": {
     "debug": "^4.4.3",
     "bitecs": "^0.4.0",
-    "typescript": "^5"
+    "typescript": "^6"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13"
   }
 }

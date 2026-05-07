@@ -37,7 +37,6 @@ import {
   createSnapshotSerializer,
 } from "bitecs/serialization";
 import type { World } from "./server";
-import { ElysiaWS } from "elysia/ws";
 import debugFactory from "debug";
 import type { ServerWebSocket } from "elysia/ws/bun";
 import type { TypeCheck } from "elysia/type-system";
@@ -181,7 +180,7 @@ const handleInputMessage = (connection: PlayerConnection, data: any): void => {
 export const getPlayerConnections = () => playerConnections;
 
 export const processPlayerInputs = (
-  world: World,
+  _world: World,
   applyInput: (eid: number, cmd: InputCmd) => void,
 ): void => {
   for (const [_ws, connection] of playerConnections) {

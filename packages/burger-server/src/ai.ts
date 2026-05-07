@@ -1,5 +1,5 @@
 import invariant from "tiny-invariant";
-import { addEntity, addComponent } from "bitecs";
+import { addComponent } from "bitecs";
 import { moveAndSlide } from "burger-shared";
 import type { World } from "./server";
 import { createPlayer } from "./players";
