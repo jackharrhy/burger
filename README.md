@@ -26,6 +26,33 @@ packages/
 - `pnpm`
 - `bun`
 
+## Auth
+
+burger uses [4orm](https://github.com/jackharrhy/4orm) for OAuth. All WebSocket connections require a valid session — anonymous play is not supported.
+
+Before running the server, register burger as an OAuth client in 4orm's `oauth2_clients.toml`:
+
+```toml
+[clients.burger]
+client_name = "burger"
+redirect_uris = [
+    "http://big.burger.beauty/auth/4orm/callback",
+    "http://localhost:5000/auth/4orm/callback",
+]
+scope = "openid profile"
+```
+
+Set env vars when running the server:
+
+```
+FOURM_URL=https://4orm.jackharrhy.dev   # base URL of 4orm
+FOURM_CLIENT_ID=burger
+BURGER_URL=http://localhost:5000        # base URL of burger (production: http://big.burger.beauty)
+DB_PATH=./data/burger.db                # default; SQLite path for users/sessions
+```
+
+The first user signing in inherits their `is_admin` flag from 4orm. Sessions persist in SQLite for 30 days.
+
 ## Scripts (root)
 
 ```bash
