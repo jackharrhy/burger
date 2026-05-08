@@ -68,3 +68,39 @@ test("free movement with no obstacles advances normally", () => {
   expect(out.x).toBe(10);
   expect(out.y).toBe(10);
 });
+
+test("moveAndSlide clamps player to right boundary", () => {
+  const world = createSharedWorld({});
+  world.bounds = { x: 0, y: 0, w: 320, h: 320 };
+  const out = moveAndSlide(world, 300, 100, 1, 0, 100);
+  expect(out.x).toBeLessThanOrEqual(320 - PLAYER_SIZE / 2);
+});
+
+test("moveAndSlide clamps player to left boundary", () => {
+  const world = createSharedWorld({});
+  world.bounds = { x: 0, y: 0, w: 320, h: 320 };
+  const out = moveAndSlide(world, 5, 100, -1, 0, 100);
+  expect(out.x).toBeGreaterThanOrEqual(PLAYER_SIZE / 2);
+});
+
+test("moveAndSlide clamps player to top boundary", () => {
+  const world = createSharedWorld({});
+  world.bounds = { x: 0, y: 0, w: 320, h: 320 };
+  const out = moveAndSlide(world, 100, 5, 0, -1, 100);
+  expect(out.y).toBeGreaterThanOrEqual(PLAYER_SIZE / 2);
+});
+
+test("moveAndSlide clamps player to bottom boundary", () => {
+  const world = createSharedWorld({});
+  world.bounds = { x: 0, y: 0, w: 320, h: 320 };
+  const out = moveAndSlide(world, 100, 300, 0, 1, 100);
+  expect(out.y).toBeLessThanOrEqual(320 - PLAYER_SIZE / 2);
+});
+
+test("moveAndSlide with zero bounds applies no clamp (degenerate)", () => {
+  const world = createSharedWorld({});
+  // Default bounds are 0,0,0,0 — clamp is a no-op.
+  const out = moveAndSlide(world, 1000, 1000, 1, 1, 100);
+  expect(out.x).toBe(1100);
+  expect(out.y).toBe(1100);
+});

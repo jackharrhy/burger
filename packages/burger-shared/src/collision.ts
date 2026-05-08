@@ -93,5 +93,21 @@ export const moveAndSlide = (
     }
   }
 
-  return { x: newX, y: newY };
+  // Clamp to world bounds (the "minecraft border" hard wall).
+  // Skip when bounds are degenerate (w=0 or h=0) so callers without bounds
+  // configured behave as before.
+  let clampedX = newX;
+  let clampedY = newY;
+  if (world.bounds.w > 0) {
+    const minX = world.bounds.x + HALF_PLAYER;
+    const maxX = world.bounds.x + world.bounds.w - HALF_PLAYER;
+    clampedX = Math.max(minX, Math.min(maxX, newX));
+  }
+  if (world.bounds.h > 0) {
+    const minY = world.bounds.y + HALF_PLAYER;
+    const maxY = world.bounds.y + world.bounds.h - HALF_PLAYER;
+    clampedY = Math.max(minY, Math.min(maxY, newY));
+  }
+
+  return { x: clampedX, y: clampedY };
 };
