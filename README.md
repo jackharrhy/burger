@@ -36,19 +36,20 @@ Before running the server, register burger as an OAuth client in 4orm's `oauth2_
 [clients.burger]
 client_name = "burger"
 redirect_uris = [
-    "http://big.burger.beauty/auth/4orm/callback",
+    "https://big.burger.beauty/auth/4orm/callback",
     "http://localhost:5000/auth/4orm/callback",
 ]
 scope = "openid profile"
 ```
 
-Set env vars when running the server:
+Configure burger via a root-level `.env` file (gitignored). See `.env.example` for the full list of variables. Defaults for local development:
 
 ```
-FOURM_URL=https://4orm.jackharrhy.dev   # base URL of 4orm
+FOURM_URL=https://4orm.harrhy.xyz
 FOURM_CLIENT_ID=burger
-BURGER_URL=http://localhost:5000        # base URL of burger (production: http://big.burger.beauty)
-DB_PATH=./data/burger.db                # default; SQLite path for users/sessions
+BURGER_URL=http://localhost:5000
+DB_PATH=./data/burger.db
+NODE_ENV=development
 ```
 
 The first user signing in inherits their `is_admin` flag from 4orm. Sessions persist in SQLite for 30 days.
