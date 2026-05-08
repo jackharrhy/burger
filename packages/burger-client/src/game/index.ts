@@ -70,6 +70,7 @@ const makeWorld = () =>
         interactPressed: boolean;
       }[],
       Sprite: [] as (PixiSprite | null)[],
+      NameText: [] as (PixiText | null)[],
       DebugText: [] as (PixiText | null)[],
       RenderPosition: { x: [] as number[], y: [] as number[] },
       PositionHistory: [] as PositionSnapshot[][],
@@ -135,6 +136,7 @@ const setupPlayerObserver = (context: Context) => {
   const {
     Player,
     Sprite,
+    NameText,
     DebugText,
     Velocity,
     RenderPosition,
@@ -161,11 +163,25 @@ const setupPlayerObserver = (context: Context) => {
     addComponent(world, eid, PositionHistory);
     PositionHistory[eid] = [];
 
+    // Player nametag (always on; renders the 4orm displayName above the head).
+    addComponent(world, eid, NameText);
+    const nameText = new PixiText({
+      text: "",
+      style: { fontFamily: "monospace", fontSize: 10, fill: 0xffffff },
+      // Rasterise at the on-screen pixel size so the glyph atlas stays
+      // crisp inside the ZOOM-scaled main container.
+      resolution: ZOOM * (window.devicePixelRatio || 1),
+    });
+    nameText.anchor.set(0.5, 1);
+    containers.debug.addChild(nameText);
+    NameText[eid] = nameText;
+
     if (showDebug) {
       addComponent(world, eid, DebugText);
       const debugText = new PixiText({
         text: "",
         style: { fontFamily: "monospace", fontSize: 12, fill: 0x000000 },
+        resolution: ZOOM * (window.devicePixelRatio || 1),
       });
       debugText.anchor.set(0.5, 0);
       containers.debug.addChild(debugText);
@@ -181,6 +197,13 @@ const setupPlayerObserver = (context: Context) => {
       containers.entities.removeChild(sprite);
       sprite.destroy();
       delete Sprite[eid];
+    }
+
+    const nameText = NameText[eid];
+    if (nameText) {
+      containers.debug.removeChild(nameText);
+      nameText.destroy();
+      delete NameText[eid];
     }
 
     if (showDebug) {
@@ -474,10 +497,24 @@ const spritesSystem = ({ world }: Context) => {
   }
 };
 
+const nameSystem = ({ world }: Context) => {
+  const { Player, RenderPosition, NameText } = world.components;
+
+  for (const eid of query(world, [RenderPosition, NameText])) {
+    const nameText = NameText[eid];
+    if (!nameText) continue;
+
+    const playerName = Player.name[eid];
+    nameText.text = playerName ?? "";
+    nameText.x = RenderPosition.x[eid]!;
+    nameText.y = RenderPosition.y[eid]! - PLAYER_SIZE / 2 - 2;
+  }
+};
+
 const debugSystem = ({ world }: Context) => {
   if (!showDebug) return;
 
-  const { Player, RenderPosition, Velocity, DebugText } = world.components;
+  const { RenderPosition, Velocity, DebugText } = world.components;
 
   for (const eid of query(world, [RenderPosition, Velocity, DebugText])) {
     const debugText = DebugText[eid];
@@ -488,15 +525,7 @@ const debugSystem = ({ world }: Context) => {
     const vx = (Velocity.x[eid] ?? 0).toFixed(2);
     const vy = (Velocity.y[eid] ?? 0).toFixed(2);
 
-    let text = `pos: (${px}, ${py})\nvel: (${vx}, ${vy})`;
-
-    const playerName = Player.name[eid];
-
-    if (playerName) {
-      text = `name: ${playerName}\n${text}`;
-    }
-
-    debugText.text = text;
+    debugText.text = `pos: (${px}, ${py})\nvel: (${vx}, ${vy})`;
     debugText.x = RenderPosition.x[eid]!;
     debugText.y = RenderPosition.y[eid]! + PLAYER_SIZE / 2 + 4;
   }
@@ -518,6 +547,7 @@ const update = (context: Context) => {
   tileSpriteSystem(context);
   spritesSystem(context);
   metricsSystem(context);
+  nameSystem(context);
   debugSystem(context);
   editorSystem(context);
 };
@@ -566,6 +596,8 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
       resizeTo: window,
       roundPixels: true,
       antialias: false,
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true,
     });
 
     if (!isRunning) {
