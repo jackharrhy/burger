@@ -2,10 +2,12 @@ node_modules
 .DS_Store
 bitECS
 tmp
-
-burger.json
 v3
 data/
 .env
 .env.*
 !.env.example
+
+# Local LDtk export, used by the one-off `scripts/import-ldtk.ts` to seed
+# a fresh DB. Not committed; the import is an optional bootstrap.
+packages/burger-server/src/burger.json
