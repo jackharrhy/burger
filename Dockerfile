@@ -7,5 +7,6 @@ RUN npm install -g bun
 RUN pnpm install
 RUN pnpm run build-frontend
 RUN pnpm run copy-frontend
+RUN mkdir -p /app/data
 EXPOSE 5000
 CMD ["pnpm", "run", "prod:server"]
