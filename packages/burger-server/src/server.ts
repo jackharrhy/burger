@@ -31,7 +31,7 @@ const activeTick = () => {
 
   updateAiPlayers(world, SERVER_TICK_RATE_MS);
 
-  processPlayerInputs(world, (eid, cmd) => {
+  processPlayerInputs((eid, cmd) => {
     invariant(Velocity.x[eid] !== undefined);
     invariant(Velocity.y[eid] !== undefined);
     invariant(Position.x[eid] !== undefined);

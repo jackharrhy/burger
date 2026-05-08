@@ -3,12 +3,14 @@
  * single source of truth for all game state.
  *
  * 1. INPUT PROCESSING
- *    Clients send input commands
- *    The server queues these and processes them each tick.
+ *    Clients send input commands. The server validates each one (see
+ *    input-validation.ts), rejects malformed/replayed messages, and
+ *    queues up to 128 deep per connection. Each tick processes at most
+ *    MAX_INPUTS_PER_TICK so a flooding client cannot speed-hack.
  *    Each input has a sequence number for acknowledgment.
  *
  * 2. AUTHORITATIVE PHYSICS
- *    The server runs physics at (TICK_RATE)hz.
+ *    The server runs physics at (TICK_RATE)hz at fixed SERVER_TICK_RATE_MS dt.
  *    All position/velocity updates happen here.
  *
  * 3. STATE BROADCAST
@@ -20,14 +22,18 @@
  *    - SNAPSHOT: Full world state sent on connect
  *    - OBSERVER: Delta updates for entity add/remove
  *    - GAME_STATE: Authoritative positions
+ *    - YOUR_EID: Sent on connect with [PROTOCOL_VERSION, eid]; clients
+ *      verify the version and disconnect on mismatch.
  */
 
 import { existsSync, mkdirSync } from "node:fs";
 import { Elysia, file, type TSchema } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
 import {
+  MAX_INPUTS_PER_TICK,
   MESSAGE_TYPES,
   networkedComponents,
+  PROTOCOL_VERSION,
   type InputCmd,
   type GameStateMessage,
   type PlayerState,
@@ -40,6 +46,7 @@ import type { World } from "./server";
 import debugFactory from "debug";
 import type { ServerWebSocket } from "elysia/ws/bun";
 import type { TypeCheck } from "elysia/type-system";
+import { validateInput } from "./input-validation";
 
 const debug = debugFactory("burger:network.server");
 
@@ -47,6 +54,7 @@ export type PlayerConnection = {
   eid: number;
   inputQueue: InputCmd[];
   lastAckedSeq: number;
+  lastReceivedSeq: number;
 };
 
 type WS = ServerWebSocket<{
@@ -118,6 +126,7 @@ export const createServer = ({
           eid,
           inputQueue: [],
           lastAckedSeq: -1,
+          lastReceivedSeq: -1,
         });
 
         observerSerializers.set(
@@ -129,7 +138,10 @@ export const createServer = ({
 
         debug("sending eid & snapshot");
         ws.sendBinary(
-          tagMessage(MESSAGE_TYPES.YOUR_EID, new Int32Array([eid]).buffer),
+          tagMessage(
+            MESSAGE_TYPES.YOUR_EID,
+            new Int32Array([PROTOCOL_VERSION, eid]).buffer,
+          ),
         );
         ws.sendBinary(tagMessage(MESSAGE_TYPES.SNAPSHOT, snapshotSerializer()));
       },
@@ -160,38 +172,29 @@ export const createServer = ({
   return app;
 };
 
-const handleInputMessage = (connection: PlayerConnection, data: any): void => {
-  const cmd: InputCmd = {
-    seq: data.seq,
-    up: data.up,
-    down: data.down,
-    left: data.left,
-    right: data.right,
-    interact: data.interact,
-  };
-
+const handleInputMessage = (
+  connection: PlayerConnection,
+  data: unknown,
+): void => {
+  const cmd = validateInput(data, connection.lastReceivedSeq);
+  if (!cmd) return;
+  connection.lastReceivedSeq = cmd.seq;
   connection.inputQueue.push(cmd);
-
-  if (connection.inputQueue.length > 128) {
-    connection.inputQueue.shift();
-  }
+  while (connection.inputQueue.length > 128) connection.inputQueue.shift();
 };
 
 export const getPlayerConnections = () => playerConnections;
 
 export const processPlayerInputs = (
-  _world: World,
   applyInput: (eid: number, cmd: InputCmd) => void,
 ): void => {
-  for (const [_ws, connection] of playerConnections) {
+  for (const [, connection] of playerConnections) {
     const { eid, inputQueue } = connection;
-
-    for (const cmd of inputQueue) {
+    const toProcess = inputQueue.splice(0, MAX_INPUTS_PER_TICK);
+    for (const cmd of toProcess) {
       applyInput(eid, cmd);
       connection.lastAckedSeq = cmd.seq;
     }
-
-    connection.inputQueue = [];
   }
 };
 

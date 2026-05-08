@@ -12,8 +12,11 @@
  * When server state arrives, the client:
  * - Discards acknowledged inputs
  * - Resets to server position
- * - Replays unacknowledged inputs
+ * - Replays unacknowledged inputs at fixed SERVER_TICK_RATE_MS
  * - Smooths any prediction error over time
+ *
+ * (Prediction itself uses real frame dt for responsive feel; only
+ * reconciliation replay uses fixed dt to match server semantics.)
  *
  * INTERPOLATION
  * Remote players are rendered with a delay (INTERP_DELAY), interpolating
@@ -22,7 +25,8 @@
  *
  * Message Flow:
  *   Client -> Server: INPUT (input commands at (CLIENT_UPDATE_RATE)Hz
- *   Server -> Client: YOUR_EID (on connect, tells client their entity ID)
+ *   Server -> Client: YOUR_EID  (on connect, [PROTOCOL_VERSION, eid];
+ *                                client disconnects on version mismatch)
  *   Server -> Client: SNAPSHOT (initial world state)
  *   Server -> Client: OBSERVER (entity add/remove deltas)
  *   Server -> Client: GAME_STATE (authoritative positions at (TICK_RATE)Hz)
@@ -36,6 +40,8 @@ import {
   type InputCmd,
   type GameStateMessage,
   CLIENT_UPDATE_RATE,
+  PROTOCOL_VERSION,
+  SERVER_TICK_RATE_MS,
 } from "burger-shared";
 import {
   createObserverDeserializer,
@@ -46,16 +52,11 @@ import type { World } from "./client";
 
 export type PositionSnapshot = { x: number; y: number; time: number };
 
-// Local-only extension of InputCmd. Carries the dt used during client-side prediction
-// so reconcile() can replay unacked inputs with the same timestep. The server ignores
-// any msec field; Task 4 will strip it from the wire entirely.
-export type PendingInput = InputCmd & { msec: number };
-
 export type NetworkState = {
   socket: WebSocket | null;
   inputSeq: number;
   lastSentSeq: number;
-  pendingInputs: PendingInput[];
+  pendingInputs: InputCmd[];
   predictionError: { x: number; y: number };
   idMap: Map<number, number>; // Server EID -> Client EID
   bytesSent: number;
@@ -140,7 +141,15 @@ export const setupSocket = ({
 
         case MESSAGE_TYPES.YOUR_EID: {
           const view = new Int32Array(payload);
-          me.serverEid = view[0]!;
+          const version = view[0];
+          if (version !== PROTOCOL_VERSION) {
+            console.error(
+              `Protocol version mismatch: server=${version} client=${PROTOCOL_VERSION}`,
+            );
+            network.socket?.close();
+            return;
+          }
+          me.serverEid = view[1]!;
           break;
         }
       }
@@ -191,7 +200,15 @@ export const sendInputs = (
   if (unsentInputs.length === 0) return;
 
   for (const cmd of unsentInputs) {
-    const msg = JSON.stringify({ type: "input", ...cmd });
+    const msg = JSON.stringify({
+      type: "input",
+      seq: cmd.seq,
+      up: cmd.up,
+      down: cmd.down,
+      left: cmd.left,
+      right: cmd.right,
+      interact: cmd.interact,
+    });
     const delay = network.lagMs + Math.random() * network.jitterMs;
     setTimeout(() => {
       network.bytesSent += msg.length;
@@ -240,7 +257,7 @@ export const reconcile = (
           Velocity.x[eid]!,
           Velocity.y[eid]!,
           cmd,
-          cmd.msec,
+          SERVER_TICK_RATE_MS,
         );
         Velocity.x[eid] = newVel.vx;
         Velocity.y[eid] = newVel.vy;
@@ -251,7 +268,7 @@ export const reconcile = (
           Position.y[eid]!,
           Velocity.x[eid]!,
           Velocity.y[eid]!,
-          cmd.msec,
+          SERVER_TICK_RATE_MS,
         );
         Position.x[eid] = newPos.x;
         Position.y[eid] = newPos.y;

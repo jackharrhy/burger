@@ -7,6 +7,7 @@ import {
   applyInputToVelocity,
   moveAndSlide,
   lerp,
+  type InputCmd,
 } from "burger-shared";
 import {
   Application,
@@ -32,7 +33,6 @@ import {
   type PositionSnapshot,
   type NetworkState,
   type PlayerIdentity,
-  type PendingInput,
 } from "./network.client";
 import {
   CAMERA_LERP_FACTOR,
@@ -271,9 +271,8 @@ const predictionSystem = ({ world, me, network }: Context): void => {
   Position.x[eid] = newPos.x;
   Position.y[eid] = newPos.y;
 
-  const cmd: PendingInput = {
+  const cmd: InputCmd = {
     seq: network.inputSeq++,
-    msec: dt,
     up: input.up,
     down: input.down,
     left: input.left,
