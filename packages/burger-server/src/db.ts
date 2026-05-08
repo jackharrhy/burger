@@ -26,6 +26,46 @@ export const runMigrations = (db: Database): void => {
   `);
 
   db.run(`CREATE INDEX IF NOT EXISTS sessions_user_id ON sessions(user_id)`);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS tile_catalog (
+      id INTEGER PRIMARY KEY,
+      type TEXT NOT NULL,
+      src_x INTEGER NOT NULL,
+      src_y INTEGER NOT NULL,
+      label TEXT NOT NULL
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS tiles (
+      x INTEGER NOT NULL,
+      y INTEGER NOT NULL,
+      tile_id INTEGER NOT NULL REFERENCES tile_catalog(id),
+      PRIMARY KEY (x, y)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS tile_edits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      x INTEGER NOT NULL,
+      y INTEGER NOT NULL,
+      old_tile_id INTEGER,
+      new_tile_id INTEGER,
+      user_id TEXT REFERENCES users(id),
+      edited_at INTEGER NOT NULL
+    )
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS tile_edits_pos ON tile_edits(x, y)`);
+  db.run(`CREATE INDEX IF NOT EXISTS tile_edits_time ON tile_edits(edited_at)`);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `);
 };
 
 export const openDatabase = (path?: string): Database => {
