@@ -22,6 +22,10 @@ export const MESSAGE_TYPES = {
   // just announced. Used for static entities (tiles) where field data
   // doesn't otherwise stream via GAME_STATE.
   SOA: 9,
+  // Broadcast when an admin saves or renames a catalog entry. Payload is
+  // the new catalog as a JSON array (same shape as GET /api/catalog).
+  // Clients refetch and update their local atlas + editor + world.catalog.
+  CATALOG_UPDATED: 10,
 } as const;
 
 export const TILE_TYPES = {
