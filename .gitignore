@@ -5,3 +5,6 @@ tmp
 
 burger.json
 v3
+
+# Local sqlite db (created by openDatabase at runtime)
+packages/burger-server/data/
