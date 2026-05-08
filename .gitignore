@@ -6,3 +6,6 @@ tmp
 burger.json
 v3
 data/
+.env
+.env.*
+!.env.example

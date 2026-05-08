@@ -86,9 +86,9 @@ Pure-mirror of `artbin/.../auth.4orm.tsx` and `auth.4orm.callback.tsx`, ported f
 
 ```
 DB_PATH=./data/burger.db                          # default; configurable
-FOURM_URL=https://4orm.jackharrhy.dev             # 4orm base URL
+FOURM_URL=https://4orm.harrhy.xyz             # 4orm base URL
 FOURM_CLIENT_ID=burger
-BURGER_URL=http://big.burger.beauty               # production base URL
+BURGER_URL=https://big.burger.beauty               # production base URL
 NODE_ENV=production                               # affects cookie Secure flag
 ```
 
@@ -108,7 +108,7 @@ Maintainer must add to `/Users/jack/repos/personal/4orm/oauth2_clients.toml` and
 [clients.burger]
 client_name = "burger"
 redirect_uris = [
-    "http://big.burger.beauty/auth/4orm/callback",
+    "https://big.burger.beauty/auth/4orm/callback",
     "http://localhost:5000/auth/4orm/callback",
 ]
 scope = "openid profile"

@@ -8,6 +8,6 @@ services:
     environment:
       - NODE_ENV=production
       - DB_PATH=/app/data/burger.db
-      - FOURM_URL=https://4orm.jackharrhy.dev
+      - FOURM_URL=https://4orm.harrhy.xyz
       - FOURM_CLIENT_ID=burger
-      - BURGER_URL=http://big.burger.beauty
+      - BURGER_URL=https://big.burger.beauty
