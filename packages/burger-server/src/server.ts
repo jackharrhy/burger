@@ -1,7 +1,6 @@
 import invariant from "tiny-invariant";
 import {
   applyInputToVelocity,
-  createSharedWorld,
   moveAndSlide,
   type PlayerState,
   SERVER_TICK_RATE_MS,
@@ -14,17 +13,16 @@ import {
   broadcastGameState,
 } from "./network.server";
 import { spawnAiPlayers, updateAiPlayers, getAiEntities } from "./ai";
-import { createLevel } from "./level";
 import { createPlayer } from "./players";
 import { openDatabase } from "./db";
 import { loadAuthConfig } from "./auth/config";
+import { initWorld } from "./world";
 
-const world = createSharedWorld({
-  playerSpawns: [] as { x: number; y: number }[],
-  typeIdToAtlasSrc: {} as Record<number, [number, number]>,
-});
+const db = openDatabase();
+const authConfig = loadAuthConfig();
+const world = initWorld(db);
 
-export type World = typeof world;
+export type { World } from "./world";
 
 let isIdle = false;
 
@@ -125,9 +123,6 @@ const idleTick = () => {
 
 const SERVER_PORT = 5000;
 
-const db = openDatabase();
-const authConfig = loadAuthConfig();
-
 createServer({
   port: SERVER_PORT,
   world,
@@ -137,7 +132,6 @@ createServer({
   onPlayerLeave: (eid) => removeEntity(world, eid),
 });
 
-createLevel(world);
 spawnAiPlayers(world);
 
 activeTick();

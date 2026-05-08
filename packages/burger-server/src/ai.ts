@@ -1,7 +1,7 @@
 import invariant from "tiny-invariant";
 import { addComponent } from "bitecs";
 import { moveAndSlide } from "burger-shared";
-import type { World } from "./server";
+import type { World } from "./world";
 import { createPlayer } from "./players";
 
 const AI_COUNT = 10;
