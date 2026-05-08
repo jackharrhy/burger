@@ -249,8 +249,7 @@ test("malicious client cannot speed-hack via input flood (per-tick cap holds)", 
   // Loose upper bound: even if every input reached steady-state PLAYER_SPEED,
   // the player can't move further than MAX_INPUTS_PER_TICK * PLAYER_SPEED *
   // MAX_INPUT_MSEC. (MAX_INPUT_MSEC = 2 * SERVER_TICK_RATE_MS.)
-  const maxPossible =
-    MAX_INPUTS_PER_TICK * PLAYER_SPEED * MAX_INPUT_MSEC + 1;
+  const maxPossible = MAX_INPUTS_PER_TICK * PLAYER_SPEED * MAX_INPUT_MSEC + 1;
   expect(endX - startX).toBeLessThan(maxPossible);
   ws.close();
   await sleep(50);

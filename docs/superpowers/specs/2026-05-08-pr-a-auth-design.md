@@ -95,6 +95,7 @@ NODE_ENV=production                               # affects cookie Secure flag
 `redirect_uri` is `${BURGER_URL}/auth/4orm/callback` (with trailing slash handling).
 
 For local development:
+
 ```
 FOURM_URL=http://localhost:8000
 BURGER_URL=http://localhost:5000   # NOT 5173 — auth must run through Elysia, vite dev server proxies it
@@ -146,8 +147,14 @@ setupSocket({ ... });
 `renderSignInScreen()` is a tiny DOM-only function that injects an HTML `<div>` with a "Sign in with 4orm" button. Clicking navigates to `/auth/4orm`. No Pixi, no WebSocket. After auth, the user lands back at `/`, the SPA runs again, `fetchMe()` succeeds, the game starts.
 
 `auth.client.ts`:
+
 ```ts
-export type Me = { id: string; username: string; displayName: string | null; isAdmin: boolean };
+export type Me = {
+  id: string;
+  username: string;
+  displayName: string | null;
+  isAdmin: boolean;
+};
 
 export const fetchMe = async (): Promise<Me | null> => {
   const res = await fetch("/auth/me");

@@ -50,6 +50,7 @@ export const MAX_PAINTS_PER_TICK = 4;
 ```
 
 Client → server JSON over WebSocket:
+
 ```ts
 { type: "paint", x: number, y: number, tileId: number | null }
 ```
@@ -92,7 +93,8 @@ const applyPaint = (
   const { x, y, tileId } = cmd;
   const key = `${x},${y}`;
   const existingEid = world.tilesAtPosition.get(key);
-  const oldTileId = existingEid !== undefined ? world.components.Tile.type[existingEid]! : null;
+  const oldTileId =
+    existingEid !== undefined ? world.components.Tile.type[existingEid]! : null;
 
   db.transaction(() => {
     if (tileId === null) {
@@ -114,6 +116,7 @@ const applyPaint = (
 ```
 
 `applyToEcs` either:
+
 - Erase: `removeEntity(world, existingEid)` and `world.tilesAtPosition.delete(key)`.
 - Add: create a new entity, addComponent Position/Tile/Networked/(Solid?), set `world.tilesAtPosition.set(key, eid)`.
 - Update: change `Tile.type[eid]` and add/remove Solid based on the new type's solidness.
@@ -181,7 +184,7 @@ The existing `/api/atlas` endpoint can stay for the moment (used by non-admin cl
 `packages/burger-client/src/client.ts`'s `loadAssets`:
 
 ```ts
-const catalog = await (await fetch("/api/catalog")).json() as CatalogEntry[];
+const catalog = (await (await fetch("/api/catalog")).json()) as CatalogEntry[];
 const tiles: Record<number, Texture> = {};
 for (const entry of catalog) {
   tiles[entry.id] = new Texture({
@@ -211,30 +214,33 @@ export type EditorState = {
   active: boolean;
   selectedTileId: number;
   catalog: CatalogEntry[];
-  cursorX: number;     // snapped pixel coord
+  cursorX: number; // snapped pixel coord
   cursorY: number;
   cursorVisible: boolean;
   cursorSprite: Sprite | null;
   paletteContainer: Container | null;
   paletteSlots: Sprite[];
-  isPainting: boolean;     // mouse held
-  paintErase: boolean;     // current drag is erase (right-button)
-  lastPaintedKey: string | null;  // de-dup paints during a single drag
+  isPainting: boolean; // mouse held
+  paintErase: boolean; // current drag is erase (right-button)
+  lastPaintedKey: string | null; // de-dup paints during a single drag
 };
 ```
 
 `initEditor(context)`:
+
 - Creates a Pixi Container for the palette (overlay, not inside `mainContainer` — palette is screen-fixed).
 - Builds palette slots: one Sprite per catalog entry, laid out in a row at the bottom.
 - Creates a cursor preview Sprite (initially hidden).
 - Wires window listeners: keydown for toggle (`e`), keydown for slot select (`1`-`9`), wheel for slot cycle, mousemove to update cursor, mousedown/mouseup for paint.
 
 `editorSystem(context)`:
+
 - If `editor.active`: update cursor sprite position to snapped mouse world coord. Show/hide based on viewport.
 - Update palette slot highlight to match `selectedTileId`.
 - If `isPainting`: read current cursor coord, if different from `lastPaintedKey`, send a paint message and update `lastPaintedKey`.
 
 The screen→world conversion uses the existing camera math:
+
 ```ts
 const worldX = (mouseX - app.screen.width / 2 + camera.x * ZOOM) / ZOOM;
 const worldY = (mouseY - app.screen.height / 2 + camera.y * ZOOM) / ZOOM;

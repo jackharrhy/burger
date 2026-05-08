@@ -45,10 +45,11 @@ test("getSession returns null for unknown id", () => {
 
 test("getSession returns null and deletes expired session", () => {
   const db = setupDb();
-  db.run(
-    "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
-    ["expired", "u1", Date.now() - 1000],
-  );
+  db.run("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)", [
+    "expired",
+    "u1",
+    Date.now() - 1000,
+  ]);
   expect(getSession(db, "expired")).toBeNull();
   const row = db.query("SELECT * FROM sessions WHERE id = ?").get("expired");
   expect(row).toBeNull();
@@ -62,7 +63,9 @@ test("deleteSession removes the row", () => {
 });
 
 test("parseSessionCookie extracts the cookie value", () => {
-  expect(parseSessionCookie(`${SESSION_COOKIE_NAME}=abc123; other=yes`)).toBe("abc123");
+  expect(parseSessionCookie(`${SESSION_COOKIE_NAME}=abc123; other=yes`)).toBe(
+    "abc123",
+  );
   expect(parseSessionCookie("other=yes")).toBeUndefined();
   expect(parseSessionCookie(null)).toBeUndefined();
 });

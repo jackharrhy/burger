@@ -29,10 +29,4 @@ export const sharedComponents = {
   Bot,
 };
 
-export const networkedComponents = [
-  Player,
-  Position,
-  Tile,
-  Solid,
-  Bot,
-];
+export const networkedComponents = [Player, Position, Tile, Solid, Bot];

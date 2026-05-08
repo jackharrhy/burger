@@ -27,7 +27,11 @@ test("exchangeCode posts to token endpoint with PKCE verifier", async () => {
     expect(body).toContain("code=abc");
     expect(body).toContain("code_verifier=verifier123");
     return new Response(
-      JSON.stringify({ access_token: "tok", token_type: "Bearer", expires_in: 3600 }),
+      JSON.stringify({
+        access_token: "tok",
+        token_type: "Bearer",
+        expires_in: 3600,
+      }),
     );
   });
   globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -46,7 +50,9 @@ test("exchangeCode posts to token endpoint with PKCE verifier", async () => {
 test("fetchUserinfo passes bearer token", async () => {
   const fetchMock = mock(async (url: string, init: RequestInit) => {
     expect(url).toBe("http://example.test/oauth/userinfo");
-    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
+    expect((init.headers as Record<string, string>).Authorization).toBe(
+      "Bearer tok",
+    );
     return new Response(
       JSON.stringify({
         sub: "user1",

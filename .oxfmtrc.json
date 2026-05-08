@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/data/**",
+    "bitECS/**",
+    "tmp/**",
+    "pnpm-lock.yaml",
+    "**/burger.json"
+  ]
+}

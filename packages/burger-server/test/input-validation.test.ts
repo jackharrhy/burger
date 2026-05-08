@@ -91,10 +91,7 @@ test("coerces non-boolean directional fields to booleans", () => {
 });
 
 test("drops unknown fields from the returned shape", () => {
-  const out = validateInput(
-    { ...VALID, malicious: "data", __proto__: {} },
-    0,
-  );
+  const out = validateInput({ ...VALID, malicious: "data", __proto__: {} }, 0);
   expect(out).toEqual({
     seq: 1,
     msec: 16,

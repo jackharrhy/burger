@@ -29,14 +29,18 @@ export const upsertUserFromUserinfo = (
   userinfo: Userinfo,
 ): User => {
   const existing = db
-    .query("SELECT id, fourm_id, username, display_name, is_admin FROM users WHERE fourm_id = ?")
-    .get(userinfo.sub) as {
-      id: string;
-      fourm_id: string;
-      username: string;
-      display_name: string | null;
-      is_admin: number;
-    } | undefined;
+    .query(
+      "SELECT id, fourm_id, username, display_name, is_admin FROM users WHERE fourm_id = ?",
+    )
+    .get(userinfo.sub) as
+    | {
+        id: string;
+        fourm_id: string;
+        username: string;
+        display_name: string | null;
+        is_admin: number;
+      }
+    | undefined;
 
   if (existing) {
     db.run(
@@ -79,9 +83,17 @@ export const upsertUserFromUserinfo = (
 
 export const getUserById = (db: Database, id: string): User | null => {
   const row = db
-    .query("SELECT id, fourm_id, username, display_name, is_admin FROM users WHERE id = ?")
+    .query(
+      "SELECT id, fourm_id, username, display_name, is_admin FROM users WHERE id = ?",
+    )
     .get(id) as
-    | { id: string; fourm_id: string; username: string; display_name: string | null; is_admin: number }
+    | {
+        id: string;
+        fourm_id: string;
+        username: string;
+        display_name: string | null;
+        is_admin: number;
+      }
     | undefined;
   return row ? rowToUser(row) : null;
 };

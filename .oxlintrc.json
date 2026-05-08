@@ -1,0 +1,59 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import"],
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2022": true
+  },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn",
+    "style": "off",
+    "pedantic": "off",
+    "nursery": "off"
+  },
+  "rules": {
+    "no-console": "off",
+    "no-debugger": "error",
+    "eqeqeq": ["error", "smart"],
+
+    "typescript/no-explicit-any": "warn",
+    "typescript/no-non-null-assertion": "off",
+
+    "unicorn/no-thenable": "off",
+    "unicorn/no-array-for-each": "off",
+    "unicorn/prefer-node-protocol": "warn",
+    "unicorn/prefer-add-event-listener": "off",
+
+    "no-shadow": "off",
+    "no-underscore-dangle": "off",
+    "no-useless-call": "off",
+    "import/no-unassigned-import": "off"
+  },
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/data/**",
+    "bitECS/**",
+    "tmp/**",
+    "**/burger.json",
+    "pnpm-lock.yaml"
+  ],
+  "overrides": [
+    {
+      "files": ["**/test/**/*.ts", "**/*.test.ts"],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+        "no-empty-pattern": "off"
+      }
+    },
+    {
+      "files": ["**/scripts/**/*.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
+}

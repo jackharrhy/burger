@@ -13,10 +13,11 @@ export type Session = {
 export const createSession = (db: Database, userId: string): string => {
   const id = randomBytes(32).toString("base64url");
   const expiresAt = Date.now() + SESSION_MAX_AGE_MS;
-  db.run(
-    "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
-    [id, userId, expiresAt],
-  );
+  db.run("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)", [
+    id,
+    userId,
+    expiresAt,
+  ]);
   return id;
 };
 

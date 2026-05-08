@@ -2,8 +2,12 @@
   "name": "burger",
   "version": "0.1.0",
   "description": "hi, may i take your order?",
+  "license": "ISC",
   "scripts": {
-    "format": "pnpx prettier --write .",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint",
+    "typecheck": "pnpm -r exec tsc --noEmit",
     "dev": "concurrently -n server,client -c blue,magenta \"pnpm dev:server\" \"pnpm dev:client\"",
     "dev:client": "pnpm --filter burger-client dev",
     "dev:server": "pnpm --filter burger-server dev",
@@ -13,7 +17,8 @@
     "test": "pnpm -r test"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
-  },
-  "license": "ISC"
+    "concurrently": "^9.2.1",
+    "oxfmt": "^0.48.0",
+    "oxlint": "^1.63.0"
+  }
 }

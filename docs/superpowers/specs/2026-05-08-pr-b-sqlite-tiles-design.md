@@ -185,8 +185,14 @@ type SharedWorld = {
 ```ts
 // after collision resolution
 const halfPlayer = PLAYER_SIZE / 2;
-newX = Math.max(world.bounds.x + halfPlayer, Math.min(world.bounds.x + world.bounds.w - halfPlayer, newX));
-newY = Math.max(world.bounds.y + halfPlayer, Math.min(world.bounds.y + world.bounds.h - halfPlayer, newY));
+newX = Math.max(
+  world.bounds.x + halfPlayer,
+  Math.min(world.bounds.x + world.bounds.w - halfPlayer, newX),
+);
+newY = Math.max(
+  world.bounds.y + halfPlayer,
+  Math.min(world.bounds.y + world.bounds.h - halfPlayer, newY),
+);
 ```
 
 Both server and client use this (since `moveAndSlide` is in `burger-shared`). Client's `world.bounds` must be populated before any prediction tick runs.
@@ -201,16 +207,25 @@ Two options:
 Pick option 1 — minimal protocol change, tiny on the wire, matches existing pattern. PROTOCOL_VERSION bumps to 2 to flag the change.
 
 In `network.server.ts`:
+
 ```ts
 ws.sendBinary(
   tagMessage(
     MESSAGE_TYPES.YOUR_EID,
-    new Int32Array([PROTOCOL_VERSION, eid, world.bounds.x, world.bounds.y, world.bounds.w, world.bounds.h]).buffer,
+    new Int32Array([
+      PROTOCOL_VERSION,
+      eid,
+      world.bounds.x,
+      world.bounds.y,
+      world.bounds.w,
+      world.bounds.h,
+    ]).buffer,
   ),
 );
 ```
 
 In `network.client.ts`'s YOUR_EID handler:
+
 ```ts
 case MESSAGE_TYPES.YOUR_EID: {
   const view = new Int32Array(payload);
@@ -250,6 +265,7 @@ export const createPlayer = (world: World, name: string): number => {
 7. Print a summary: `Imported N tiles, set spawn to (x, y)`.
 
 Run by maintainer:
+
 ```bash
 pnpm --filter burger-server exec bun scripts/import-ldtk.ts
 ```
@@ -257,6 +273,7 @@ pnpm --filter burger-server exec bun scripts/import-ldtk.ts
 The script is idempotent: re-running it overwrites existing tiles to match the LDtk source. (Doesn't delete tiles that aren't in the LDtk export — those stay. If you want a clean slate, `DELETE FROM tiles` first.)
 
 After running, the maintainer commits:
+
 - The newly-populated `data/burger.db` is NOT committed (gitignored).
 - The `atlas.toml` IS committed (it's the catalog seed).
 - `level.ts` and `burger.json` deletion is part of the PR.

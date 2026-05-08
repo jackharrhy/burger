@@ -11,6 +11,7 @@
 ## Task 1: Remove voice & radio (deletion-only commit)
 
 **Files:**
+
 - Delete: `packages/burger-radio/` (entire dir)
 - Delete: `packages/burger-client/src/voice.client.ts`
 - Delete: `packages/burger-server/src/radio-manager.ts`
@@ -97,13 +98,7 @@ export const sharedComponents = {
   Bot,
 };
 
-export const networkedComponents = [
-  Player,
-  Position,
-  Tile,
-  Solid,
-  Bot,
-];
+export const networkedComponents = [Player, Position, Tile, Solid, Bot];
 ```
 
 (Note: changed `Tile.type` from `TileType[]` to `number[]` to break the import cycle; runtime values are unchanged. Re-exporting `TileType` from `const.shared` continues to work.)
@@ -201,7 +196,7 @@ burger.json
 v3
 ```
 
-- [ ] **Step 15:** Edit `Dockerfile` — drop `RUN npm install -g bun` line. The server runtime is `bun` via `pnpm prod:server` which uses `bun ./src/server.ts`. Bun must be available. Check the base image: `platformatic/node-caged:25-slim` — it's Node only, so Bun *is* needed. **Keep the `RUN npm install -g bun` line.** No change to Dockerfile this task.
+- [ ] **Step 15:** Edit `Dockerfile` — drop `RUN npm install -g bun` line. The server runtime is `bun` via `pnpm prod:server` which uses `bun ./src/server.ts`. Bun must be available. Check the base image: `platformatic/node-caged:25-slim` — it's Node only, so Bun _is_ needed. **Keep the `RUN npm install -g bun` line.** No change to Dockerfile this task.
 
 - [ ] **Step 16:** Try to build. From repo root:
 
@@ -232,6 +227,7 @@ git commit -m "chore: remove voice chat and radio streaming"
 ## Task 2: Bump dependencies
 
 **Files:**
+
 - Modify: `packages/burger-client/package.json`
 - Modify: `packages/burger-server/package.json`
 - Modify: `packages/burger-shared/package.json`
@@ -414,6 +410,7 @@ git commit -m "chore: bump dependencies to latest stable"
 ## Task 3: Introduce SharedWorld factory
 
 **Files:**
+
 - Create: `packages/burger-shared/src/world.shared.ts`
 - Modify: `packages/burger-shared/src/index.ts`
 - Modify: `packages/burger-shared/src/collision.ts`
@@ -481,8 +478,9 @@ Drop the `import { createWorld, removeEntity } from "bitecs";` to `import { remo
 - [ ] **Step 5:** Edit `packages/burger-client/src/client.ts` similarly:
 
 Replace `createWorld(...)` with `createSharedWorld(...)`. The client extends `components` further, so we need a variant that lets the caller add components too. Options:
-  - (A) Have the caller spread `sharedComponents` themselves when extending. Simpler.
-  - (B) Add a second generic for components.
+
+- (A) Have the caller spread `sharedComponents` themselves when extending. Simpler.
+- (B) Add a second generic for components.
 
 Pick (A). Update the factory's contract: `createSharedWorld` is for callers who don't extend components. Callers who extend (the client) keep using `createWorld` directly but spread `sharedComponents`. This still gives the type benefit (`SharedWorld` is a stable subtype), and the structural compatibility is preserved.
 
@@ -520,6 +518,7 @@ git commit -m "refactor: introduce SharedWorld factory and tighten shared bounda
 ## Task 4: Harden netcode (validation, fixed-dt, version, cap)
 
 **Files:**
+
 - Modify: `packages/burger-shared/src/const.shared.ts` — add `PROTOCOL_VERSION`, `MAX_INPUTS_PER_TICK`
 - Modify: `packages/burger-shared/src/types.shared.ts` — confirm no `msec`
 - Modify: `packages/burger-shared/src/index.ts` — re-export new consts (already re-exports `const.shared`)
@@ -552,7 +551,8 @@ export const validateInput = (
   if (typeof raw !== "object" || raw === null) return null;
   const r = raw as Record<string, unknown>;
   if (r.type !== "input") return null;
-  if (typeof r.seq !== "number" || !Number.isInteger(r.seq) || r.seq < 0) return null;
+  if (typeof r.seq !== "number" || !Number.isInteger(r.seq) || r.seq < 0)
+    return null;
   if (r.seq <= lastSeq) return null;
   return {
     seq: r.seq,
@@ -566,7 +566,6 @@ export const validateInput = (
 ```
 
 - [ ] **Step 4:** Edit `packages/burger-server/src/network.server.ts`:
-
   - Add `import { validateInput } from "./input-validation";`
   - Add `import { MAX_INPUTS_PER_TICK, PROTOCOL_VERSION } from "burger-shared";` (alongside existing imports)
   - In `PlayerConnection`, add `lastReceivedSeq: number;`
@@ -582,10 +581,13 @@ ws.sendBinary(
 );
 ```
 
-  - Replace `handleInputMessage` with:
+- Replace `handleInputMessage` with:
 
 ```ts
-const handleInputMessage = (connection: PlayerConnection, data: unknown): void => {
+const handleInputMessage = (
+  connection: PlayerConnection,
+  data: unknown,
+): void => {
   const cmd = validateInput(data, connection.lastReceivedSeq);
   if (!cmd) return;
   connection.lastReceivedSeq = cmd.seq;
@@ -594,7 +596,7 @@ const handleInputMessage = (connection: PlayerConnection, data: unknown): void =
 };
 ```
 
-  - In `processPlayerInputs`, cap inputs per tick:
+- In `processPlayerInputs`, cap inputs per tick:
 
 ```ts
 export const processPlayerInputs = (
@@ -611,7 +613,7 @@ export const processPlayerInputs = (
 };
 ```
 
-  Note: signature dropped the `world` param — it was unused. Adjust caller.
+Note: signature dropped the `world` param — it was unused. Adjust caller.
 
 - [ ] **Step 5:** Edit `packages/burger-server/src/server.ts`:
   - In `activeTick`, change `processPlayerInputs(world, ...)` to `processPlayerInputs(...)`
@@ -622,13 +624,20 @@ processPlayerInputs((eid, cmd) => {
   invariant(Velocity.x[eid] !== undefined);
   // ...
   const newVel = applyInputToVelocity(
-    Velocity.x[eid], Velocity.y[eid], cmd, SERVER_TICK_RATE_MS,
+    Velocity.x[eid],
+    Velocity.y[eid],
+    cmd,
+    SERVER_TICK_RATE_MS,
   );
   Velocity.x[eid] = newVel.vx;
   Velocity.y[eid] = newVel.vy;
   const newPos = moveAndSlide(
-    world, Position.x[eid], Position.y[eid],
-    Velocity.x[eid], Velocity.y[eid], SERVER_TICK_RATE_MS,
+    world,
+    Position.x[eid],
+    Position.y[eid],
+    Velocity.x[eid],
+    Velocity.y[eid],
+    SERVER_TICK_RATE_MS,
   );
   Position.x[eid] = newPos.x;
   Position.y[eid] = newPos.y;
@@ -655,7 +664,7 @@ case MESSAGE_TYPES.YOUR_EID: {
 }
 ```
 
-  - In `sendInputs`, drop `msec` from the JSON message:
+- In `sendInputs`, drop `msec` from the JSON message:
 
 ```ts
 const msg = JSON.stringify({
@@ -669,18 +678,25 @@ const msg = JSON.stringify({
 });
 ```
 
-  - In `reconcile`, replay unacked inputs at fixed dt instead of `cmd.msec`:
+- In `reconcile`, replay unacked inputs at fixed dt instead of `cmd.msec`:
 
 ```ts
 for (const cmd of pendingInputs) {
   const newVel = applyInputToVelocity(
-    Velocity.x[eid], Velocity.y[eid], cmd, SERVER_TICK_RATE_MS,
+    Velocity.x[eid],
+    Velocity.y[eid],
+    cmd,
+    SERVER_TICK_RATE_MS,
   );
   Velocity.x[eid] = newVel.vx;
   Velocity.y[eid] = newVel.vy;
   const newPos = moveAndSlide(
-    world, Position.x[eid], Position.y[eid],
-    Velocity.x[eid], Velocity.y[eid], SERVER_TICK_RATE_MS,
+    world,
+    Position.x[eid],
+    Position.y[eid],
+    Velocity.x[eid],
+    Velocity.y[eid],
+    SERVER_TICK_RATE_MS,
   );
   Position.x[eid] = newPos.x;
   Position.y[eid] = newPos.y;
@@ -722,6 +738,7 @@ git commit -m "feat: harden netcode against malicious clients"
 ## Task 5: Tests
 
 **Files:**
+
 - Create: `packages/burger-shared/test/physics.test.ts`
 - Create: `packages/burger-shared/test/collision.test.ts`
 - Create: `packages/burger-server/test/input-validation.test.ts`
@@ -746,7 +763,12 @@ test("applyInputToVelocity is deterministic", () => {
 });
 
 test("diagonal input is normalized", () => {
-  const out = applyInputToVelocity(0, 0, { up: true, right: true, down: false, left: false }, 1000);
+  const out = applyInputToVelocity(
+    0,
+    0,
+    { up: true, right: true, down: false, left: false },
+    1000,
+  );
   // After ample time, should reach normalized speed components ~ PLAYER_SPEED / sqrt(2) each
   const target = PLAYER_SPEED / Math.SQRT2;
   expect(out.vx).toBeCloseTo(target, 1);
@@ -782,7 +804,11 @@ import {
   PLAYER_SIZE,
 } from "burger-shared";
 
-const placeWall = (world: ReturnType<typeof createSharedWorld<{}>>, x: number, y: number) => {
+const placeWall = (
+  world: ReturnType<typeof createSharedWorld<{}>>,
+  x: number,
+  y: number,
+) => {
   const { Position, Solid } = world.components;
   const eid = addEntity(world);
   addComponent(world, eid, Position);
@@ -821,10 +847,25 @@ import { validateInput } from "../src/input-validation";
 test("valid input passes", () => {
   expect(
     validateInput(
-      { type: "input", seq: 1, up: true, down: false, left: false, right: false, interact: false },
+      {
+        type: "input",
+        seq: 1,
+        up: true,
+        down: false,
+        left: false,
+        right: false,
+        interact: false,
+      },
       0,
     ),
-  ).toEqual({ seq: 1, up: true, down: false, left: false, right: false, interact: false });
+  ).toEqual({
+    seq: 1,
+    up: true,
+    down: false,
+    left: false,
+    right: false,
+    interact: false,
+  });
 });
 
 test("rejects non-object input", () => {
@@ -879,21 +920,44 @@ import {
 } from "../src/network.server";
 import { createPlayer } from "../src/players";
 
-const tick = (world: ReturnType<typeof createSharedWorld<{ playerSpawns: { x: number; y: number }[]; typeIdToAtlasSrc: Record<number, [number, number]> }>>) => {
+const tick = (
+  world: ReturnType<
+    typeof createSharedWorld<{
+      playerSpawns: { x: number; y: number }[];
+      typeIdToAtlasSrc: Record<number, [number, number]>;
+    }>
+  >,
+) => {
   const { Position, Velocity } = world.components;
   processPlayerInputs((eid, cmd) => {
-    const v = applyInputToVelocity(Velocity.x[eid], Velocity.y[eid], cmd, SERVER_TICK_RATE_MS);
+    const v = applyInputToVelocity(
+      Velocity.x[eid],
+      Velocity.y[eid],
+      cmd,
+      SERVER_TICK_RATE_MS,
+    );
     Velocity.x[eid] = v.vx;
     Velocity.y[eid] = v.vy;
-    const p = moveAndSlide(world, Position.x[eid], Position.y[eid], Velocity.x[eid], Velocity.y[eid], SERVER_TICK_RATE_MS);
+    const p = moveAndSlide(
+      world,
+      Position.x[eid],
+      Position.y[eid],
+      Velocity.x[eid],
+      Velocity.y[eid],
+      SERVER_TICK_RATE_MS,
+    );
     Position.x[eid] = p.x;
     Position.y[eid] = p.y;
   });
   const states: PlayerState[] = [];
   for (const [, c] of getPlayerConnections()) {
     states.push({
-      eid: c.eid, x: Position.x[c.eid]!, y: Position.y[c.eid]!,
-      vx: Velocity.x[c.eid]!, vy: Velocity.y[c.eid]!, lastInputSeq: c.lastAckedSeq,
+      eid: c.eid,
+      x: Position.x[c.eid]!,
+      y: Position.y[c.eid]!,
+      vx: Velocity.x[c.eid]!,
+      vy: Velocity.y[c.eid]!,
+      lastInputSeq: c.lastAckedSeq,
     });
   }
   broadcastGameState({ playerStates: states });
@@ -922,9 +986,12 @@ const connect = (port: number) =>
     ws.addEventListener("error", reject);
   });
 
-const collectMessages = (ws: WebSocket): { messages: Uint8Array[]; stop: () => void } => {
+const collectMessages = (
+  ws: WebSocket,
+): { messages: Uint8Array[]; stop: () => void } => {
   const messages: Uint8Array[] = [];
-  const handler = (e: MessageEvent) => messages.push(new Uint8Array(e.data as ArrayBuffer));
+  const handler = (e: MessageEvent) =>
+    messages.push(new Uint8Array(e.data as ArrayBuffer));
   ws.addEventListener("message", handler);
   return { messages, stop: () => ws.removeEventListener("message", handler) };
 };
@@ -950,16 +1017,28 @@ test("server moves player right when right inputs are sent", async () => {
   const ws = await connect(port);
   await sleep(50);
   const startX = (() => {
-    for (const [, c] of getPlayerConnections()) return world.components.Position.x[c.eid];
+    for (const [, c] of getPlayerConnections())
+      return world.components.Position.x[c.eid];
     return 0;
   })();
   for (let i = 1; i <= 30; i++) {
-    ws.send(JSON.stringify({ type: "input", seq: i, up: false, down: false, left: false, right: true, interact: false }));
+    ws.send(
+      JSON.stringify({
+        type: "input",
+        seq: i,
+        up: false,
+        down: false,
+        left: false,
+        right: true,
+        interact: false,
+      }),
+    );
   }
   await sleep(50);
   for (let i = 0; i < 5; i++) tick(world);
   let endX = startX;
-  for (const [, c] of getPlayerConnections()) endX = world.components.Position.x[c.eid]!;
+  for (const [, c] of getPlayerConnections())
+    endX = world.components.Position.x[c.eid]!;
   expect(endX).toBeGreaterThan(startX!);
   ws.close();
   app.stop();
@@ -970,13 +1049,24 @@ test("malicious client cannot speed-hack via input flood", async () => {
   const ws = await connect(port);
   await sleep(50);
   for (let i = 1; i <= 1000; i++) {
-    ws.send(JSON.stringify({ type: "input", seq: i, up: false, down: false, left: false, right: true, interact: false }));
+    ws.send(
+      JSON.stringify({
+        type: "input",
+        seq: i,
+        up: false,
+        down: false,
+        left: false,
+        right: true,
+        interact: false,
+      }),
+    );
   }
   await sleep(50);
   // Single tick — must process at most MAX_INPUTS_PER_TICK
   tick(world);
   let pos = 0;
-  for (const [, c] of getPlayerConnections()) pos = world.components.Position.x[c.eid]!;
+  for (const [, c] of getPlayerConnections())
+    pos = world.components.Position.x[c.eid]!;
   // One tick with capped inputs at fixed dt: bounded movement
   const maxPossible = MAX_INPUTS_PER_TICK * 1 * SERVER_TICK_RATE_MS; // very loose upper bound
   expect(Math.abs(pos)).toBeLessThan(maxPossible);

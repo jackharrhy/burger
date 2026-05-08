@@ -33,10 +33,14 @@ export const syncCatalog = (db: Database, tiles: CatalogEntry[]): void => {
     "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET type = excluded.type, src_x = excluded.src_x, src_y = excluded.src_y, label = excluded.label",
   );
   const tomlIds = new Set(tiles.map((t) => t.id));
-  const dbRows = db.query("SELECT id FROM tile_catalog").all() as { id: number }[];
+  const dbRows = db.query("SELECT id FROM tile_catalog").all() as {
+    id: number;
+  }[];
   for (const row of dbRows) {
     if (!tomlIds.has(row.id)) {
-      console.warn(`tile_catalog row ${row.id} is in DB but not in atlas.toml; leaving in place`);
+      console.warn(
+        `tile_catalog row ${row.id} is in DB but not in atlas.toml; leaving in place`,
+      );
     }
   }
   for (const t of tiles) {
@@ -73,14 +77,18 @@ const loadTilesIntoEcs = (
   db: Database,
 ): void => {
   const { Position, Tile, Networked, Solid } = world.components;
-  const rows = db
-    .query("SELECT x, y, tile_id FROM tiles")
-    .all() as { x: number; y: number; tile_id: number }[];
+  const rows = db.query("SELECT x, y, tile_id FROM tiles").all() as {
+    x: number;
+    y: number;
+    tile_id: number;
+  }[];
 
   for (const row of rows) {
     const cat = world.catalog.get(row.tile_id);
     if (!cat) {
-      console.warn(`tile at (${row.x},${row.y}) references missing catalog id ${row.tile_id}; skipping`);
+      console.warn(
+        `tile at (${row.x},${row.y}) references missing catalog id ${row.tile_id}; skipping`,
+      );
       continue;
     }
 

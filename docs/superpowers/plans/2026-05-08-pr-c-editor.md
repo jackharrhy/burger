@@ -16,15 +16,16 @@
 
 ## File structure
 
-| Path | Responsibility |
-|---|---|
-| `packages/burger-server/src/paint-validation.ts` | Pure `validatePaint(raw, world, catalog) → ValidatedPaint \| null` |
-| `packages/burger-server/src/paint.ts` | Server-side paint handler: gate, rate-limit, DB transaction, ECS update |
-| `packages/burger-client/src/editor.client.ts` | Edit-mode state, cursor preview, palette UI, click handlers |
-| `packages/burger-server/test/paint-validation.test.ts` | Unit tests for validator |
-| `packages/burger-server/test/paint-e2e.test.ts` | E2E tests against real server with admin/non-admin sessions |
+| Path                                                   | Responsibility                                                          |
+| ------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `packages/burger-server/src/paint-validation.ts`       | Pure `validatePaint(raw, world, catalog) → ValidatedPaint \| null`      |
+| `packages/burger-server/src/paint.ts`                  | Server-side paint handler: gate, rate-limit, DB transaction, ECS update |
+| `packages/burger-client/src/editor.client.ts`          | Edit-mode state, cursor preview, palette UI, click handlers             |
+| `packages/burger-server/test/paint-validation.test.ts` | Unit tests for validator                                                |
+| `packages/burger-server/test/paint-e2e.test.ts`        | E2E tests against real server with admin/non-admin sessions             |
 
 Modified:
+
 - `packages/burger-shared/src/const.shared.ts` — `MESSAGE_TYPES.PAINT = 8`, `MAX_PAINTS_PER_TICK = 4`
 - `packages/burger-server/src/network.server.ts` — dispatch paint messages, reset paint counter per tick
 - `packages/burger-server/src/server.ts` — register `/api/catalog`, reset paint counters in tick
@@ -36,6 +37,7 @@ Modified:
 ## Task 1: Constants and validator
 
 **Files:**
+
 - Modify: `packages/burger-shared/src/const.shared.ts`
 - Create: `packages/burger-server/src/paint-validation.ts`
 - Create: `packages/burger-server/test/paint-validation.test.ts`
@@ -74,7 +76,8 @@ const catalog = new Set([1, 2, 3]);
 test("valid paint passes", () => {
   const out = validatePaint(
     { type: "paint", x: 32, y: 64, tileId: 2 },
-    world, catalog,
+    world,
+    catalog,
   );
   expect(out).toEqual({ x: 32, y: 64, tileId: 2 });
 });
@@ -82,7 +85,8 @@ test("valid paint passes", () => {
 test("erase (tileId null) passes", () => {
   const out = validatePaint(
     { type: "paint", x: 32, y: 64, tileId: null },
-    world, catalog,
+    world,
+    catalog,
   );
   expect(out).toEqual({ x: 32, y: 64, tileId: null });
 });
@@ -94,45 +98,83 @@ test("rejects non-object", () => {
 });
 
 test("rejects wrong type tag", () => {
-  expect(validatePaint({ type: "input", x: 32, y: 64, tileId: 1 }, world, catalog)).toBeNull();
+  expect(
+    validatePaint({ type: "input", x: 32, y: 64, tileId: 1 }, world, catalog),
+  ).toBeNull();
 });
 
 test("rejects non-integer coords", () => {
-  expect(validatePaint({ type: "paint", x: 32.5, y: 64, tileId: 1 }, world, catalog)).toBeNull();
-  expect(validatePaint({ type: "paint", x: 32, y: "64", tileId: 1 }, world, catalog)).toBeNull();
+  expect(
+    validatePaint({ type: "paint", x: 32.5, y: 64, tileId: 1 }, world, catalog),
+  ).toBeNull();
+  expect(
+    validatePaint({ type: "paint", x: 32, y: "64", tileId: 1 }, world, catalog),
+  ).toBeNull();
 });
 
 test("rejects coords not aligned to TILE_SIZE", () => {
-  expect(validatePaint({ type: "paint", x: 33, y: 64, tileId: 1 }, world, catalog)).toBeNull();
-  expect(validatePaint({ type: "paint", x: 32, y: 65, tileId: 1 }, world, catalog)).toBeNull();
+  expect(
+    validatePaint({ type: "paint", x: 33, y: 64, tileId: 1 }, world, catalog),
+  ).toBeNull();
+  expect(
+    validatePaint({ type: "paint", x: 32, y: 65, tileId: 1 }, world, catalog),
+  ).toBeNull();
 });
 
 test("rejects coords outside bounds (each edge)", () => {
-  expect(validatePaint({ type: "paint", x: -32, y: 0, tileId: 1 }, world, catalog)).toBeNull();
-  expect(validatePaint({ type: "paint", x: 0, y: -32, tileId: 1 }, world, catalog)).toBeNull();
-  expect(validatePaint({ type: "paint", x: TILE_SIZE * 10, y: 0, tileId: 1 }, world, catalog)).toBeNull();
-  expect(validatePaint({ type: "paint", x: 0, y: TILE_SIZE * 10, tileId: 1 }, world, catalog)).toBeNull();
+  expect(
+    validatePaint({ type: "paint", x: -32, y: 0, tileId: 1 }, world, catalog),
+  ).toBeNull();
+  expect(
+    validatePaint({ type: "paint", x: 0, y: -32, tileId: 1 }, world, catalog),
+  ).toBeNull();
+  expect(
+    validatePaint(
+      { type: "paint", x: TILE_SIZE * 10, y: 0, tileId: 1 },
+      world,
+      catalog,
+    ),
+  ).toBeNull();
+  expect(
+    validatePaint(
+      { type: "paint", x: 0, y: TILE_SIZE * 10, tileId: 1 },
+      world,
+      catalog,
+    ),
+  ).toBeNull();
 });
 
 test("accepts coords at the inside edge", () => {
   // Last paintable cell starts at TILE_SIZE * 9 (since w = TILE_SIZE * 10).
-  expect(validatePaint({ type: "paint", x: TILE_SIZE * 9, y: TILE_SIZE * 9, tileId: 1 }, world, catalog))
-    .toEqual({ x: TILE_SIZE * 9, y: TILE_SIZE * 9, tileId: 1 });
+  expect(
+    validatePaint(
+      { type: "paint", x: TILE_SIZE * 9, y: TILE_SIZE * 9, tileId: 1 },
+      world,
+      catalog,
+    ),
+  ).toEqual({ x: TILE_SIZE * 9, y: TILE_SIZE * 9, tileId: 1 });
 });
 
 test("rejects unknown tileId", () => {
-  expect(validatePaint({ type: "paint", x: 0, y: 0, tileId: 999 }, world, catalog)).toBeNull();
+  expect(
+    validatePaint({ type: "paint", x: 0, y: 0, tileId: 999 }, world, catalog),
+  ).toBeNull();
 });
 
 test("rejects non-integer tileId", () => {
-  expect(validatePaint({ type: "paint", x: 0, y: 0, tileId: 1.5 }, world, catalog)).toBeNull();
-  expect(validatePaint({ type: "paint", x: 0, y: 0, tileId: "1" }, world, catalog)).toBeNull();
+  expect(
+    validatePaint({ type: "paint", x: 0, y: 0, tileId: 1.5 }, world, catalog),
+  ).toBeNull();
+  expect(
+    validatePaint({ type: "paint", x: 0, y: 0, tileId: "1" }, world, catalog),
+  ).toBeNull();
 });
 
 test("drops unknown fields", () => {
   const out = validatePaint(
     { type: "paint", x: 32, y: 64, tileId: 1, malicious: "data" },
-    world, catalog,
+    world,
+    catalog,
   );
   expect(out).toEqual({ x: 32, y: 64, tileId: 1 });
 });
@@ -204,6 +246,7 @@ git commit -m "feat: add MESSAGE_TYPES.PAINT, MAX_PAINTS_PER_TICK, paint validat
 ## Task 2: Paint handler (server-side apply)
 
 **Files:**
+
 - Create: `packages/burger-server/src/paint.ts`
 
 (Tests for paint.ts are in Task 4's e2e suite — paint.ts is a thin wrapper over DB + ECS, so direct unit tests would mostly mock. The e2e test gives real coverage.)
@@ -217,7 +260,8 @@ import type { Database } from "bun:sqlite";
 import type { World } from "./world";
 import type { ValidatedPaint } from "./paint-validation";
 
-const isSolid = (type: string): boolean => type === "wall" || type === "counter";
+const isSolid = (type: string): boolean =>
+  type === "wall" || type === "counter";
 
 export const applyPaint = (
   world: World,
@@ -229,7 +273,8 @@ export const applyPaint = (
   const { x, y, tileId } = cmd;
   const key = `${x},${y}`;
   const existingEid = world.tilesAtPosition.get(key);
-  const oldTileId = existingEid !== undefined ? Tile.type[existingEid] ?? null : null;
+  const oldTileId =
+    existingEid !== undefined ? (Tile.type[existingEid] ?? null) : null;
 
   const tx = db.transaction(() => {
     if (tileId === null) {
@@ -322,6 +367,7 @@ git commit -m "feat: add server-side paint apply (db + ecs)"
 ## Task 3: Wire PAINT messages into the server, add per-tick reset
 
 **Files:**
+
 - Modify: `packages/burger-server/src/network.server.ts`
 - Modify: `packages/burger-server/src/server.ts`
 
@@ -423,6 +469,7 @@ Drop the `/api/atlas` endpoint (now redundant). The client switches to `/api/cat
 pnpm --filter burger-server exec tsc --noEmit
 pnpm test
 ```
+
 Expected: all green. (e2e tests still pass; paint-related e2e tests come in Task 4.)
 
 - [ ] **Step 6: Commit**
@@ -438,6 +485,7 @@ git commit -m "feat: dispatch paint messages with admin gate, rate limit, /api/c
 ## Task 4: Paint e2e tests
 
 **Files:**
+
 - Create: `packages/burger-server/test/paint-e2e.test.ts`
 
 - [ ] **Step 1: Write the e2e test file**
@@ -451,10 +499,7 @@ import { initWorld } from "../src/world";
 import { createServer, getPlayerConnections } from "../src/network.server";
 import { createPlayer } from "../src/players";
 import { removeEntity } from "bitecs";
-import {
-  MAX_PAINTS_PER_TICK,
-  TILE_SIZE,
-} from "burger-shared";
+import { MAX_PAINTS_PER_TICK, TILE_SIZE } from "burger-shared";
 
 let db: Database;
 let world: ReturnType<typeof initWorld>;
@@ -468,10 +513,11 @@ const setupSession = (db: Database, isAdmin: boolean): string => {
     "INSERT INTO users (id, fourm_id, username, display_name, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)",
     [userId, `fid-${userId}`, userId, userId, isAdmin ? 1 : 0, Date.now()],
   );
-  db.run(
-    "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
-    [sessionId, userId, Date.now() + 1_000_000],
-  );
+  db.run("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)", [
+    sessionId,
+    userId,
+    Date.now() + 1_000_000,
+  ]);
   return sessionId;
 };
 
@@ -503,8 +549,15 @@ beforeEach(() => {
   world = initWorld(db);
   port = 5800 + Math.floor(Math.random() * 200);
   app = createServer({
-    port, world, db,
-    authConfig: { fourmUrl: "x", burgerUrl: "x", clientId: "burger", isProduction: false },
+    port,
+    world,
+    db,
+    authConfig: {
+      fourmUrl: "x",
+      burgerUrl: "x",
+      clientId: "burger",
+      isProduction: false,
+    },
     onPlayerJoin: (name) => createPlayer(world, name),
     onPlayerLeave: (eid) => removeEntity(world, eid),
   });
@@ -512,7 +565,8 @@ beforeEach(() => {
 
 afterEach(async () => {
   const stop = (app as any).stop ?? (app as any).server?.stop;
-  if (typeof stop === "function") await stop.call((app as any).stop ? app : (app as any).server);
+  if (typeof stop === "function")
+    await stop.call((app as any).stop ? app : (app as any).server);
   for (const [, c] of getPlayerConnections()) removeEntity(world, c.eid);
   getPlayerConnections().clear();
 });
@@ -535,9 +589,13 @@ test("admin paint creates tile in DB and tile_edits log", async () => {
   await sleep(50);
   ws.send(JSON.stringify({ type: "paint", x: 32, y: 64, tileId: 1 }));
   await sleep(50);
-  const tile = db.query("SELECT tile_id FROM tiles WHERE x = 32 AND y = 64").get() as any;
+  const tile = db
+    .query("SELECT tile_id FROM tiles WHERE x = 32 AND y = 64")
+    .get() as any;
   expect(tile?.tile_id).toBe(1);
-  const edit = db.query("SELECT * FROM tile_edits WHERE x = 32 AND y = 64").get() as any;
+  const edit = db
+    .query("SELECT * FROM tile_edits WHERE x = 32 AND y = 64")
+    .get() as any;
   expect(edit?.new_tile_id).toBe(1);
   expect(edit?.user_id).toBe("admin1");
   ws.close();
@@ -552,9 +610,13 @@ test("admin paint replaces existing tile", async () => {
   await sleep(50);
   ws.send(JSON.stringify({ type: "paint", x: 32, y: 64, tileId: 2 }));
   await sleep(50);
-  const tile = db.query("SELECT tile_id FROM tiles WHERE x = 32 AND y = 64").get() as any;
+  const tile = db
+    .query("SELECT tile_id FROM tiles WHERE x = 32 AND y = 64")
+    .get() as any;
   expect(tile?.tile_id).toBe(2);
-  const edits = db.query("SELECT COUNT(*) as c FROM tile_edits WHERE x = 32 AND y = 64").get() as any;
+  const edits = db
+    .query("SELECT COUNT(*) as c FROM tile_edits WHERE x = 32 AND y = 64")
+    .get() as any;
   expect(edits.c).toBe(2);
   ws.close();
   await sleep(50);
@@ -580,7 +642,9 @@ test("admin paint at out-of-bounds coords is rejected", async () => {
   const ws = await connect(port, sess);
   await sleep(50);
   ws.send(JSON.stringify({ type: "paint", x: -32, y: -32, tileId: 1 }));
-  ws.send(JSON.stringify({ type: "paint", x: world.bounds.w, y: 0, tileId: 1 }));
+  ws.send(
+    JSON.stringify({ type: "paint", x: world.bounds.w, y: 0, tileId: 1 }),
+  );
   await sleep(50);
   const count = db.query("SELECT COUNT(*) as c FROM tiles").get() as any;
   expect(count.c).toBe(0);
@@ -606,7 +670,9 @@ test("rate limit: more than MAX_PAINTS_PER_TICK in one batch landed only N", asy
   await sleep(50);
   // Send 100 paints for distinct positions in one batch (faster than tick).
   for (let i = 0; i < 100; i++) {
-    ws.send(JSON.stringify({ type: "paint", x: i * TILE_SIZE, y: 0, tileId: 1 }));
+    ws.send(
+      JSON.stringify({ type: "paint", x: i * TILE_SIZE, y: 0, tileId: 1 }),
+    );
   }
   // Wait long enough to be inside one tick window: server tick = 16.6ms.
   // Then sleep more than one tick to allow rate-cap reset.
@@ -645,6 +711,7 @@ git commit -m "test: e2e tests for paint authorization, validation, rate limit"
 ## Task 5: Client editor module + boot integration
 
 **Files:**
+
 - Create: `packages/burger-client/src/editor.client.ts`
 - Modify: `packages/burger-client/src/network.client.ts`
 - Modify: `packages/burger-client/src/client.ts`
@@ -774,7 +841,9 @@ export const initEditor = (
     palette.addChild(sprite);
 
     const slotOutline = new Graphics();
-    slotOutline.rect(0, 0, SLOT_SIZE, SLOT_SIZE).stroke({ color: 0xffffff, width: 2 });
+    slotOutline
+      .rect(0, 0, SLOT_SIZE, SLOT_SIZE)
+      .stroke({ color: 0xffffff, width: 2 });
     slotOutline.x = slotBg.x;
     slotOutline.y = slotBg.y;
     slotOutline.visible = entry.id === state.selectedTileId;
@@ -797,7 +866,12 @@ export const initEditor = (
       }
     } else if (state.active) {
       const num = parseInt(e.key, 10);
-      if (!Number.isNaN(num) && num >= 1 && num <= 9 && state.catalog[num - 1]) {
+      if (
+        !Number.isNaN(num) &&
+        num >= 1 &&
+        num <= 9 &&
+        state.catalog[num - 1]
+      ) {
         selectTile(state, state.catalog[num - 1]!.id);
       }
     }
@@ -873,7 +947,12 @@ const paintAtCursor = (state: EditorState, network: NetworkState): void => {
   const key = `${state.cursorX},${state.cursorY}`;
   if (key === state.lastPaintedKey) return;
   state.lastPaintedKey = key;
-  sendPaint(network, state.cursorX, state.cursorY, state.paintErase ? null : state.selectedTileId);
+  sendPaint(
+    network,
+    state.cursorX,
+    state.cursorY,
+    state.paintErase ? null : state.selectedTileId,
+  );
 };
 
 export const updateEditor = (
@@ -897,7 +976,8 @@ export const updateEditor = (
   state.cursorSprite.visible = true;
 
   state.cursorOutline.clear();
-  state.cursorOutline.rect(state.cursorX, state.cursorY, TILE_SIZE, TILE_SIZE)
+  state.cursorOutline
+    .rect(state.cursorX, state.cursorY, TILE_SIZE, TILE_SIZE)
     .stroke({ color: 0xffffff, width: 1 });
   state.cursorOutline.visible = true;
 
@@ -964,7 +1044,9 @@ const loadAssets = async () => {
   const player = await Assets.load<Texture>("/assets/sprites/player.png");
   player.source.scaleMode = "nearest";
 
-  const catalog = (await (await fetch("/api/catalog")).json()) as CatalogEntry[];
+  const catalog = (await (
+    await fetch("/api/catalog")
+  ).json()) as CatalogEntry[];
   const tiles: Record<number, Texture> = {};
   for (const entry of catalog) {
     tiles[entry.id] = new Texture({
@@ -1022,6 +1104,7 @@ const update = (context: Context) => {
 pnpm --filter burger-client exec tsc --noEmit
 pnpm --filter burger-client build
 ```
+
 Expected: clean.
 
 - [ ] **Step 5: Commit**
@@ -1038,6 +1121,7 @@ git commit -m "feat: client editor (cursor preview, palette, click-to-paint)"
 ## Task 6: Final verification + README
 
 **Files:**
+
 - Modify: `README.md`
 
 - [ ] **Step 1: Full test run**
@@ -1049,6 +1133,7 @@ pnpm --filter burger-server exec tsc --noEmit
 pnpm --filter burger-client exec tsc --noEmit
 pnpm --filter burger-client build
 ```
+
 Expected: all green.
 
 - [ ] **Step 2: Smoke-test pnpm dev**
@@ -1056,6 +1141,7 @@ Expected: all green.
 ```bash
 timeout 8 pnpm dev || true
 ```
+
 Expected: server + client start; admin user (real 4orm flow) sees the palette and can paint.
 
 - [ ] **Step 3: Update README**

@@ -44,12 +44,7 @@ import {
 } from "./consts.client";
 import debugFactory from "debug";
 import { GUI } from "lil-gui";
-import {
-  fetchMe,
-  signOut,
-  renderSignInScreen,
-  type Me,
-} from "./auth.client";
+import { fetchMe, signOut, renderSignInScreen, type Me } from "./auth.client";
 import {
   initEditor,
   updateEditor,
@@ -522,7 +517,9 @@ const loadAssets = async () => {
   const player = await Assets.load<Texture>("/assets/sprites/player.png");
   player.source.scaleMode = "nearest";
 
-  const catalog = (await (await fetch("/api/catalog")).json()) as CatalogEntry[];
+  const catalog = (await (
+    await fetch("/api/catalog")
+  ).json()) as CatalogEntry[];
   const tiles: Record<number, Texture> = {};
   for (const entry of catalog) {
     tiles[entry.id] = new Texture({

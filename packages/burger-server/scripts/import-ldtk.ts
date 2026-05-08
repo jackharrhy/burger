@@ -153,9 +153,7 @@ if (entities) {
         "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         ["spawn_y", String(sy)],
       );
-      console.log(
-        `spawn set to (${sx}, ${sy})`,
-      );
+      console.log(`spawn set to (${sx}, ${sy})`);
       break;
     }
   }

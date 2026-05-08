@@ -37,8 +37,8 @@ export const validatePaint = (
 
   // Cell-center alignment: x ≡ TILE_SIZE/2 (mod TILE_SIZE)
   const halfTile = TILE_SIZE / 2;
-  if (((x - halfTile) % TILE_SIZE + TILE_SIZE) % TILE_SIZE !== 0) return null;
-  if (((y - halfTile) % TILE_SIZE + TILE_SIZE) % TILE_SIZE !== 0) return null;
+  if ((((x - halfTile) % TILE_SIZE) + TILE_SIZE) % TILE_SIZE !== 0) return null;
+  if ((((y - halfTile) % TILE_SIZE) + TILE_SIZE) % TILE_SIZE !== 0) return null;
   if (x < world.bounds.x || x >= world.bounds.x + world.bounds.w) return null;
   if (y < world.bounds.y || y >= world.bounds.y + world.bounds.h) return null;
 

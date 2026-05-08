@@ -181,7 +181,9 @@ export const createServer = ({
     )
     .ws("/ws", {
       open(ws) {
-        const data = ws.data as { headers?: Record<string, string | undefined> };
+        const data = ws.data as {
+          headers?: Record<string, string | undefined>;
+        };
         const cookieHeader = data.headers?.cookie ?? null;
         const sessionId = parseSessionCookie(cookieHeader);
         if (!sessionId) {

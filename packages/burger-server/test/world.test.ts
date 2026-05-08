@@ -21,8 +21,14 @@ test("syncCatalog inserts catalog rows from TOML data", () => {
     { id: 1, type: "floor", src_x: 0, src_y: 0, label: "floor" },
     { id: 2, type: "wall", src_x: 32, src_y: 0, label: "wall" },
   ]);
-  const rows = db.query("SELECT * FROM tile_catalog ORDER BY id").all() as Array<{
-    id: number; type: string; src_x: number; src_y: number; label: string;
+  const rows = db
+    .query("SELECT * FROM tile_catalog ORDER BY id")
+    .all() as Array<{
+    id: number;
+    type: string;
+    src_x: number;
+    src_y: number;
+    label: string;
   }>;
   expect(rows).toEqual([
     { id: 1, type: "floor", src_x: 0, src_y: 0, label: "floor" },
@@ -32,17 +38,27 @@ test("syncCatalog inserts catalog rows from TOML data", () => {
 
 test("syncCatalog updates existing rows by id", () => {
   const db = setupDb();
-  syncCatalog(db, [{ id: 1, type: "floor", src_x: 0, src_y: 0, label: "floor" }]);
-  syncCatalog(db, [{ id: 1, type: "floor", src_x: 0, src_y: 0, label: "renamed" }]);
-  const row = db.query("SELECT label FROM tile_catalog WHERE id = 1").get() as { label: string };
+  syncCatalog(db, [
+    { id: 1, type: "floor", src_x: 0, src_y: 0, label: "floor" },
+  ]);
+  syncCatalog(db, [
+    { id: 1, type: "floor", src_x: 0, src_y: 0, label: "renamed" },
+  ]);
+  const row = db.query("SELECT label FROM tile_catalog WHERE id = 1").get() as {
+    label: string;
+  };
   expect(row.label).toBe("renamed");
 });
 
 test("syncCatalog leaves DB rows not in TOML in place (warning only)", () => {
   const db = setupDb();
-  db.run("INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (?, ?, ?, ?, ?)",
-    [99, "wall", 0, 0, "legacy"]);
-  syncCatalog(db, [{ id: 1, type: "floor", src_x: 0, src_y: 0, label: "floor" }]);
+  db.run(
+    "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (?, ?, ?, ?, ?)",
+    [99, "wall", 0, 0, "legacy"],
+  );
+  syncCatalog(db, [
+    { id: 1, type: "floor", src_x: 0, src_y: 0, label: "floor" },
+  ]);
   const row = db.query("SELECT * FROM tile_catalog WHERE id = 99").get();
   expect(row).not.toBeNull();
 });
@@ -59,7 +75,10 @@ test("seedDefaultSettings inserts defaults when missing", () => {
 
 test("seedDefaultSettings preserves existing values", () => {
   const db = setupDb();
-  db.run("INSERT INTO settings (key, value) VALUES (?, ?)", ["world_width", "999"]);
+  db.run("INSERT INTO settings (key, value) VALUES (?, ?)", [
+    "world_width",
+    "999",
+  ]);
   seedDefaultSettings(db);
   const settings = readSettings(db);
   expect(settings.world_width).toBe("999");

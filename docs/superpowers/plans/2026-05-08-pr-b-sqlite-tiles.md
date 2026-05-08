@@ -16,15 +16,16 @@
 
 ## File structure
 
-| Path | Responsibility |
-|---|---|
-| `packages/burger-server/atlas.toml` | Tile catalog source of truth (committed) |
-| `packages/burger-server/src/world.ts` | Init world from SQLite: catalog sync, tile load, settings, ECS entities |
-| `packages/burger-server/scripts/import-ldtk.ts` | One-time import LDtk → SQLite |
-| `packages/burger-server/test/world.test.ts` | Unit tests for catalog sync + tile load + settings + bounds |
-| `packages/burger-shared/test/collision.test.ts` | Add bounds-clamp tests (modify existing file) |
+| Path                                            | Responsibility                                                          |
+| ----------------------------------------------- | ----------------------------------------------------------------------- |
+| `packages/burger-server/atlas.toml`             | Tile catalog source of truth (committed)                                |
+| `packages/burger-server/src/world.ts`           | Init world from SQLite: catalog sync, tile load, settings, ECS entities |
+| `packages/burger-server/scripts/import-ldtk.ts` | One-time import LDtk → SQLite                                           |
+| `packages/burger-server/test/world.test.ts`     | Unit tests for catalog sync + tile load + settings + bounds             |
+| `packages/burger-shared/test/collision.test.ts` | Add bounds-clamp tests (modify existing file)                           |
 
 Modified:
+
 - `packages/burger-server/src/db.ts` — add tile_catalog, tiles, tile_edits, settings tables
 - `packages/burger-shared/src/world.shared.ts` — `SharedWorld.bounds` field
 - `packages/burger-shared/src/collision.ts` — clamp final position to bounds
@@ -35,6 +36,7 @@ Modified:
 - `packages/burger-server/src/server.ts` — replace `createLevel` call with `initWorld(db)`
 
 Deleted:
+
 - `packages/burger-server/src/level.ts`
 - `packages/burger-server/src/burger.json`
 
@@ -43,6 +45,7 @@ Deleted:
 ## Task 1: Schema additions
 
 **Files:**
+
 - Modify: `packages/burger-server/src/db.ts`
 - Modify: `packages/burger-server/test/auth/db.test.ts` (add new table assertions)
 
@@ -100,8 +103,11 @@ Append to `packages/burger-server/test/auth/db.test.ts`:
 test("runMigrations creates tile_catalog, tiles, tile_edits, settings tables", () => {
   const db = new Database(":memory:");
   runMigrations(db);
-  const names = (db.query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as { name: string }[])
-    .map((r) => r.name);
+  const names = (
+    db
+      .query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+      .all() as { name: string }[]
+  ).map((r) => r.name);
   expect(names).toContain("tile_catalog");
   expect(names).toContain("tiles");
   expect(names).toContain("tile_edits");
@@ -126,6 +132,7 @@ git commit -m "chore: add tile_catalog, tiles, tile_edits, settings tables"
 ## Task 2: SharedWorld bounds + moveAndSlide clamp
 
 **Files:**
+
 - Modify: `packages/burger-shared/src/world.shared.ts`
 - Modify: `packages/burger-shared/src/collision.ts`
 - Modify: `packages/burger-shared/test/collision.test.ts`
@@ -167,8 +174,10 @@ const maxX = world.bounds.x + world.bounds.w - halfPlayer;
 const minY = world.bounds.y + halfPlayer;
 const maxY = world.bounds.y + world.bounds.h - halfPlayer;
 
-const clampedX = world.bounds.w > 0 ? Math.max(minX, Math.min(maxX, newX)) : newX;
-const clampedY = world.bounds.h > 0 ? Math.max(minY, Math.min(maxY, newY)) : newY;
+const clampedX =
+  world.bounds.w > 0 ? Math.max(minX, Math.min(maxX, newX)) : newX;
+const clampedY =
+  world.bounds.h > 0 ? Math.max(minY, Math.min(maxY, newY)) : newY;
 
 return { x: clampedX, y: clampedY };
 ```
@@ -224,6 +233,7 @@ test("moveAndSlide with zero bounds applies no clamp (degenerate)", () => {
 pnpm --filter burger-shared test
 pnpm --filter burger-shared exec tsc --noEmit
 ```
+
 Expected: all collision tests pass, no TS errors.
 
 - [ ] **Step 5: Commit**
@@ -240,6 +250,7 @@ git commit -m "feat: world bounds in SharedWorld and moveAndSlide"
 ## Task 3: PROTOCOL_VERSION bump + bounds in YOUR_EID
 
 **Files:**
+
 - Modify: `packages/burger-shared/src/const.shared.ts`
 - Modify: `packages/burger-server/src/network.server.ts`
 - Modify: `packages/burger-client/src/network.client.ts`
@@ -332,6 +343,7 @@ pnpm test
 pnpm --filter burger-client exec tsc --noEmit
 pnpm --filter burger-client build
 ```
+
 Expected: all pass, no TS errors.
 
 - [ ] **Step 6: Commit**
@@ -349,6 +361,7 @@ git commit -m "feat: protocol v2 sends bounds in YOUR_EID"
 ## Task 4: atlas.toml + world.ts (catalog sync, settings, tile load)
 
 **Files:**
+
 - Create: `packages/burger-server/atlas.toml`
 - Create: `packages/burger-server/src/world.ts`
 - Create: `packages/burger-server/test/world.test.ts`
@@ -413,7 +426,9 @@ test("syncCatalog inserts catalog rows from TOML data", () => {
     { id: 1, type: "floor", src_x: 0, src_y: 0, label: "floor" },
     { id: 2, type: "wall", src_x: 32, src_y: 0, label: "wall" },
   ]);
-  const rows = db.query("SELECT * FROM tile_catalog ORDER BY id").all() as any[];
+  const rows = db
+    .query("SELECT * FROM tile_catalog ORDER BY id")
+    .all() as any[];
   expect(rows).toEqual([
     { id: 1, type: "floor", src_x: 0, src_y: 0, label: "floor" },
     { id: 2, type: "wall", src_x: 32, src_y: 0, label: "wall" },
@@ -422,19 +437,28 @@ test("syncCatalog inserts catalog rows from TOML data", () => {
 
 test("syncCatalog updates existing rows", () => {
   const db = setupDb();
-  syncCatalog(db, [{ id: 1, type: "floor", src_x: 0, src_y: 0, label: "floor" }]);
-  syncCatalog(db, [{ id: 1, type: "floor", src_x: 0, src_y: 0, label: "renamed" }]);
-  const row = db.query("SELECT label FROM tile_catalog WHERE id = 1").get() as any;
+  syncCatalog(db, [
+    { id: 1, type: "floor", src_x: 0, src_y: 0, label: "floor" },
+  ]);
+  syncCatalog(db, [
+    { id: 1, type: "floor", src_x: 0, src_y: 0, label: "renamed" },
+  ]);
+  const row = db
+    .query("SELECT label FROM tile_catalog WHERE id = 1")
+    .get() as any;
   expect(row.label).toBe("renamed");
 });
 
 test("syncCatalog leaves unrelated rows in place (warning only)", () => {
   const db = setupDb();
   // Pre-existing row not in the toml input.
-  db.run("INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (?, ?, ?, ?, ?)", [
-    99, "wall", 0, 0, "legacy",
+  db.run(
+    "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (?, ?, ?, ?, ?)",
+    [99, "wall", 0, 0, "legacy"],
+  );
+  syncCatalog(db, [
+    { id: 1, type: "floor", src_x: 0, src_y: 0, label: "floor" },
   ]);
-  syncCatalog(db, [{ id: 1, type: "floor", src_x: 0, src_y: 0, label: "floor" }]);
   const row = db.query("SELECT * FROM tile_catalog WHERE id = 99").get();
   expect(row).not.toBeNull();
 });
@@ -449,7 +473,10 @@ test("seedDefaultSettings inserts defaults when missing", () => {
 
 test("seedDefaultSettings preserves existing values", () => {
   const db = setupDb();
-  db.run("INSERT INTO settings (key, value) VALUES (?, ?)", ["world_width", "999"]);
+  db.run("INSERT INTO settings (key, value) VALUES (?, ?)", [
+    "world_width",
+    "999",
+  ]);
   seedDefaultSettings(db);
   const settings = readSettings(db);
   expect(settings.world_width).toBe("999");
@@ -515,10 +542,7 @@ Expected: FAIL — module not found.
 // packages/burger-server/src/world.ts
 import { addComponent, addEntity } from "bitecs";
 import type { Database } from "bun:sqlite";
-import {
-  createSharedWorld,
-  TILE_SIZE,
-} from "burger-shared";
+import { createSharedWorld, TILE_SIZE } from "burger-shared";
 import atlas from "../atlas.toml";
 
 export type CatalogEntry = {
@@ -551,10 +575,14 @@ export const syncCatalog = (db: Database, tiles: CatalogEntry[]): void => {
     "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET type = excluded.type, src_x = excluded.src_x, src_y = excluded.src_y, label = excluded.label",
   );
   const tomlIds = new Set(tiles.map((t) => t.id));
-  const dbRows = db.query("SELECT id FROM tile_catalog").all() as { id: number }[];
+  const dbRows = db.query("SELECT id FROM tile_catalog").all() as {
+    id: number;
+  }[];
   for (const row of dbRows) {
     if (!tomlIds.has(row.id)) {
-      console.warn(`tile_catalog row ${row.id} is in DB but not in atlas.toml; leaving in place`);
+      console.warn(
+        `tile_catalog row ${row.id} is in DB but not in atlas.toml; leaving in place`,
+      );
     }
   }
   for (const t of tiles) {
@@ -591,14 +619,18 @@ export const loadTilesIntoEcs = (
   db: Database,
 ): void => {
   const { Position, Tile, Networked, Solid } = world.components;
-  const rows = db
-    .query("SELECT x, y, tile_id FROM tiles")
-    .all() as { x: number; y: number; tile_id: number }[];
+  const rows = db.query("SELECT x, y, tile_id FROM tiles").all() as {
+    x: number;
+    y: number;
+    tile_id: number;
+  }[];
 
   for (const row of rows) {
     const cat = world.catalog.get(row.tile_id);
     if (!cat) {
-      console.warn(`tile at (${row.x},${row.y}) references missing catalog id ${row.tile_id}; skipping`);
+      console.warn(
+        `tile at (${row.x},${row.y}) references missing catalog id ${row.tile_id}; skipping`,
+      );
       continue;
     }
 
@@ -692,6 +724,7 @@ git commit -m "feat: add atlas.toml catalog and world.ts loader"
 ## Task 5: Wire world.ts into server.ts; remove level.ts
 
 **Files:**
+
 - Modify: `packages/burger-server/src/server.ts`
 - Modify: `packages/burger-server/src/players.ts`
 - Delete: `packages/burger-server/src/level.ts`
@@ -772,17 +805,30 @@ beforeEach(() => {
   db = new Database(":memory:");
   runMigrations(db);
   // Seed test user
-  db.run("INSERT INTO users (id, fourm_id, username, display_name, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-    ["u1", "fid1", "TestUser", "Test User", 0, Date.now()]);
+  db.run(
+    "INSERT INTO users (id, fourm_id, username, display_name, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    ["u1", "fid1", "TestUser", "Test User", 0, Date.now()],
+  );
   sessionId = "test-session-id";
-  db.run("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
-    [sessionId, "u1", Date.now() + 1_000_000]);
+  db.run("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)", [
+    sessionId,
+    "u1",
+    Date.now() + 1_000_000,
+  ]);
 
   world = initWorld(db);
 
   port = 5500 + Math.floor(Math.random() * 500);
   app = createServer({
-    port, world, db, authConfig: { fourmUrl: "x", burgerUrl: "x", clientId: "burger", isProduction: false },
+    port,
+    world,
+    db,
+    authConfig: {
+      fourmUrl: "x",
+      burgerUrl: "x",
+      clientId: "burger",
+      isProduction: false,
+    },
     onPlayerJoin: (name) => createPlayer(world, name),
     onPlayerLeave: (eid) => removeEntity(world, eid),
   });
@@ -804,6 +850,7 @@ pnpm test
 pnpm --filter burger-server exec tsc --noEmit
 pnpm --filter burger-client exec tsc --noEmit
 ```
+
 Expected: clean.
 
 - [ ] **Step 6: Smoke-test server starts**
@@ -811,6 +858,7 @@ Expected: clean.
 ```bash
 timeout 5 pnpm dev:server || true
 ```
+
 Expected: prints "Server running on localhost:5000".
 
 - [ ] **Step 7: Commit**
@@ -825,6 +873,7 @@ git commit -m "feat: wire world.ts into server, remove level.ts"
 ## Task 6: LDtk import script
 
 **Files:**
+
 - Create: `packages/burger-server/scripts/import-ldtk.ts`
 
 - [ ] **Step 1: Write the import script**
@@ -881,7 +930,10 @@ if (!level) throw new Error("no level in burger.json");
 const layerTiles = level.layerInstances[1];
 if (!layerTiles) throw new Error("no tile layer (index 1)");
 
-const catalogByKey = new Map<string, { type: string; src_x: number; src_y: number; label: string }>();
+const catalogByKey = new Map<
+  string,
+  { type: string; src_x: number; src_y: number; label: string }
+>();
 for (const { t, src } of layerTiles.gridTiles) {
   const type = tileIdToType[t];
   if (!type) continue;
@@ -904,8 +956,9 @@ const insertCatStmt = db.prepare(
 const catalogKeyToId = new Map<string, number>();
 
 // Reuse existing catalog rows by (type, src_x, src_y) match.
-const existing = db.query("SELECT id, type, src_x, src_y FROM tile_catalog").all() as
-  { id: number; type: string; src_x: number; src_y: number }[];
+const existing = db
+  .query("SELECT id, type, src_x, src_y FROM tile_catalog")
+  .all() as { id: number; type: string; src_x: number; src_y: number }[];
 for (const row of existing) {
   const key = `${row.type}-${row.src_x}-${row.src_y}`;
   catalogKeyToId.set(key, row.id);
@@ -941,8 +994,9 @@ for (const { t, px, src } of layerTiles.gridTiles) {
   const y = px[1]!;
 
   // Capture old value for the edit log.
-  const old = db.query("SELECT tile_id FROM tiles WHERE x = ? AND y = ?").get(x, y) as
-    { tile_id: number } | undefined;
+  const old = db
+    .query("SELECT tile_id FROM tiles WHERE x = ? AND y = ?")
+    .get(x, y) as { tile_id: number } | undefined;
   insertTileStmt.run(x, y, catId);
   insertEditStmt.run(x, y, old?.tile_id ?? null, catId, null, now);
   tileCount++;
@@ -1001,6 +1055,7 @@ If transcribing manually is tedious, you can write a tiny export script — but 
 ```bash
 DB_PATH=./data/burger.db timeout 5 pnpm dev:server || true
 ```
+
 Expected: server starts, log shows tiles loaded.
 
 - [ ] **Step 5: Commit**
@@ -1015,6 +1070,7 @@ git commit -m "chore: add ldtk import script and seed atlas.toml"
 ## Task 7: Delete burger.json and final verification
 
 **Files:**
+
 - Delete: `packages/burger-server/src/burger.json`
 
 - [ ] **Step 1: Delete burger.json**
@@ -1033,6 +1089,7 @@ pnpm --filter burger-shared exec tsc --noEmit
 pnpm --filter burger-server exec tsc --noEmit
 pnpm --filter burger-client exec tsc --noEmit
 ```
+
 Expected: all green.
 
 - [ ] **Step 3: Run client build**
@@ -1040,6 +1097,7 @@ Expected: all green.
 ```bash
 pnpm --filter burger-client build
 ```
+
 Expected: clean.
 
 - [ ] **Step 4: Smoke-test pnpm dev**
@@ -1047,13 +1105,14 @@ Expected: clean.
 ```bash
 timeout 5 pnpm dev:server || true
 ```
+
 Expected: prints "Server running on localhost:5000" with tiles loaded count.
 
 - [ ] **Step 5: Update README**
 
 Add a short section after the existing Auth section:
 
-```markdown
+````markdown
 ## World data
 
 Tiles are stored in the SQLite database at `DB_PATH` (default `./data/burger.db`).
@@ -1064,16 +1123,18 @@ To bootstrap a world from an LDtk export:
 ```bash
 DB_PATH=./data/burger.db pnpm --filter burger-server exec bun scripts/import-ldtk.ts
 ```
+````
 
 Requires `packages/burger-server/src/burger.json` (gitignored) to be present.
-```
+
+````
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add -A
 git commit -m "chore: delete burger.json and document tile store in README"
-```
+````
 
 ---
 

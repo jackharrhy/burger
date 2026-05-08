@@ -21,22 +21,22 @@ Branch: `modernize-and-drop-voice`
 
 ## What gets deleted
 
-| Path | Reason |
-|---|---|
-| `packages/burger-radio/` | Entire package: radio audio streaming server. |
-| `packages/burger-client/src/voice.client.ts` | WebRTC voice chat client. |
-| `packages/burger-server/src/radio-manager.ts` | Subprocess manager for radio. |
-| `AudioEmitter`, `Radio` ECS components | Only used by voice/radio. |
-| `MESSAGE_TYPES.SIGNAL` | WebRTC signaling relay. |
-| `SignalMessage` type | Same. |
-| `eidToWs` reverse map in network.server.ts | Only used by signal relay. |
-| `world.radioEntities`, `spawnRadio` | Only used by radio. |
-| Voice GUI controls in `client.ts` | Voice settings folder. |
-| `simple-peer`, `vite-plugin-node-polyfills`, `@types/simple-peer` | Browser WebRTC stack. |
-| `tsx` (top-level dev) | Only used by burger-radio. |
-| `VOICE_MAX_DISTANCE`, `VOICE_MIN_DISTANCE` consts | Voice falloff. |
-| `*.pcm`, `*.mp3` in .gitignore | No longer relevant. |
-| `nodePolyfills` plugin in vite.config.ts | Only there to make simple-peer build. |
+| Path                                                              | Reason                                        |
+| ----------------------------------------------------------------- | --------------------------------------------- |
+| `packages/burger-radio/`                                          | Entire package: radio audio streaming server. |
+| `packages/burger-client/src/voice.client.ts`                      | WebRTC voice chat client.                     |
+| `packages/burger-server/src/radio-manager.ts`                     | Subprocess manager for radio.                 |
+| `AudioEmitter`, `Radio` ECS components                            | Only used by voice/radio.                     |
+| `MESSAGE_TYPES.SIGNAL`                                            | WebRTC signaling relay.                       |
+| `SignalMessage` type                                              | Same.                                         |
+| `eidToWs` reverse map in network.server.ts                        | Only used by signal relay.                    |
+| `world.radioEntities`, `spawnRadio`                               | Only used by radio.                           |
+| Voice GUI controls in `client.ts`                                 | Voice settings folder.                        |
+| `simple-peer`, `vite-plugin-node-polyfills`, `@types/simple-peer` | Browser WebRTC stack.                         |
+| `tsx` (top-level dev)                                             | Only used by burger-radio.                    |
+| `VOICE_MAX_DISTANCE`, `VOICE_MIN_DISTANCE` consts                 | Voice falloff.                                |
+| `*.pcm`, `*.mp3` in .gitignore                                    | No longer relevant.                           |
+| `nodePolyfills` plugin in vite.config.ts                          | Only there to make simple-peer build.         |
 
 ## Architecture changes
 
@@ -87,6 +87,7 @@ Shared functions stop reaching into `world.components` via `Pick<>` and instead 
 **Server-driven physics dt.** `cmd.msec` is removed from the wire. The server replays each input at `SERVER_TICK_RATE_MS` (a constant). The client predicts using its real frame dt for responsiveness, but when reconciliation replays unacked inputs after a server snapshot, it uses the same fixed `SERVER_TICK_RATE_MS` so the prediction matches the server. This is how Source/Quake handles fixed-tick simulation.
 
 **InputCmd validation.** Server runs every incoming message through a validator:
+
 - Must be JSON object with `type === "input"`.
 - `seq` is an integer ≥ 0 and > previous seq for that connection (drop reordered/replayed inputs).
 - `up`/`down`/`left`/`right`/`interact` are booleans (cast).
@@ -143,7 +144,7 @@ Then open a PR: `Modernize, drop voice/radio, harden netcode`.
 
 ## Risks
 
-- **Reconciliation behavior change.** Switching client replay to fixed dt may affect feel. Mitigated by tests + the fact that the *prediction* tick still uses real dt.
+- **Reconciliation behavior change.** Switching client replay to fixed dt may affect feel. Mitigated by tests + the fact that the _prediction_ tick still uses real dt.
 - **bitecs major bump.** Check changelog; current is 0.4.0. If 0.5+ is breaking, fall back to 0.4.x latest.
 - **Pixi.js v8 → v9 if it dropped.** Unlikely; v8 is current.
 - **Elysia API drift.** v1.4 is current; bumps within 1.x should be fine.
