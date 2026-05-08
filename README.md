@@ -37,7 +37,7 @@ Before running the server, register burger as an OAuth client in 4orm's `oauth2_
 client_name = "burger"
 redirect_uris = [
     "https://big.burger.beauty/auth/4orm/callback",
-    "http://localhost:5000/auth/4orm/callback",
+    "http://localhost:5173/auth/4orm/callback",
 ]
 scope = "openid profile"
 ```
@@ -47,10 +47,12 @@ Configure burger via a root-level `.env` file (gitignored). See `.env.example` f
 ```
 FOURM_URL=https://4orm.harrhy.xyz
 FOURM_CLIENT_ID=burger
-BURGER_URL=http://localhost:5000
+BURGER_URL=http://localhost:5173
 DB_PATH=./data/burger.db
 NODE_ENV=development
 ```
+
+In dev, the browser sees `:5173` (vite). Vite proxies `/auth`, `/api`, `/ws` to the elysia server on `:5000`. The session cookie scopes to `:5173` so the SPA picks it up. Production runs single-origin on `https://big.burger.beauty`.
 
 The first user signing in inherits their `is_admin` flag from 4orm. Sessions persist in SQLite for 30 days.
 

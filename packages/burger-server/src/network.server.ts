@@ -132,6 +132,8 @@ export const createServer = ({
     mkdirSync("./public/assets", { recursive: true });
   }
 
+  const indexExists = existsSync("./public/index.html");
+
   const app = new Elysia()
     .use(
       staticPlugin({
@@ -140,7 +142,16 @@ export const createServer = ({
       }),
     )
     .use(authRoutes({ db, config: authConfig }))
-    .get("/", () => file("./public/index.html"))
+    .get("/", ({ set }) => {
+      if (indexExists) return file("./public/index.html");
+      // Dev mode: SPA is served by vite on :5173 and proxies /auth, /api,
+      // /ws back to this server. Anyone hitting :5000/ directly should be
+      // redirected there.
+      set.status = 302;
+      set.headers["location"] =
+        process.env.VITE_DEV_URL ?? "http://localhost:5173";
+      return "";
+    })
     .get("/api/atlas", () => world.typeIdToAtlasSrc)
     .get("/api/catalog", () =>
       db
