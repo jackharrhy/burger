@@ -7,6 +7,7 @@ import {
 } from "pixi.js";
 import { TILE_SIZE } from "burger-shared";
 import { sendPaint, type NetworkState } from "./network";
+import { useGameStore } from "../store";
 
 export type CatalogEntry = {
   id: number;
@@ -45,6 +46,7 @@ const selectTile = (state: EditorState, tileId: number): void => {
   state.paletteSlots.forEach((slot, i) => {
     slot.outline.visible = state.catalog[i]?.id === tileId;
   });
+  useGameStore.getState().setSelectedTileId(tileId);
 };
 
 const paintAtCursor = (state: EditorState, network: NetworkState): void => {
@@ -151,6 +153,7 @@ export const initEditor = (
         state.cursorSprite.visible = false;
         state.cursorOutline.visible = false;
       }
+      useGameStore.getState().setEditorActive(state.active);
       return;
     }
     if (state.active) {

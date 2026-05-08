@@ -51,6 +51,7 @@ import {
   type EditorState,
   type CatalogEntry,
 } from "./editor";
+import { useGameStore } from "../store";
 
 const debug = debugFactory("burger:client");
 
@@ -353,6 +354,15 @@ const metricsSystem = ({ network, metrics, debugMetrics }: Context) => {
   debugMetrics.bytesReceivedPerSec = Math.round(metrics.bytesReceivedPerSec);
   network.lagMs = debugMetrics.lag;
   network.jitterMs = debugMetrics.jitter;
+
+  // Mirror to the React store so the chrome can render these.
+  useGameStore.getState().setMetrics({
+    tickrate: debugMetrics.tickrate,
+    lag: debugMetrics.lag,
+    updatesHz: debugMetrics.updatesHz,
+    bytesSentPerSec: debugMetrics.bytesSentPerSec,
+    bytesReceivedPerSec: debugMetrics.bytesReceivedPerSec,
+  });
 };
 
 const errorDecaySystem = ({ network }: Context) => {
@@ -544,6 +554,12 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
   let isRunning = true;
   const teardownCallbacks: Array<() => void> = [];
 
+  useGameStore.getState().setUser(user);
+  teardownCallbacks.push(() => {
+    useGameStore.getState().setUser(null);
+    useGameStore.getState().setEditor(null);
+  });
+
   void (async () => {
     await app.init({
       background: "#87CEEB",
@@ -726,6 +742,10 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
             () => context.camera,
             () => ZOOM,
           );
+          useGameStore.getState().setEditor({
+            active: false,
+            selectedTileId: context.editor.selectedTileId,
+          });
         }
       },
       onSnapshotReceived: () => {
