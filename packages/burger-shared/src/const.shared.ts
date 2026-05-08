@@ -15,6 +15,7 @@ export const MESSAGE_TYPES = {
   GAME_STATE: 5,
   PING: 6,
   PONG: 7,
+  PAINT: 8,
 } as const;
 
 export const TILE_TYPES = {
@@ -27,3 +28,4 @@ export type TileType = (typeof TILE_TYPES)[keyof typeof TILE_TYPES];
 
 export const PROTOCOL_VERSION = 1;
 export const MAX_INPUTS_PER_TICK = 8;
+export const MAX_PAINTS_PER_TICK = 4;
