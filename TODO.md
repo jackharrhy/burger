@@ -1,6 +1,5 @@
 main:
 
-- ldtk level loading
 - patties
 - pick up patties
 - place / swap patties

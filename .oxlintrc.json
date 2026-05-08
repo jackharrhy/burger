@@ -38,7 +38,6 @@
     "**/data/**",
     "bitECS/**",
     "tmp/**",
-    "**/burger.json",
     "pnpm-lock.yaml"
   ],
   "overrides": [
@@ -47,12 +46,6 @@
       "rules": {
         "typescript/no-explicit-any": "off",
         "no-empty-pattern": "off"
-      }
-    },
-    {
-      "files": ["**/scripts/**/*.ts"],
-      "rules": {
-        "no-console": "off"
       }
     }
   ]
