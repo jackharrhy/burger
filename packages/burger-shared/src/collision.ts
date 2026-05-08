@@ -4,6 +4,11 @@ import type { SharedWorld } from "./world.shared";
 
 const CORNER_CORRECTION = 2;
 
+// NOTE: this is a static (non-swept) AABB resolver. If `velocity * dt` exceeds
+// roughly `TILE_SIZE - PLAYER_SIZE / 2`, the entity tunnels through walls in
+// one step. This is currently safe because applyInputToVelocity caps velocity
+// at PLAYER_SPEED (~3.3 px/tick at 60Hz), well below the tunneling threshold.
+// Revisit if PLAYER_SPEED is raised or external impulses are introduced.
 export const moveAndSlide = (
   world: SharedWorld,
   x: number,
