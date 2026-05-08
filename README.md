@@ -2,17 +2,14 @@
 
 > hi, may i take your order?
 
-A small multiplayer 2D top-down game with Quake-style netcode (client-side
-prediction, server reconciliation, entity interpolation).
-
 ## Stack
 
-- [`bitECS`](https://github.com/NateTheGreatt/bitECS) — entity component system
-- [`pixi.js`](https://pixijs.com/) — client renderer
-- [`elysia`](https://elysiajs.com/) on [`bun`](https://bun.com/) — server
-- [`vite`](https://vite.dev/) — client dev/build
-- [`pnpm`](https://pnpm.io/) — workspace + package manager
-- [LDtk](https://ldtk.io/) — level format
+- [`bitECS`](https://github.com/NateTheGreatt/bitECS): entity component system
+- [`pixi.js`](https://pixijs.com/): client renderer
+- [`elysia`](https://elysiajs.com/) on [`bun`](https://bun.com/): server
+- [`vite`](https://vite.dev/): client dev/build
+- [`pnpm`](https://pnpm.io/): workspace + package manager
+- [LDtk](https://ldtk.io/): level format
 
 ## Layout
 
@@ -25,9 +22,9 @@ packages/
 
 ## Requirements
 
-- Node 25 (see `.tool-versions`)
-- `pnpm` (`npm i -g pnpm`)
-- `bun` (`npm i -g bun`) — server runtime + test runner
+- Node 25
+- `pnpm`
+- `bun`
 
 ## Scripts (root)
 
@@ -45,27 +42,6 @@ pnpm test                   # run bun tests in every package
 pnpm format                 # prettier the whole workspace
 ```
 
-Typical local-dev flow: run `pnpm dev:server` in one terminal and
-`pnpm dev:client` in another, then open the URL vite prints.
-
-Production-style flow: `pnpm build-frontend && pnpm copy-frontend && pnpm prod:server`.
-
-## Per-package scripts
-
-You can also target a single package directly:
-
-```bash
-pnpm --filter burger-client dev
-pnpm --filter burger-client build
-pnpm --filter burger-client preview
-
-pnpm --filter burger-server dev
-pnpm --filter burger-server start
-pnpm --filter burger-server test
-
-pnpm --filter burger-shared test
-```
-
 ## Docker
 
 ```bash
@@ -78,9 +54,3 @@ docker compose up --build
 ```bash
 pnpm test
 ```
-
-Runs `bun test` across `burger-shared` and `burger-server`. The server suite
-includes e2e tests that spin up a real Elysia server on a random port and
-connect a real WebSocket client, exercising the input-validation pipeline,
-per-tick rate cap, replay rejection, protocol version handshake, and disconnect
-cleanup.
