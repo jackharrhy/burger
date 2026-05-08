@@ -8,14 +8,23 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@elysiajs/eden": "^1.4.9",
     "@types/debug": "^4.1.13",
     "bitecs": "^0.4.0",
+    "burger-server": "workspace:*",
     "burger-shared": "workspace:*",
     "debug": "^4.4.3",
     "lil-gui": "^0.21.0",
-    "pixi.js": "^8.18.1"
+    "pixi.js": "^8.18.1",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-router": "^7.15.0",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
     "typescript": "^6.0.3",
     "vite": "^8.0.11"
   }
