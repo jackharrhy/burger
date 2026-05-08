@@ -55,7 +55,7 @@ import { useGameStore } from "../store";
 
 const debug = debugFactory("burger:client");
 
-const showDebug = true;
+const showDebug = import.meta.env.DEV;
 
 const makeWorld = () =>
   createWorld({
