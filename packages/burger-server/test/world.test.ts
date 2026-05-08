@@ -79,18 +79,21 @@ test("loadCatalog returns rows joined into a Map by id", () => {
 
 test("initWorld creates ECS entities for tiles in DB", () => {
   const db = setupDb();
+  // Use catalog ids in a range outside atlas.toml's reserved set so initWorld's
+  // own atlas.toml sync doesn't overwrite our test fixtures.
   syncCatalog(db, [
-    { id: 1, type: "floor", src_x: 0, src_y: 0, label: "f" },
-    { id: 2, type: "wall", src_x: 32, src_y: 0, label: "w" },
+    { id: 100, type: "floor", src_x: 0, src_y: 0, label: "f" },
+    { id: 101, type: "wall", src_x: 32, src_y: 0, label: "w" },
   ]);
-  db.run("INSERT INTO tiles (x, y, tile_id) VALUES (32, 64, 2)");
-  db.run("INSERT INTO tiles (x, y, tile_id) VALUES (96, 64, 1)");
+  db.run("INSERT INTO tiles (x, y, tile_id) VALUES (32, 64, 101)");
+  db.run("INSERT INTO tiles (x, y, tile_id) VALUES (96, 64, 100)");
   seedDefaultSettings(db);
 
   const world = initWorld(db);
   const { Position, Tile, Solid } = world.components;
   const { query } = require("bitecs");
   const tiles = query(world, [Position, Tile]);
+  // Two seeded tiles; atlas.toml entries don't add tiles, only catalog rows.
   expect(tiles.length).toBe(2);
 
   const solid = query(world, [Position, Solid]);
