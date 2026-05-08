@@ -13,9 +13,8 @@
  * Idempotent. Re-running overwrites existing tiles to match the LDtk source.
  * Does NOT delete tiles that aren't in the LDtk export.
  */
-import { Database } from "bun:sqlite";
 import { TILE_SIZE } from "burger-shared";
-import { runMigrations } from "../src/db";
+import { openDatabase } from "../src/db";
 import burgerLevel from "../src/burger.json";
 
 type LayerCustomData = { tileId: number; data: string };
@@ -34,8 +33,7 @@ const TYPE_MAP: Record<string, string> = {
 
 const dbPath = process.env.DB_PATH ?? "./data/burger.db";
 console.log(`importing into ${dbPath}`);
-const db = new Database(dbPath);
-runMigrations(db);
+const db = openDatabase(dbPath);
 
 // Step 1: tileId → type from LDtk customData
 const tilesets = burgerLevel.defs.tilesets[0];
