@@ -148,7 +148,10 @@ export const buildApp = (deps: AppDeps) => {
           const auth = requireAdmin(headers.cookie ?? null);
           if (!auth.ok) {
             set.status = 403;
-            return { ok: false, errors: [{ field: "auth", message: "admin required" }] };
+            return {
+              ok: false,
+              errors: [{ field: "auth", message: "admin required" }],
+            };
           }
 
           const validation = validateCatalog(body, {
@@ -205,7 +208,10 @@ export const buildApp = (deps: AppDeps) => {
           const auth = requireAdmin(headers.cookie ?? null);
           if (!auth.ok) {
             set.status = 403;
-            return { ok: false, errors: [{ field: "auth", message: "admin required" }] };
+            return {
+              ok: false,
+              errors: [{ field: "auth", message: "admin required" }],
+            };
           }
 
           const result = renameCatalogId(db, { from: body.from, to: body.to });

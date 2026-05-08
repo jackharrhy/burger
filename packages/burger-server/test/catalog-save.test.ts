@@ -70,7 +70,9 @@ test("saveCatalog writes the toml file and syncs tile_catalog rows", async () =>
   expect(text).toContain("id = 1");
   expect(text).toContain("id = 2");
   // db synced
-  const rows = db.query("SELECT id, type, src_x, src_y, label FROM tile_catalog ORDER BY id").all();
+  const rows = db
+    .query("SELECT id, type, src_x, src_y, label FROM tile_catalog ORDER BY id")
+    .all();
   expect(rows).toHaveLength(2);
   // broadcast called
   expect(broadcasted).not.toBeNull();

@@ -24,7 +24,10 @@ export const validateCatalog = (
   { atlasW, atlasH }: { atlasW: number; atlasH: number },
 ): ValidationResult => {
   if (!Array.isArray(raw)) {
-    return { ok: false, errors: [{ field: "root", message: "expected array" }] };
+    return {
+      ok: false,
+      errors: [{ field: "root", message: "expected array" }],
+    };
   }
 
   const errors: ValidationError[] = [];
@@ -96,7 +99,10 @@ export const validateCatalog = (
     seenCoords.add(coordKey);
 
     if (typeof obj.label !== "string" || obj.label.length === 0) {
-      errors.push({ field: `${prefix}.label`, message: "must be non-empty string" });
+      errors.push({
+        field: `${prefix}.label`,
+        message: "must be non-empty string",
+      });
       continue;
     }
 

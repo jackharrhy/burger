@@ -30,9 +30,9 @@ export const renameCatalogId = (
 
   const fromExists =
     (
-      db.query("SELECT COUNT(*) as c FROM tile_catalog WHERE id = ?").get(
-        from,
-      ) as { c: number }
+      db
+        .query("SELECT COUNT(*) as c FROM tile_catalog WHERE id = ?")
+        .get(from) as { c: number }
     ).c > 0;
   if (!fromExists) {
     return {
@@ -42,9 +42,9 @@ export const renameCatalogId = (
   }
   const toExists =
     (
-      db.query("SELECT COUNT(*) as c FROM tile_catalog WHERE id = ?").get(
-        to,
-      ) as { c: number }
+      db
+        .query("SELECT COUNT(*) as c FROM tile_catalog WHERE id = ?")
+        .get(to) as { c: number }
     ).c > 0;
   if (toExists) {
     return {
