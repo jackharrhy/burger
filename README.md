@@ -9,7 +9,7 @@
 - [`elysia`](https://elysiajs.com/) on [`bun`](https://bun.com/): server
 - [`vite`](https://vite.dev/): client dev/build
 - [`pnpm`](https://pnpm.io/): workspace + package manager
-- [LDtk](https://ldtk.io/): level format
+- [`bun:sqlite`](https://bun.com/docs/api/sqlite): users, sessions, tile store
 
 ## Layout
 
@@ -52,6 +52,18 @@ DB_PATH=./data/burger.db                # default; SQLite path for users/session
 ```
 
 The first user signing in inherits their `is_admin` flag from 4orm. Sessions persist in SQLite for 30 days.
+
+## World data
+
+Tiles, the tile catalog, and world settings (spawn zone, world bounds) live in the same SQLite database as users and sessions. The catalog is seeded from `packages/burger-server/atlas.toml` on every server boot — that file is the source of truth for what tiles exist; edit it and restart the server to add new tiles. Tile placements (`tiles` table) are written by the import script or by admins painting in-game (PR C).
+
+To bootstrap from an LDtk export:
+
+```bash
+DB_PATH=./data/burger.db pnpm --filter burger-server exec bun scripts/import-ldtk.ts
+```
+
+Requires `packages/burger-server/src/burger.json` (gitignored) to be present. Re-running the script is idempotent — existing tiles are overwritten to match the LDtk source; tiles painted later that aren't in the LDtk export are preserved.
 
 ## Scripts (root)
 
