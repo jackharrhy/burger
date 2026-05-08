@@ -6,7 +6,7 @@ import {
   Graphics,
 } from "pixi.js";
 import { TILE_SIZE } from "burger-shared";
-import { sendPaint, type NetworkState } from "./network.client";
+import { sendPaint, type NetworkState } from "./network";
 
 export type CatalogEntry = {
   id: number;

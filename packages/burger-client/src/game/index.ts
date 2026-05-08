@@ -1,4 +1,4 @@
-import "./style.css";
+import "../style.css";
 
 import {
   sharedComponents,
@@ -33,7 +33,7 @@ import {
   type PositionSnapshot,
   type NetworkState,
   type PlayerIdentity,
-} from "./network.client";
+} from "./network";
 import {
   CAMERA_LERP_FACTOR,
   DEADZONE_HEIGHT,
@@ -41,47 +41,48 @@ import {
   ERROR_DECAY_RATE,
   INTERP_DELAY,
   ZOOM,
-} from "./consts.client";
+} from "./consts";
 import debugFactory from "debug";
 import { GUI } from "lil-gui";
-import { fetchMe, signOut, renderSignInScreen, type Me } from "./auth.client";
+import type { Me } from "../types";
 import {
   initEditor,
   updateEditor,
   type EditorState,
   type CatalogEntry,
-} from "./editor.client";
+} from "./editor";
 
 const debug = debugFactory("burger:client");
 
 const showDebug = true;
 
-const world = createWorld({
-  components: {
-    ...sharedComponents,
-    Input: [] as {
-      up: boolean;
-      down: boolean;
-      left: boolean;
-      right: boolean;
-      interact: boolean;
-      interactPressed: boolean;
-    }[],
-    Sprite: [] as (PixiSprite | null)[],
-    DebugText: [] as (PixiText | null)[],
-    RenderPosition: { x: [] as number[], y: [] as number[] },
-    PositionHistory: [] as PositionSnapshot[][],
-  },
-  time: {
-    delta: 0,
-    elapsed: 0,
-    then: performance.now(),
-  },
-  bounds: { x: 0, y: 0, w: 0, h: 0 },
-  typeIdToAtlasSrc: {} as Record<number, [number, number]>,
-});
+const makeWorld = () =>
+  createWorld({
+    components: {
+      ...sharedComponents,
+      Input: [] as {
+        up: boolean;
+        down: boolean;
+        left: boolean;
+        right: boolean;
+        interact: boolean;
+        interactPressed: boolean;
+      }[],
+      Sprite: [] as (PixiSprite | null)[],
+      DebugText: [] as (PixiText | null)[],
+      RenderPosition: { x: [] as number[], y: [] as number[] },
+      PositionHistory: [] as PositionSnapshot[][],
+    },
+    time: {
+      delta: 0,
+      elapsed: 0,
+      then: performance.now(),
+    },
+    bounds: { x: 0, y: 0, w: 0, h: 0 },
+    typeIdToAtlasSrc: {} as Record<number, [number, number]>,
+  });
 
-export type World = typeof world;
+export type World = ReturnType<typeof makeWorld>;
 
 type Context = {
   world: World;
@@ -531,178 +532,234 @@ const loadAssets = async () => {
   return { atlas, player, tiles, catalog };
 };
 
-const setupRenderer = async (user: Me) => {
+/**
+ * Boot the game. Returns a cleanup function that fully tears down Pixi,
+ * the WebSocket, the ticker, and any global event listeners. Safe to call
+ * multiple times (each invocation is fully independent).
+ */
+export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
+  const world = makeWorld();
+
   const app = new Application();
-  await app.init({
-    background: "#87CEEB",
-    resizeTo: window,
-    roundPixels: true,
-    antialias: false,
-  });
-  document.body.appendChild(app.canvas);
+  let isRunning = true;
+  const teardownCallbacks: Array<() => void> = [];
 
-  const assets = await loadAssets();
-  const mainContainer = new Container();
-  const tilesContainer = new Container();
-  const entitiesContainer = new Container();
-  const debugContainer = new Container();
+  void (async () => {
+    await app.init({
+      background: "#87CEEB",
+      resizeTo: window,
+      roundPixels: true,
+      antialias: false,
+    });
 
-  app.stage.addChild(mainContainer);
-  mainContainer.addChild(tilesContainer);
-  mainContainer.addChild(entitiesContainer);
-  mainContainer.addChild(debugContainer);
+    if (!isRunning) {
+      // unmounted before init completed
+      app.destroy(true);
+      return;
+    }
 
-  const context: Context = {
-    world,
-    app,
-    containers: {
-      main: mainContainer,
-      tiles: tilesContainer,
-      entities: entitiesContainer,
-      debug: debugContainer,
-    },
-    assets,
-    input: { keys: {}, prevInteract: false },
-    me: {
-      eid: null,
-      serverEid: null,
-    },
-    network: {
-      socket: null,
-      inputSeq: 0,
-      lastSentSeq: -1,
-      pendingInputs: [],
-      predictionError: { x: 0, y: 0 },
-      idMap: new Map(),
-      bytesSent: 0,
-      bytesReceived: 0,
-      lagMs: 0,
-      jitterMs: 0,
-    },
-    camera: { x: 0, y: 0, initialized: false },
-    metrics: {
-      updatesHz: 0,
-      updatesCount: 0,
-      lastUpdateTime: 0,
-      lastBytesSent: 0,
-      lastBytesReceived: 0,
-      bytesSentPerSec: 0,
-      bytesReceivedPerSec: 0,
-      serverTicksCount: 0,
-      lastServerTickTime: 0,
-      serverTickrate: 0,
-    },
-    debugMetrics: {
-      updatesHz: 0,
-      tickrate: 0,
-      bytesSentPerSec: 0,
-      bytesReceivedPerSec: 0,
-      lag: 0,
-      jitter: 0,
-    },
-    user,
-    editor: null,
+    parent.appendChild(app.canvas);
+    teardownCallbacks.push(() => {
+      if (app.canvas.parentElement === parent) {
+        parent.removeChild(app.canvas);
+      }
+    });
+
+    const assets = await loadAssets();
+    if (!isRunning) {
+      // Cleanup fired during loadAssets. The canvas teardown is already
+      // queued; let the outer cleanup loop drain it. Don't continue
+      // building things the cleanup can't see.
+      return;
+    }
+
+    const mainContainer = new Container();
+    const tilesContainer = new Container();
+    const entitiesContainer = new Container();
+    const debugContainer = new Container();
+
+    app.stage.addChild(mainContainer);
+    mainContainer.addChild(tilesContainer);
+    mainContainer.addChild(entitiesContainer);
+    mainContainer.addChild(debugContainer);
+
+    const context: Context = {
+      world,
+      app,
+      containers: {
+        main: mainContainer,
+        tiles: tilesContainer,
+        entities: entitiesContainer,
+        debug: debugContainer,
+      },
+      assets,
+      input: { keys: {}, prevInteract: false },
+      me: {
+        eid: null,
+        serverEid: null,
+      },
+      network: {
+        socket: null,
+        inputSeq: 0,
+        lastSentSeq: -1,
+        pendingInputs: [],
+        predictionError: { x: 0, y: 0 },
+        idMap: new Map(),
+        bytesSent: 0,
+        bytesReceived: 0,
+        lagMs: 0,
+        jitterMs: 0,
+      },
+      camera: { x: 0, y: 0, initialized: false },
+      metrics: {
+        updatesHz: 0,
+        updatesCount: 0,
+        lastUpdateTime: 0,
+        lastBytesSent: 0,
+        lastBytesReceived: 0,
+        bytesSentPerSec: 0,
+        bytesReceivedPerSec: 0,
+        serverTicksCount: 0,
+        lastServerTickTime: 0,
+        serverTickrate: 0,
+      },
+      debugMetrics: {
+        updatesHz: 0,
+        tickrate: 0,
+        bytesSentPerSec: 0,
+        bytesReceivedPerSec: 0,
+        lag: 0,
+        jitter: 0,
+      },
+      user,
+      editor: null,
+    };
+
+    setupPlayerObserver(context);
+    setupTileObserver(context);
+
+    if (showDebug) {
+      const gui = new GUI();
+      gui.add(context.debugMetrics, "updatesHz").name("Updates/sec").listen();
+      gui
+        .add(context.debugMetrics, "tickrate")
+        .name("Server Tickrate (Hz)")
+        .listen();
+      gui
+        .add(context.debugMetrics, "bytesSentPerSec")
+        .name("Bytes Sent/sec")
+        .listen();
+      gui
+        .add(context.debugMetrics, "bytesReceivedPerSec")
+        .name("Bytes Received/sec")
+        .listen();
+      gui.add(context.debugMetrics, "lag", 0, 1000).name("Lag (ms)").listen();
+      gui
+        .add(context.debugMetrics, "jitter", 0, 500)
+        .name("Jitter (ms)")
+        .listen();
+
+      const accountFolder = gui.addFolder("Account");
+      const accountInfo = { name: user.displayName ?? user.username };
+      accountFolder.add(accountInfo, "name").name("Signed in as").disable();
+      accountFolder
+        .add(
+          {
+            signOut: async () => {
+              await fetch("/auth/logout", { method: "POST" });
+              window.location.href = "/login";
+            },
+          },
+          "signOut",
+        )
+        .name("Sign out");
+
+      gui.domElement.style.position = "absolute";
+      gui.domElement.style.top = "10px";
+      gui.domElement.style.right = "10px";
+      context.gui = gui;
+      teardownCallbacks.push(() => gui.destroy());
+    }
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      context.input.keys[e.key.toLowerCase()] = true;
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      context.input.keys[e.key.toLowerCase()] = false;
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    teardownCallbacks.push(() => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    });
+
+    const tickFn = () => update(context);
+    app.ticker.add(tickFn);
+    teardownCallbacks.push(() => app.ticker.remove(tickFn));
+
+    setupSocket({
+      world,
+      network: context.network,
+      me: context.me,
+      onLocalPlayerReady: async () => {
+        if (context.me.eid !== null) {
+          const { Input } = world.components;
+          addComponent(world, context.me.eid, Input);
+          Input[context.me.eid] = {
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+            interact: false,
+            interactPressed: false,
+          };
+        }
+
+        if (context.user.isAdmin) {
+          context.editor = initEditor(
+            context.app,
+            context.assets.catalog,
+            context.assets.tiles,
+            context.network,
+            context.containers.main,
+            () => context.camera,
+            () => ZOOM,
+          );
+        }
+      },
+      onSnapshotReceived: () => {
+        debug("snapshot received");
+        // Tile sprites are created/destroyed by setupTileObserver — onAdd(Tile)
+        // fires for both the initial snapshot and live OBSERVER deltas.
+      },
+      onSocketClose: () => debug("socket closed"),
+      context,
+    });
+    teardownCallbacks.push(() => {
+      if (context.network.socket) {
+        context.network.socket.close();
+      }
+    });
+
+    // expose for debugging from the devtools console
+    (window as { context?: Context }).context = context;
+  })();
+
+  return () => {
+    isRunning = false;
+    while (teardownCallbacks.length > 0) {
+      const fn = teardownCallbacks.pop();
+      try {
+        fn?.();
+      } catch (e) {
+        console.error("teardown failed", e);
+      }
+    }
+    try {
+      app.destroy(true);
+    } catch {
+      // already destroyed
+    }
   };
-
-  setupPlayerObserver(context);
-  setupTileObserver(context);
-  window.context = context;
-
-  if (showDebug) {
-    const gui = new GUI();
-    gui.add(context.debugMetrics, "updatesHz").name("Updates/sec").listen();
-    gui
-      .add(context.debugMetrics, "tickrate")
-      .name("Server Tickrate (Hz)")
-      .listen();
-    gui
-      .add(context.debugMetrics, "bytesSentPerSec")
-      .name("Bytes Sent/sec")
-      .listen();
-    gui
-      .add(context.debugMetrics, "bytesReceivedPerSec")
-      .name("Bytes Received/sec")
-      .listen();
-    gui.add(context.debugMetrics, "lag", 0, 1000).name("Lag (ms)").listen();
-    gui
-      .add(context.debugMetrics, "jitter", 0, 500)
-      .name("Jitter (ms)")
-      .listen();
-
-    const accountFolder = gui.addFolder("Account");
-    const accountInfo = { name: user.displayName ?? user.username };
-    accountFolder.add(accountInfo, "name").name("Signed in as").disable();
-    const signOutAction = { signOut: () => signOut() };
-    accountFolder.add(signOutAction, "signOut").name("Sign out");
-
-    gui.domElement.style.position = "absolute";
-    gui.domElement.style.top = "10px";
-    gui.domElement.style.right = "10px";
-    context.gui = gui;
-  }
-
-  window.addEventListener("keydown", (e) => {
-    context.input.keys[e.key.toLowerCase()] = true;
-  });
-  window.addEventListener("keyup", (e) => {
-    context.input.keys[e.key.toLowerCase()] = false;
-  });
-
-  app.ticker.add(() => update(context));
-
-  return context;
 };
-
-const setup = async () => {
-  const params = new URLSearchParams(window.location.search);
-  const error = params.get("error");
-
-  const me = await fetchMe();
-  if (!me) {
-    renderSignInScreen(error);
-    return;
-  }
-
-  const context = await setupRenderer(me);
-
-  setupSocket({
-    world: context.world,
-    network: context.network,
-    me: context.me,
-    onLocalPlayerReady: async () => {
-      if (context.me.eid !== null) {
-        const { Input } = world.components;
-        addComponent(world, context.me.eid, Input);
-        Input[context.me.eid] = {
-          up: false,
-          down: false,
-          left: false,
-          right: false,
-          interact: false,
-          interactPressed: false,
-        };
-      }
-
-      if (context.user.isAdmin) {
-        context.editor = initEditor(
-          context.app,
-          context.assets.catalog,
-          context.assets.tiles,
-          context.network,
-          context.containers.main,
-          () => context.camera,
-          () => ZOOM,
-        );
-      }
-    },
-    onSnapshotReceived: () => {
-      debug("snapshot received");
-      // Tile sprites are created/destroyed by setupTileObserver — onAdd(Tile)
-      // fires for both the initial snapshot and live OBSERVER deltas.
-    },
-    onSocketClose: () => debug("socket closed"),
-    context,
-  });
-};
-
-setup();
