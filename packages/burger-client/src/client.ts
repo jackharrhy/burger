@@ -44,6 +44,12 @@ import {
 } from "./consts.client";
 import debugFactory from "debug";
 import { GUI } from "lil-gui";
+import {
+  fetchMe,
+  signOut,
+  renderSignInScreen,
+  type Me,
+} from "./auth.client";
 
 const debug = debugFactory("burger:client");
 
@@ -110,6 +116,7 @@ type Context = {
     jitter: number;
   };
   gui?: GUI;
+  user: Me;
 };
 
 declare global {
@@ -494,7 +501,7 @@ const loadAssets = async () => {
   return { atlas, player, tiles };
 };
 
-const setupRenderer = async () => {
+const setupRenderer = async (user: Me) => {
   const app = new Application();
   await app.init({
     background: "#87CEEB",
@@ -563,6 +570,7 @@ const setupRenderer = async () => {
       lag: 0,
       jitter: 0,
     },
+    user,
   };
 
   setupPlayerObserver(context);
@@ -589,6 +597,12 @@ const setupRenderer = async () => {
       .name("Jitter (ms)")
       .listen();
 
+    const accountFolder = gui.addFolder("Account");
+    const accountInfo = { name: user.displayName ?? user.username };
+    accountFolder.add(accountInfo, "name").name("Signed in as").disable();
+    const signOutAction = { signOut: () => signOut() };
+    accountFolder.add(signOutAction, "signOut").name("Sign out");
+
     gui.domElement.style.position = "absolute";
     gui.domElement.style.top = "10px";
     gui.domElement.style.right = "10px";
@@ -608,7 +622,16 @@ const setupRenderer = async () => {
 };
 
 const setup = async () => {
-  const context = await setupRenderer();
+  const params = new URLSearchParams(window.location.search);
+  const error = params.get("error");
+
+  const me = await fetchMe();
+  if (!me) {
+    renderSignInScreen(error);
+    return;
+  }
+
+  const context = await setupRenderer(me);
 
   setupSocket({
     world: context.world,
