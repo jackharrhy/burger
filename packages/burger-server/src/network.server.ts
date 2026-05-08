@@ -44,7 +44,7 @@ import {
   createObserverSerializer,
   createSnapshotSerializer,
 } from "bitecs/serialization";
-import type { World } from "./server";
+import type { World } from "./world";
 import debugFactory from "debug";
 import type { ServerWebSocket } from "elysia/ws/bun";
 import type { TypeCheck } from "elysia/type-system";

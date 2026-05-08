@@ -2,7 +2,6 @@ import { expect, test, beforeEach, afterEach } from "bun:test";
 import { removeEntity } from "bitecs";
 import { Database } from "bun:sqlite";
 import {
-  createSharedWorld,
   applyInputToVelocity,
   moveAndSlide,
   SERVER_TICK_RATE_MS,
@@ -22,13 +21,7 @@ import { createPlayer } from "../src/players";
 import { runMigrations } from "../src/db";
 import { createSession } from "../src/auth/sessions";
 import type { AuthConfig } from "../src/auth/config";
-
-type TestWorld = ReturnType<
-  typeof createSharedWorld<{
-    playerSpawns: { x: number; y: number }[];
-    typeIdToAtlasSrc: Record<number, [number, number]>;
-  }>
->;
+import { initWorld, type World as TestWorld } from "../src/world";
 
 const tick = (world: TestWorld) => {
   const { Position, Velocity } = world.components;
@@ -80,10 +73,6 @@ const authConfig: AuthConfig = {
 };
 
 beforeEach(() => {
-  world = createSharedWorld({
-    playerSpawns: [{ x: 0, y: 0 }],
-    typeIdToAtlasSrc: {} as Record<number, [number, number]>,
-  });
   port = 5500 + Math.floor(Math.random() * 500);
 
   db = new Database(":memory:");
@@ -96,16 +85,14 @@ beforeEach(() => {
   );
   sessionId = createSession(db, userId);
 
+  world = initWorld(db);
+
   app = createServer({
     port,
-    world: world as unknown as Parameters<typeof createServer>[0]["world"],
+    world,
     db,
     authConfig,
-    onPlayerJoin: (displayName: string) =>
-      createPlayer(
-        world as unknown as Parameters<typeof createPlayer>[0],
-        displayName,
-      ),
+    onPlayerJoin: (displayName: string) => createPlayer(world, displayName),
     onPlayerLeave: (eid) => removeEntity(world, eid),
   });
 });
@@ -229,6 +216,10 @@ test("server moves player right when right inputs are sent", async () => {
 test("malicious client cannot speed-hack via input flood (per-tick cap holds)", async () => {
   const ws = await connect(port, sessionId);
   await sleep(50);
+  // Capture start position — spawn is randomized within world.spawnZone.
+  let startX = 0;
+  for (const [, c] of getPlayerConnections())
+    startX = world.components.Position.x[c.eid]!;
   // Flood 1000 right inputs in one batch.
   for (let i = 1; i <= 1000; i++) {
     ws.send(
@@ -246,14 +237,14 @@ test("malicious client cannot speed-hack via input flood (per-tick cap holds)", 
   await sleep(100);
   // Single tick: should process at most MAX_INPUTS_PER_TICK inputs.
   tick(world);
-  let pos = 0;
+  let endX = startX;
   for (const [, c] of getPlayerConnections())
-    pos = world.components.Position.x[c.eid]!;
+    endX = world.components.Position.x[c.eid]!;
   // Loose upper bound: even if every input reached steady-state PLAYER_SPEED,
   // the player can't move further than MAX_INPUTS_PER_TICK * PLAYER_SPEED * SERVER_TICK_RATE_MS.
   const maxPossible =
     MAX_INPUTS_PER_TICK * PLAYER_SPEED * SERVER_TICK_RATE_MS + 1;
-  expect(Math.abs(pos)).toBeLessThan(maxPossible);
+  expect(endX - startX).toBeLessThan(maxPossible);
   ws.close();
   await sleep(50);
 });
