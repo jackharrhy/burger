@@ -1,5 +1,4 @@
 import { str } from "bitecs/serialization";
-import type { TileType } from "./const.shared";
 
 export const MAX_ENTITIES = 2000;
 
@@ -12,7 +11,10 @@ const Velocity = {
   x: new Float32Array(MAX_ENTITIES),
   y: new Float32Array(MAX_ENTITIES),
 };
-const Tile = { type: [] as TileType[] };
+// Tile.type holds the catalog id (from atlas.toml / tile_catalog), not the
+// narrow TileType union — wider to accommodate user-defined tiles. The catalog
+// row's `type` field carries the floor/wall/counter classification.
+const Tile = { type: [] as number[] };
 const Networked = {};
 const Solid = {};
 const Bot = {};
