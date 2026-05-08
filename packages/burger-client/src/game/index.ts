@@ -625,6 +625,18 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
         bytesReceived: 0,
         lagMs: 0,
         jitterMs: 0,
+        onCatalogUpdated: (catalog) => {
+          context.assets.catalog = catalog as typeof context.assets.catalog;
+          const newTiles: typeof context.assets.tiles = {};
+          for (const e of catalog) {
+            newTiles[e.id] = new Texture({
+              source: context.assets.atlas,
+              frame: new Rectangle(e.src_x, e.src_y, TILE_SIZE, TILE_SIZE),
+            });
+          }
+          context.assets.tiles = newTiles;
+          debug("catalog updated locally: %d entries", catalog.length);
+        },
       },
       camera: { x: 0, y: 0, initialized: false },
       metrics: {

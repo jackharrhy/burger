@@ -72,6 +72,15 @@ export type NetworkState = {
   bytesReceived: number;
   lagMs: number;
   jitterMs: number;
+  onCatalogUpdated?: (
+    catalog: Array<{
+      id: number;
+      type: string;
+      src_x: number;
+      src_y: number;
+      label: string;
+    }>,
+  ) => void;
 };
 
 export type PlayerIdentity = {
@@ -175,6 +184,21 @@ export const setupSocket = ({
             w: view[4]!,
             h: view[5]!,
           };
+          break;
+        }
+
+        case MESSAGE_TYPES.CATALOG_UPDATED: {
+          debug("catalog_updated received: %d bytes", payload.byteLength);
+          const decoder = new TextDecoder();
+          const json = decoder.decode(payload);
+          const catalog = JSON.parse(json) as Array<{
+            id: number;
+            type: string;
+            src_x: number;
+            src_y: number;
+            label: string;
+          }>;
+          network.onCatalogUpdated?.(catalog);
           break;
         }
       }
