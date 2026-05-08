@@ -7,7 +7,6 @@
     "**/data/**",
     "bitECS/**",
     "tmp/**",
-    "pnpm-lock.yaml",
-    "**/burger.json"
+    "pnpm-lock.yaml"
   ]
 }
