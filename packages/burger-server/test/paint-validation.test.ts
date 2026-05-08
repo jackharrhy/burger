@@ -7,22 +7,27 @@ const world = {
 };
 const catalog = new Set([1, 2, 3]);
 
-test("valid paint passes", () => {
+// Cell-center convention: valid x is HALF + n*TILE_SIZE = 16, 48, 80, ...
+const HALF = TILE_SIZE / 2;
+const CENTER_A = HALF; // first cell center
+const CENTER_B = HALF + TILE_SIZE; // second cell center
+
+test("valid paint passes (cell-center coords)", () => {
   const out = validatePaint(
-    { type: "paint", x: 32, y: 64, tileId: 2 },
+    { type: "paint", x: CENTER_A, y: CENTER_B, tileId: 2 },
     world,
     catalog,
   );
-  expect(out).toEqual({ x: 32, y: 64, tileId: 2 });
+  expect(out).toEqual({ x: CENTER_A, y: CENTER_B, tileId: 2 });
 });
 
 test("erase (tileId null) passes", () => {
   const out = validatePaint(
-    { type: "paint", x: 32, y: 64, tileId: null },
+    { type: "paint", x: CENTER_A, y: CENTER_B, tileId: null },
     world,
     catalog,
   );
-  expect(out).toEqual({ x: 32, y: 64, tileId: null });
+  expect(out).toEqual({ x: CENTER_A, y: CENTER_B, tileId: null });
 });
 
 test("rejects non-object", () => {
@@ -34,7 +39,7 @@ test("rejects non-object", () => {
 test("rejects wrong type tag", () => {
   expect(
     validatePaint(
-      { type: "input", x: 32, y: 64, tileId: 1 },
+      { type: "input", x: CENTER_A, y: CENTER_B, tileId: 1 },
       world,
       catalog,
     ),
@@ -44,31 +49,40 @@ test("rejects wrong type tag", () => {
 test("rejects non-integer coords", () => {
   expect(
     validatePaint(
-      { type: "paint", x: 32.5, y: 64, tileId: 1 },
+      { type: "paint", x: 16.5, y: CENTER_B, tileId: 1 },
       world,
       catalog,
     ),
   ).toBeNull();
   expect(
     validatePaint(
-      { type: "paint", x: 32, y: "64", tileId: 1 },
+      { type: "paint", x: CENTER_A, y: "48", tileId: 1 },
       world,
       catalog,
     ),
   ).toBeNull();
 });
 
-test("rejects coords not aligned to TILE_SIZE", () => {
+test("rejects coords not aligned to cell centers", () => {
+  // Top-left of a cell (multiple of TILE_SIZE) is no longer valid.
   expect(
     validatePaint(
-      { type: "paint", x: 33, y: 64, tileId: 1 },
+      { type: "paint", x: 0, y: CENTER_B, tileId: 1 },
       world,
       catalog,
     ),
   ).toBeNull();
   expect(
     validatePaint(
-      { type: "paint", x: 32, y: 65, tileId: 1 },
+      { type: "paint", x: TILE_SIZE, y: CENTER_B, tileId: 1 },
+      world,
+      catalog,
+    ),
+  ).toBeNull();
+  // Off-grid
+  expect(
+    validatePaint(
+      { type: "paint", x: 17, y: CENTER_B, tileId: 1 },
       world,
       catalog,
     ),
@@ -76,30 +90,44 @@ test("rejects coords not aligned to TILE_SIZE", () => {
 });
 
 test("rejects coords outside bounds (each edge)", () => {
+  // Below x bound
   expect(
     validatePaint(
-      { type: "paint", x: -32, y: 0, tileId: 1 },
+      { type: "paint", x: -HALF, y: CENTER_A, tileId: 1 },
       world,
       catalog,
     ),
   ).toBeNull();
+  // Below y bound
   expect(
     validatePaint(
-      { type: "paint", x: 0, y: -32, tileId: 1 },
+      { type: "paint", x: CENTER_A, y: -HALF, tileId: 1 },
       world,
       catalog,
     ),
   ).toBeNull();
+  // At/past right bound (bounds.w = TILE_SIZE * 10; last valid center = HALF + 9*TILE_SIZE)
   expect(
     validatePaint(
-      { type: "paint", x: TILE_SIZE * 10, y: 0, tileId: 1 },
+      {
+        type: "paint",
+        x: HALF + TILE_SIZE * 10,
+        y: CENTER_A,
+        tileId: 1,
+      },
       world,
       catalog,
     ),
   ).toBeNull();
+  // At/past bottom bound
   expect(
     validatePaint(
-      { type: "paint", x: 0, y: TILE_SIZE * 10, tileId: 1 },
+      {
+        type: "paint",
+        x: CENTER_A,
+        y: HALF + TILE_SIZE * 10,
+        tileId: 1,
+      },
       world,
       catalog,
     ),
@@ -107,19 +135,20 @@ test("rejects coords outside bounds (each edge)", () => {
 });
 
 test("accepts coords at the inside edge", () => {
+  const last = HALF + TILE_SIZE * 9;
   expect(
     validatePaint(
-      { type: "paint", x: TILE_SIZE * 9, y: TILE_SIZE * 9, tileId: 1 },
+      { type: "paint", x: last, y: last, tileId: 1 },
       world,
       catalog,
     ),
-  ).toEqual({ x: TILE_SIZE * 9, y: TILE_SIZE * 9, tileId: 1 });
+  ).toEqual({ x: last, y: last, tileId: 1 });
 });
 
 test("rejects unknown tileId", () => {
   expect(
     validatePaint(
-      { type: "paint", x: 0, y: 0, tileId: 999 },
+      { type: "paint", x: CENTER_A, y: CENTER_A, tileId: 999 },
       world,
       catalog,
     ),
@@ -129,14 +158,14 @@ test("rejects unknown tileId", () => {
 test("rejects non-integer tileId", () => {
   expect(
     validatePaint(
-      { type: "paint", x: 0, y: 0, tileId: 1.5 },
+      { type: "paint", x: CENTER_A, y: CENTER_A, tileId: 1.5 },
       world,
       catalog,
     ),
   ).toBeNull();
   expect(
     validatePaint(
-      { type: "paint", x: 0, y: 0, tileId: "1" },
+      { type: "paint", x: CENTER_A, y: CENTER_A, tileId: "1" },
       world,
       catalog,
     ),
@@ -145,9 +174,15 @@ test("rejects non-integer tileId", () => {
 
 test("drops unknown fields", () => {
   const out = validatePaint(
-    { type: "paint", x: 32, y: 64, tileId: 1, malicious: "data" },
+    {
+      type: "paint",
+      x: CENTER_A,
+      y: CENTER_B,
+      tileId: 1,
+      malicious: "data",
+    },
     world,
     catalog,
   );
-  expect(out).toEqual({ x: 32, y: 64, tileId: 1 });
+  expect(out).toEqual({ x: CENTER_A, y: CENTER_B, tileId: 1 });
 });

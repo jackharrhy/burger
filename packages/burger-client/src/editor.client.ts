@@ -84,12 +84,14 @@ export const initEditor = (
   };
 
   // Cursor preview lives inside the world (mainContainer) so it shows at
-  // world coords with the camera transform applied.
+  // world coords with the camera transform applied. Anchor 0.5 matches the
+  // existing tile sprite convention (Position is the tile center).
   const initialTexture = textures[state.selectedTileId];
   if (initialTexture) {
     const cursorSprite = new PixiSprite(initialTexture);
     cursorSprite.width = TILE_SIZE;
     cursorSprite.height = TILE_SIZE;
+    cursorSprite.anchor.set(0.5);
     cursorSprite.alpha = 0.5;
     cursorSprite.visible = false;
     state.cursorSprite = cursorSprite;
@@ -164,7 +166,7 @@ export const initEditor = (
     }
   });
 
-  // Mouse position → snapped world coord, paints on drag.
+  // Mouse position → snapped tile-cell center (paint convention is center).
   app.canvas.addEventListener("mousemove", (e) => {
     if (!state.active) return;
     const rect = app.canvas.getBoundingClientRect();
@@ -174,8 +176,9 @@ export const initEditor = (
     const zoom = getZoom();
     const worldX = (mouseX - app.screen.width / 2) / zoom + cam.x;
     const worldY = (mouseY - app.screen.height / 2) / zoom + cam.y;
-    state.cursorX = Math.floor(worldX / TILE_SIZE) * TILE_SIZE;
-    state.cursorY = Math.floor(worldY / TILE_SIZE) * TILE_SIZE;
+    const halfTile = TILE_SIZE / 2;
+    state.cursorX = Math.floor(worldX / TILE_SIZE) * TILE_SIZE + halfTile;
+    state.cursorY = Math.floor(worldY / TILE_SIZE) * TILE_SIZE + halfTile;
     if (state.isPainting) paintAtCursor(state, network);
   });
 
@@ -233,13 +236,23 @@ export const updateEditor = (
   if (tex && state.cursorSprite.texture !== tex) {
     state.cursorSprite.texture = tex;
   }
+  // cursorX/Y are the cell center (paint convention). Sprite has anchor 0.5
+  // so positioning at the center matches existing tile rendering.
   state.cursorSprite.x = state.cursorX;
   state.cursorSprite.y = state.cursorY;
   state.cursorSprite.visible = true;
 
+  // Outline is a top-left-anchored rect; offset back by half a tile so it
+  // surrounds the cell that the cursor sprite occupies.
+  const halfTile = TILE_SIZE / 2;
   state.cursorOutline.clear();
   state.cursorOutline
-    .rect(state.cursorX, state.cursorY, TILE_SIZE, TILE_SIZE)
+    .rect(
+      state.cursorX - halfTile,
+      state.cursorY - halfTile,
+      TILE_SIZE,
+      TILE_SIZE,
+    )
     .stroke({ color: 0xffffff, width: 1 });
   state.cursorOutline.visible = true;
 };

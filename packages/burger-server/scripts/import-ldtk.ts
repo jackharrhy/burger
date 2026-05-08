@@ -14,6 +14,7 @@
  * Does NOT delete tiles that aren't in the LDtk export.
  */
 import { Database } from "bun:sqlite";
+import { TILE_SIZE } from "burger-shared";
 import { runMigrations } from "../src/db";
 import burgerLevel from "../src/burger.json";
 
@@ -115,14 +116,19 @@ const insertEditStmt = db.prepare(
 );
 let tileCount = 0;
 const now = Date.now();
+// LDtk's gridTiles px[] is the cell's TOP-LEFT in world pixels. The runtime
+// uses cell-CENTER coordinates everywhere (sprite anchor 0.5; collision
+// formula compares centers). Shift by half a tile during import so all
+// coordinate systems agree downstream.
+const halfTile = TILE_SIZE / 2;
 for (const { t, px, src } of gridTiles) {
   const type = tileIdToType[t];
   if (!type) continue;
   const key = `${type}-${src[0]}-${src[1]}`;
   const catId = catalogKeyToId.get(key);
   if (!catId) continue;
-  const x = px[0];
-  const y = px[1];
+  const x = px[0] + halfTile;
+  const y = px[1] + halfTile;
 
   const old = db
     .query("SELECT tile_id FROM tiles WHERE x = ? AND y = ?")
@@ -138,16 +144,19 @@ const entities = level.layerInstances[0];
 if (entities) {
   for (const entity of entities.entityInstances as EntityInstance[]) {
     if (entity.__identifier === "PlayerSpawn") {
+      // Same top-left → center shift as tiles.
+      const sx = entity.__worldX + halfTile;
+      const sy = entity.__worldY + halfTile;
       db.run(
         "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        ["spawn_x", String(entity.__worldX)],
+        ["spawn_x", String(sx)],
       );
       db.run(
         "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        ["spawn_y", String(entity.__worldY)],
+        ["spawn_y", String(sy)],
       );
       console.log(
-        `spawn set to (${entity.__worldX}, ${entity.__worldY})`,
+        `spawn set to (${sx}, ${sy})`,
       );
       break;
     }

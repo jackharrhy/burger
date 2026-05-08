@@ -106,13 +106,20 @@ const connect = (p: number, sid: string) =>
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Cell-center convention: paint coords are HALF + n*TILE_SIZE.
+const HALF = TILE_SIZE / 2;
+const A_X = HALF; // first cell center
+const A_Y = HALF + TILE_SIZE; // second cell center down
+
 test("non-admin paint is rejected", async () => {
   const sess = setupSession(db, false);
   const ws = await connect(port, sess);
   await sleep(50);
-  ws.send(JSON.stringify({ type: "paint", x: 0, y: 0, tileId: 3 }));
+  ws.send(JSON.stringify({ type: "paint", x: A_X, y: A_Y, tileId: 3 }));
   await sleep(50);
-  const row = db.query("SELECT * FROM tiles WHERE x = 0 AND y = 0").get();
+  const row = db
+    .query("SELECT * FROM tiles WHERE x = ? AND y = ?")
+    .get(A_X, A_Y);
   expect(row).toBeNull();
   ws.close();
   await sleep(50);
@@ -122,15 +129,15 @@ test("admin paint creates tile in DB and tile_edits log", async () => {
   const sess = setupSession(db, true);
   const ws = await connect(port, sess);
   await sleep(50);
-  ws.send(JSON.stringify({ type: "paint", x: 32, y: 64, tileId: 3 }));
+  ws.send(JSON.stringify({ type: "paint", x: A_X, y: A_Y, tileId: 3 }));
   await sleep(50);
   const tile = db
-    .query("SELECT tile_id FROM tiles WHERE x = 32 AND y = 64")
-    .get() as { tile_id: number } | null;
+    .query("SELECT tile_id FROM tiles WHERE x = ? AND y = ?")
+    .get(A_X, A_Y) as { tile_id: number } | null;
   expect(tile?.tile_id).toBe(3);
   const edit = db
-    .query("SELECT * FROM tile_edits WHERE x = 32 AND y = 64")
-    .get() as { new_tile_id: number; user_id: string } | null;
+    .query("SELECT * FROM tile_edits WHERE x = ? AND y = ?")
+    .get(A_X, A_Y) as { new_tile_id: number; user_id: string } | null;
   expect(edit?.new_tile_id).toBe(3);
   expect(edit?.user_id).toBe("admin1");
   ws.close();
@@ -141,17 +148,17 @@ test("admin paint replaces existing tile", async () => {
   const sess = setupSession(db, true);
   const ws = await connect(port, sess);
   await sleep(50);
-  ws.send(JSON.stringify({ type: "paint", x: 32, y: 64, tileId: 3 }));
+  ws.send(JSON.stringify({ type: "paint", x: A_X, y: A_Y, tileId: 3 }));
   await sleep(50);
-  ws.send(JSON.stringify({ type: "paint", x: 32, y: 64, tileId: 1 }));
+  ws.send(JSON.stringify({ type: "paint", x: A_X, y: A_Y, tileId: 1 }));
   await sleep(50);
   const tile = db
-    .query("SELECT tile_id FROM tiles WHERE x = 32 AND y = 64")
-    .get() as { tile_id: number } | null;
+    .query("SELECT tile_id FROM tiles WHERE x = ? AND y = ?")
+    .get(A_X, A_Y) as { tile_id: number } | null;
   expect(tile?.tile_id).toBe(1);
   const edits = db
-    .query("SELECT COUNT(*) as c FROM tile_edits WHERE x = 32 AND y = 64")
-    .get() as { c: number };
+    .query("SELECT COUNT(*) as c FROM tile_edits WHERE x = ? AND y = ?")
+    .get(A_X, A_Y) as { c: number };
   expect(edits.c).toBe(2);
   ws.close();
   await sleep(50);
@@ -161,11 +168,13 @@ test("admin paint with null tileId erases", async () => {
   const sess = setupSession(db, true);
   const ws = await connect(port, sess);
   await sleep(50);
-  ws.send(JSON.stringify({ type: "paint", x: 32, y: 64, tileId: 3 }));
+  ws.send(JSON.stringify({ type: "paint", x: A_X, y: A_Y, tileId: 3 }));
   await sleep(50);
-  ws.send(JSON.stringify({ type: "paint", x: 32, y: 64, tileId: null }));
+  ws.send(JSON.stringify({ type: "paint", x: A_X, y: A_Y, tileId: null }));
   await sleep(50);
-  const tile = db.query("SELECT * FROM tiles WHERE x = 32 AND y = 64").get();
+  const tile = db
+    .query("SELECT * FROM tiles WHERE x = ? AND y = ?")
+    .get(A_X, A_Y);
   expect(tile).toBeNull();
   ws.close();
   await sleep(50);
@@ -175,9 +184,14 @@ test("admin paint at out-of-bounds coords is rejected", async () => {
   const sess = setupSession(db, true);
   const ws = await connect(port, sess);
   await sleep(50);
-  ws.send(JSON.stringify({ type: "paint", x: -32, y: -32, tileId: 3 }));
+  ws.send(JSON.stringify({ type: "paint", x: -HALF, y: -HALF, tileId: 3 }));
   ws.send(
-    JSON.stringify({ type: "paint", x: world.bounds.w, y: 0, tileId: 3 }),
+    JSON.stringify({
+      type: "paint",
+      x: world.bounds.w + HALF,
+      y: HALF,
+      tileId: 3,
+    }),
   );
   await sleep(50);
   const count = db.query("SELECT COUNT(*) as c FROM tiles").get() as {
@@ -192,7 +206,7 @@ test("admin paint with bad tileId rejected", async () => {
   const sess = setupSession(db, true);
   const ws = await connect(port, sess);
   await sleep(50);
-  ws.send(JSON.stringify({ type: "paint", x: 32, y: 64, tileId: 999 }));
+  ws.send(JSON.stringify({ type: "paint", x: A_X, y: A_Y, tileId: 999 }));
   await sleep(50);
   const count = db.query("SELECT COUNT(*) as c FROM tiles").get() as {
     c: number;
@@ -206,23 +220,19 @@ test("rate limit: more than MAX_PAINTS_PER_TICK in one batch landed only N", asy
   const sess = setupSession(db, true);
   const ws = await connect(port, sess);
   await sleep(50);
-  // Send 50 paints at distinct positions in one batch (all faster than the
-  // server's tick rate). They all arrive within the same tick window.
+  // Send 50 paints at distinct cell centers in one batch (all faster than
+  // the server's tick rate). They all arrive within the same tick window.
   // Stay inside default bounds (64 tiles wide).
   for (let i = 0; i < 50; i++) {
     ws.send(
       JSON.stringify({
         type: "paint",
-        x: i * TILE_SIZE,
-        y: 0,
+        x: HALF + i * TILE_SIZE,
+        y: HALF,
         tileId: 3,
       }),
     );
   }
-  // Wait briefly so all paint messages reach the server. The test harness
-  // doesn't drive the active tick loop (which is server.ts's responsibility),
-  // so paintsThisTick is never reset until we call resetPaintCounters
-  // ourselves. The cap should hold until reset.
   await sleep(50);
   const c1 = db.query("SELECT COUNT(*) as c FROM tiles").get() as {
     c: number;
@@ -234,8 +244,8 @@ test("rate limit: more than MAX_PAINTS_PER_TICK in one batch landed only N", asy
   ws.send(
     JSON.stringify({
       type: "paint",
-      x: 60 * TILE_SIZE,
-      y: 0,
+      x: HALF + 60 * TILE_SIZE,
+      y: HALF,
       tileId: 3,
     }),
   );

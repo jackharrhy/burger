@@ -1,10 +1,4 @@
-import {
-  addComponent,
-  addEntity,
-  hasComponent,
-  removeComponent,
-  removeEntity,
-} from "bitecs";
+import { addComponent, addEntity, removeEntity } from "bitecs";
 import type { Database } from "bun:sqlite";
 import type { World } from "./world";
 import type { ValidatedPaint } from "./paint-validation";
@@ -15,7 +9,13 @@ const isSolid = (type: string): boolean =>
 /**
  * Apply a validated paint command:
  * - DB: INSERT/REPLACE/DELETE in `tiles`, append to `tile_edits`.
- * - ECS: add/update/remove the tile entity at (x, y).
+ * - ECS: replace the tile entity at (x, y) entirely.
+ *
+ * For paint-over-existing we remove the old entity and create a new one
+ * (rather than mutating Tile.type in place) so the bitecs observer
+ * serializer emits RemoveEntity + AddEntity wire events. Field-level
+ * mutations are not part of the observer protocol; only component
+ * adds/removes and entity adds/removes are.
  *
  * Caller is responsible for validation, admin gating, and rate limiting.
  */
@@ -48,13 +48,14 @@ export const applyPaint = (
   });
   tx();
 
-  if (tileId === null) {
-    if (existingEid !== undefined) {
-      removeEntity(world, existingEid);
-      world.tilesAtPosition.delete(key);
-    }
-    return;
+  // Always remove the existing entity (if any) so erase-and-replace are both
+  // expressed as observer-visible RemoveEntity events.
+  if (existingEid !== undefined) {
+    removeEntity(world, existingEid);
+    world.tilesAtPosition.delete(key);
   }
+
+  if (tileId === null) return;
 
   const cat = world.catalog.get(tileId);
   if (!cat) {
@@ -62,21 +63,6 @@ export const applyPaint = (
     return;
   }
 
-  if (existingEid !== undefined) {
-    Tile.type[existingEid] = tileId;
-    if (isSolid(cat.type)) {
-      if (!hasComponent(world, existingEid, Solid)) {
-        addComponent(world, existingEid, Solid);
-      }
-    } else {
-      if (hasComponent(world, existingEid, Solid)) {
-        removeComponent(world, existingEid, Solid);
-      }
-    }
-    return;
-  }
-
-  // New entity
   const eid = addEntity(world);
   addComponent(world, eid, Position);
   Position.x[eid] = x;

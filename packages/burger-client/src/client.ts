@@ -205,12 +205,19 @@ const setupPlayerObserver = (context: Context) => {
   });
 };
 
-const createTileSprites = ({ world, assets, containers }: Context) => {
+// Tile sprites are created/destroyed by polling each frame. We can't create
+// sprites inside `onAdd(Tile)` because the bitecs snapshot deserializer adds
+// components first and then replays the SoA payload — so Position.x/y aren't
+// populated yet when onAdd(Tile) fires. Instead, the tileSpriteSystem below
+// runs every frame, creates a sprite for any Tile entity that doesn't yet
+// have one (Position is guaranteed by then), and destroys orphaned sprites
+// when entities are removed.
+const tileSpriteSystem = ({ world, assets, containers }: Context) => {
   const { Tile, Position, Sprite } = world.components;
 
+  // Add sprites for new tile entities.
   for (const eid of query(world, [Tile, Position])) {
     if (Sprite[eid]) continue;
-
     const tileId = Tile.type[eid]!;
     const texture = assets.tiles[tileId];
     if (!texture) {
@@ -228,6 +235,22 @@ const createTileSprites = ({ world, assets, containers }: Context) => {
     containers.tiles.addChild(sprite);
     Sprite[eid] = sprite;
   }
+};
+
+// Destroy sprites for entities removed via the OBSERVER stream. Hook on
+// onRemove(Tile) so erase paints are reflected immediately on screen.
+const setupTileObserver = (context: Context) => {
+  const { world, containers } = context;
+  const { Tile, Sprite } = world.components;
+
+  observe(world, onRemove(Tile), (eid) => {
+    const sprite = Sprite[eid];
+    if (sprite) {
+      containers.tiles.removeChild(sprite);
+      sprite.destroy();
+      delete Sprite[eid];
+    }
+  });
 };
 
 const timeSystem = ({ world }: Context) => {
@@ -485,6 +508,7 @@ const update = (context: Context) => {
   errorDecaySystem(context);
   interpolationSystem(context);
   cameraSystem(context);
+  tileSpriteSystem(context);
   spritesSystem(context);
   metricsSystem(context);
   debugSystem(context);
@@ -583,6 +607,7 @@ const setupRenderer = async (user: Me) => {
   };
 
   setupPlayerObserver(context);
+  setupTileObserver(context);
   window.context = context;
 
   if (showDebug) {
@@ -674,7 +699,8 @@ const setup = async () => {
     },
     onSnapshotReceived: () => {
       debug("snapshot received");
-      createTileSprites(context);
+      // Tile sprites are created/destroyed by setupTileObserver — onAdd(Tile)
+      // fires for both the initial snapshot and live OBSERVER deltas.
     },
     onSocketClose: () => debug("socket closed"),
     context,
