@@ -16,6 +16,12 @@ export const MESSAGE_TYPES = {
   PING: 6,
   PONG: 7,
   PAINT: 8,
+  // SoA payload accompanies OBSERVER deltas: the observer carries
+  // entity/component add/remove events but no field data, so we follow up
+  // with a SoA payload that fills in the values for entities the observer
+  // just announced. Used for static entities (tiles) where field data
+  // doesn't otherwise stream via GAME_STATE.
+  SOA: 9,
 } as const;
 
 export const TILE_TYPES = {

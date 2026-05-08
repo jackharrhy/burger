@@ -2,6 +2,7 @@ import { addComponent, addEntity, removeEntity } from "bitecs";
 import type { Database } from "bun:sqlite";
 import type { World } from "./world";
 import type { ValidatedPaint } from "./paint-validation";
+import { markEntityDirty } from "./network.server";
 
 const isSolid = (type: string): boolean =>
   type === "wall" || type === "counter";
@@ -72,4 +73,9 @@ export const applyPaint = (
   if (isSolid(cat.type)) addComponent(world, eid, Solid);
   addComponent(world, eid, Networked);
   world.tilesAtPosition.set(key, eid);
+
+  // The bitecs OBSERVER stream announces this entity's existence but won't
+  // carry its Position/Tile field values. Mark the entity dirty so the next
+  // broadcastGameState includes a SoA payload with the actual data.
+  markEntityDirty(eid);
 };

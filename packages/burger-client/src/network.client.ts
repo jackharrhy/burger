@@ -29,8 +29,12 @@
  *                                bounds.x, bounds.y, bounds.w, bounds.h];
  *                                client populates world.bounds and
  *                                disconnects on version mismatch)
- *   Server -> Client: SNAPSHOT (initial world state)
- *   Server -> Client: OBSERVER (entity add/remove deltas)
+ *   Server -> Client: SNAPSHOT (initial world state, includes SoA data)
+ *   Server -> Client: OBSERVER (entity add/remove deltas, no field data)
+ *   Server -> Client: SOA      (field-data delta following OBSERVER adds —
+ *                                bitecs's observer stream is purely
+ *                                structural, so we follow up with SoA to
+ *                                send the actual values)
  *   Server -> Client: GAME_STATE (authoritative positions at (TICK_RATE)Hz)
  */
 
@@ -48,9 +52,13 @@ import {
 import {
   createObserverDeserializer,
   createSnapshotDeserializer,
+  createSoADeserializer,
 } from "bitecs/serialization";
+import debugFactory from "debug";
 import { INTERP_HISTORY_MS, TELEPORT_THRESHOLD } from "./consts.client";
 import type { World } from "./client";
+
+const debug = debugFactory("burger:network.client");
 
 export type PositionSnapshot = { x: number; y: number; time: number };
 
@@ -101,6 +109,7 @@ export const setupSocket = ({
     Networked,
     networkedComponents,
   );
+  const soaDeserializer = createSoADeserializer(networkedComponents);
 
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
@@ -128,8 +137,17 @@ export const setupSocket = ({
           break;
 
         case MESSAGE_TYPES.OBSERVER:
+          debug("observer delta: %d bytes", payload.byteLength);
           observerDeserializer(payload, idMap);
           tryMapLocalPlayer(me, idMap, onLocalPlayerReady);
+          break;
+
+        case MESSAGE_TYPES.SOA:
+          // Field-data delta following an OBSERVER add. The observer
+          // announces structural changes (entity / component add/remove)
+          // but doesn't carry field values. The SoA payload fills them in.
+          debug("soa delta: %d bytes", payload.byteLength);
+          soaDeserializer(payload, idMap);
           break;
 
         case MESSAGE_TYPES.GAME_STATE: {

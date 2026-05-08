@@ -19,9 +19,13 @@
  *    Clients use this to reconcile their predictions.
  *
  * 4. ENTITY SYNCHRONIZATION
- *    - SNAPSHOT: Full world state sent on connect
- *    - OBSERVER: Delta updates for entity add/remove
- *    - GAME_STATE: Authoritative positions
+ *    - SNAPSHOT: Full world state sent on connect (structural + SoA data)
+ *    - OBSERVER: Delta updates for entity add/remove (purely structural)
+ *    - SOA:      Field-data deltas following an OBSERVER add. The bitecs
+ *                observer stream doesn't carry field values, so we follow
+ *                up with a SoA payload covering entities marked dirty via
+ *                markEntityDirty().
+ *    - GAME_STATE: Authoritative positions (player movement, every tick)
  *    - YOUR_EID: Sent on connect with [PROTOCOL_VERSION, eid, bounds.x,
  *      bounds.y, bounds.w, bounds.h]; clients verify the version, attach
  *      bounds to their world, and disconnect on version mismatch.
@@ -30,8 +34,9 @@
  *    Admins can place/erase tiles via PAINT messages. Each paint is
  *    validated (paint-validation.ts), gated on isAdmin, capped to
  *    MAX_PAINTS_PER_TICK per connection per tick, persisted to SQLite
- *    via paint.ts, and broadcast through the existing observer
- *    serializer when the underlying ECS entity changes.
+ *    via paint.ts. Erase + replace produce RemoveEntity/AddEntity
+ *    observer events; new tile entities are also marked dirty so the next
+ *    SoA broadcast carries their Position/Tile field values.
  */
 
 import { existsSync, mkdirSync } from "node:fs";
@@ -51,6 +56,7 @@ import {
 import {
   createObserverSerializer,
   createSnapshotSerializer,
+  createSoASerializer,
 } from "bitecs/serialization";
 import type { World } from "./world";
 import debugFactory from "debug";
@@ -87,6 +93,14 @@ const playerConnections = new Map<WS, PlayerConnection>();
 const observerSerializers = new Map<WS, () => ArrayBuffer>();
 
 let snapshotSerializer: () => ArrayBuffer;
+let soaSerializer: (eids: readonly number[]) => ArrayBuffer;
+
+// Entities whose field data has changed since the last broadcast tick.
+// Populated by applyPaint when it creates a new tile entity (because the
+// observer stream only carries structural events, not field values — we
+// have to follow up with a SoA payload so clients see the painted tile's
+// real coords + tileId, not zeros).
+const dirtyEids = new Set<number>();
 
 const SNAPSHOT_BUFFER_SIZE = 64 * 1024; // 64KB
 const OBSERVER_BUFFER_SIZE = 4 * 1024; // 4KB per connection
@@ -127,6 +141,7 @@ export const createServer = ({
     networkedComponents,
     snapshotBuffer,
   );
+  soaSerializer = createSoASerializer(networkedComponents);
 
   if (!existsSync("./public/assets")) {
     mkdirSync("./public/assets", { recursive: true });
@@ -278,6 +293,16 @@ const handlePaintMessage = (
 
 export const getPlayerConnections = () => playerConnections;
 
+/**
+ * Mark an entity as having changed field data since the last broadcast. The
+ * next broadcastGameState() will include this entity in the SoA payload so
+ * clients can see its actual values (the bitecs OBSERVER stream only carries
+ * structural add/remove events, not field values).
+ */
+export const markEntityDirty = (eid: number): void => {
+  dirtyEids.add(eid);
+};
+
 export const resetPaintCounters = (): void => {
   for (const [, connection] of playerConnections) {
     connection.paintsThisTick = 0;
@@ -318,6 +343,24 @@ export const broadcastGameState = ({
     gameStateLength + 1,
   );
 
+  // SoA payload covering entities whose field data changed since the last
+  // broadcast. Serialized once and broadcast to every client. Sent AFTER the
+  // observer payload so the client has already added the entity locally.
+  let soaPayload: ArrayBuffer | null = null;
+  if (dirtyEids.size > 0) {
+    const eids = Array.from(dirtyEids);
+    dirtyEids.clear();
+    const buf = soaSerializer(eids);
+    if (buf.byteLength > 0) {
+      soaPayload = tagMessage(MESSAGE_TYPES.SOA, buf);
+      debug(
+        "soa broadcast: %d entities, %d bytes",
+        eids.length,
+        buf.byteLength,
+      );
+    }
+  }
+
   for (const [ws] of playerConnections) {
     ws.sendBinary(taggedStateView);
 
@@ -329,6 +372,10 @@ export const broadcastGameState = ({
         taggedObserverBuffer.set(new Uint8Array(updates), 1);
         ws.sendBinary(taggedObserverBuffer.subarray(0, updates.byteLength + 1));
       }
+    }
+
+    if (soaPayload) {
+      ws.sendBinary(soaPayload);
     }
   }
 };
