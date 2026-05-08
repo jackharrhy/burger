@@ -45,7 +45,7 @@
 
 import { existsSync } from "node:fs";
 import type { Database } from "bun:sqlite";
-import { Elysia, file } from "elysia";
+import { Elysia, file, t } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
 import {
   MESSAGE_TYPES,
@@ -67,7 +67,12 @@ import {
   unregisterConnection,
   handleIncomingMessage,
   tagMessage,
+  broadcastCatalogUpdated,
+  markEntityDirty,
 } from "./network.server";
+import { validateCatalog } from "./catalog-validation";
+import { saveCatalog } from "./catalog-save";
+import { renameCatalogId } from "./catalog-rename";
 
 export type AppDeps = {
   world: World;
@@ -80,6 +85,18 @@ export type AppDeps = {
 export const buildApp = (deps: AppDeps) => {
   const { world, db, authConfig, onPlayerJoin, onPlayerLeave } = deps;
   const { Networked } = world.components;
+
+  const requireAdmin = (
+    cookieHeader: string | null,
+  ): { ok: true; userId: string } | { ok: false } => {
+    const sessionId = parseSessionCookie(cookieHeader);
+    if (!sessionId) return { ok: false };
+    const session = getSession(db, sessionId);
+    if (!session) return { ok: false };
+    const user = getUserById(db, session.userId);
+    if (!user || !user.isAdmin) return { ok: false };
+    return { ok: true, userId: user.id };
+  };
 
   const indexExists = existsSync("./public/index.html");
 
@@ -124,6 +141,111 @@ export const buildApp = (deps: AppDeps) => {
             "SELECT id, type, src_x, src_y, label FROM tile_catalog ORDER BY id",
           )
           .all(),
+      )
+      .post(
+        "/api/catalog/save",
+        async ({ body, headers, set }) => {
+          const auth = requireAdmin(headers.cookie ?? null);
+          if (!auth.ok) {
+            set.status = 403;
+            return { ok: false, errors: [{ field: "auth", message: "admin required" }] };
+          }
+
+          const validation = validateCatalog(body, {
+            atlasW: 192, // matches atlas.png dimensions (6×9 cells × 32px)
+            atlasH: 288,
+          });
+          if (!validation.ok) {
+            set.status = 400;
+            return { ok: false, errors: validation.errors };
+          }
+
+          const tomlPath = "./atlas.toml";
+          const result = await saveCatalog({
+            db,
+            tomlPath,
+            entries: validation.entries,
+            broadcast: (catalog) => {
+              // Update in-memory catalog (world.catalog: Map<number, CatalogEntry>).
+              world.catalog.clear();
+              world.catalogIds.clear();
+              for (const e of catalog) {
+                world.catalog.set(e.id, e);
+                world.catalogIds.add(e.id);
+                world.typeIdToAtlasSrc[e.id] = [e.src_x, e.src_y];
+              }
+              broadcastCatalogUpdated(catalog);
+            },
+          });
+          if (!result.ok) {
+            set.status = 409;
+            return { ok: false, errors: result.errors };
+          }
+          return { ok: true };
+        },
+        {
+          body: t.Array(
+            t.Object({
+              id: t.Number(),
+              type: t.Union([
+                t.Literal("floor"),
+                t.Literal("wall"),
+                t.Literal("counter"),
+              ]),
+              src_x: t.Number(),
+              src_y: t.Number(),
+              label: t.String(),
+            }),
+          ),
+        },
+      )
+      .post(
+        "/api/catalog/rename",
+        ({ body, headers, set }) => {
+          const auth = requireAdmin(headers.cookie ?? null);
+          if (!auth.ok) {
+            set.status = 403;
+            return { ok: false, errors: [{ field: "auth", message: "admin required" }] };
+          }
+
+          const result = renameCatalogId(db, { from: body.from, to: body.to });
+          if (!result.ok) {
+            set.status = 409;
+            return { ok: false, errors: result.errors };
+          }
+
+          // Cascade rename to in-memory state.
+          const cat = world.catalog.get(body.from);
+          if (cat) {
+            world.catalog.delete(body.from);
+            world.catalogIds.delete(body.from);
+            world.catalog.set(body.to, { ...cat, id: body.to });
+            world.catalogIds.add(body.to);
+            delete world.typeIdToAtlasSrc[body.from];
+            world.typeIdToAtlasSrc[body.to] = [cat.src_x, cat.src_y];
+          }
+
+          // Update existing tile entities in the ECS so their Tile.type matches.
+          const { Tile } = world.components;
+          for (const [, eid] of world.tilesAtPosition) {
+            if (Tile.type[eid] === body.from) {
+              Tile.type[eid] = body.to;
+              markEntityDirty(eid);
+            }
+          }
+
+          // Broadcast the new full catalog.
+          const newCatalog = Array.from(world.catalog.values());
+          broadcastCatalogUpdated(newCatalog);
+
+          return { ok: true };
+        },
+        {
+          body: t.Object({
+            from: t.Number(),
+            to: t.Number(),
+          }),
+        },
       )
       .ws("/ws", {
         open(ws) {
