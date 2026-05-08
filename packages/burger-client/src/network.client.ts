@@ -25,8 +25,10 @@
  *
  * Message Flow:
  *   Client -> Server: INPUT (input commands at (CLIENT_UPDATE_RATE)Hz
- *   Server -> Client: YOUR_EID  (on connect, [PROTOCOL_VERSION, eid];
- *                                client disconnects on version mismatch)
+ *   Server -> Client: YOUR_EID  (on connect, [PROTOCOL_VERSION, eid,
+ *                                bounds.x, bounds.y, bounds.w, bounds.h];
+ *                                client populates world.bounds and
+ *                                disconnects on version mismatch)
  *   Server -> Client: SNAPSHOT (initial world state)
  *   Server -> Client: OBSERVER (entity add/remove deltas)
  *   Server -> Client: GAME_STATE (authoritative positions at (TICK_RATE)Hz)
@@ -150,6 +152,12 @@ export const setupSocket = ({
             return;
           }
           me.serverEid = view[1]!;
+          world.bounds = {
+            x: view[2]!,
+            y: view[3]!,
+            w: view[4]!,
+            h: view[5]!,
+          };
           break;
         }
       }

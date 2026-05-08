@@ -173,16 +173,23 @@ const collectMessages = (ws: WebSocket): { messages: Uint8Array[] } => {
   return { messages };
 };
 
-test("server sends YOUR_EID with correct protocol version on connect", async () => {
+test("server sends YOUR_EID with correct protocol version and bounds", async () => {
   const ws = await connect(port, sessionId);
   const { messages } = collectMessages(ws);
   await sleep(100);
   const yourEid = messages.find((m) => m[0] === MESSAGE_TYPES.YOUR_EID);
   expect(yourEid).toBeDefined();
-  // Strip the message-type tag byte; remaining 8 bytes are [version, eid].
+  // Strip the message-type tag byte; remaining 24 bytes are
+  // [version, eid, bounds.x, bounds.y, bounds.w, bounds.h].
   const view = new Int32Array(yourEid!.slice(1).buffer);
+  expect(view.length).toBe(6);
   expect(view[0]).toBe(PROTOCOL_VERSION);
   expect(view[1]).toBeGreaterThan(0);
+  // bounds default to {0,0,0,0} in test worlds — assert shape/integers, not values.
+  expect(Number.isInteger(view[2])).toBe(true);
+  expect(Number.isInteger(view[3])).toBe(true);
+  expect(Number.isInteger(view[4])).toBe(true);
+  expect(Number.isInteger(view[5])).toBe(true);
   ws.close();
   await sleep(50);
 });

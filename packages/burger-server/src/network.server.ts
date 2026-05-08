@@ -22,8 +22,9 @@
  *    - SNAPSHOT: Full world state sent on connect
  *    - OBSERVER: Delta updates for entity add/remove
  *    - GAME_STATE: Authoritative positions
- *    - YOUR_EID: Sent on connect with [PROTOCOL_VERSION, eid]; clients
- *      verify the version and disconnect on mismatch.
+ *    - YOUR_EID: Sent on connect with [PROTOCOL_VERSION, eid, bounds.x,
+ *      bounds.y, bounds.w, bounds.h]; clients verify the version, attach
+ *      bounds to their world, and disconnect on version mismatch.
  */
 
 import { existsSync, mkdirSync } from "node:fs";
@@ -177,7 +178,14 @@ export const createServer = ({
         ws.sendBinary(
           tagMessage(
             MESSAGE_TYPES.YOUR_EID,
-            new Int32Array([PROTOCOL_VERSION, eid]).buffer,
+            new Int32Array([
+              PROTOCOL_VERSION,
+              eid,
+              world.bounds.x,
+              world.bounds.y,
+              world.bounds.w,
+              world.bounds.h,
+            ]).buffer,
           ),
         );
         ws.sendBinary(tagMessage(MESSAGE_TYPES.SNAPSHOT, snapshotSerializer()));
