@@ -32,3 +32,17 @@ test("runMigrations enables foreign keys", () => {
   const row = db.query("PRAGMA foreign_keys").get() as { foreign_keys: number };
   expect(row.foreign_keys).toBe(1);
 });
+
+test("runMigrations creates tile_catalog, tiles, tile_edits, settings tables", () => {
+  const db = new Database(":memory:");
+  runMigrations(db);
+  const names = (
+    db
+      .query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+      .all() as { name: string }[]
+  ).map((r) => r.name);
+  expect(names).toContain("tile_catalog");
+  expect(names).toContain("tiles");
+  expect(names).toContain("tile_edits");
+  expect(names).toContain("settings");
+});
