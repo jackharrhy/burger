@@ -16,6 +16,8 @@ import {
 import { spawnAiPlayers, updateAiPlayers, getAiEntities } from "./ai";
 import { createLevel } from "./level";
 import { createPlayer } from "./players";
+import { openDatabase } from "./db";
+import { loadAuthConfig } from "./auth/config";
 
 const world = createSharedWorld({
   playerSpawns: [] as { x: number; y: number }[],
@@ -123,10 +125,15 @@ const idleTick = () => {
 
 const SERVER_PORT = 5000;
 
+const db = openDatabase();
+const authConfig = loadAuthConfig();
+
 createServer({
   port: SERVER_PORT,
   world,
-  onPlayerJoin: () => createPlayer(world, "Player"),
+  db,
+  authConfig,
+  onPlayerJoin: (displayName: string) => createPlayer(world, displayName),
   onPlayerLeave: (eid) => removeEntity(world, eid),
 });
 

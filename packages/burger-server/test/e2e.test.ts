@@ -1,5 +1,6 @@
 import { expect, test, beforeEach, afterEach } from "bun:test";
 import { removeEntity } from "bitecs";
+import { Database } from "bun:sqlite";
 import {
   createSharedWorld,
   applyInputToVelocity,
@@ -18,6 +19,9 @@ import {
   broadcastGameState,
 } from "../src/network.server";
 import { createPlayer } from "../src/players";
+import { runMigrations } from "../src/db";
+import { createSession } from "../src/auth/sessions";
+import type { AuthConfig } from "../src/auth/config";
 
 type TestWorld = ReturnType<
   typeof createSharedWorld<{
@@ -65,6 +69,15 @@ const tick = (world: TestWorld) => {
 let app: ReturnType<typeof createServer>;
 let world: TestWorld;
 let port: number;
+let db: Database;
+let sessionId: string;
+
+const authConfig: AuthConfig = {
+  fourmUrl: "http://localhost:8000",
+  burgerUrl: "http://localhost:5000",
+  clientId: "burger",
+  isProduction: false,
+};
 
 beforeEach(() => {
   world = createSharedWorld({
@@ -72,13 +85,26 @@ beforeEach(() => {
     typeIdToAtlasSrc: {} as Record<number, [number, number]>,
   });
   port = 5500 + Math.floor(Math.random() * 500);
+
+  db = new Database(":memory:");
+  runMigrations(db);
+  // Seed a user + session.
+  const userId = "test-user-1";
+  db.run(
+    "INSERT INTO users (id, fourm_id, username, display_name, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    [userId, "fourm-1", "tester", "Tester", 0, Date.now()],
+  );
+  sessionId = createSession(db, userId);
+
   app = createServer({
     port,
     world: world as unknown as Parameters<typeof createServer>[0]["world"],
-    onPlayerJoin: () =>
+    db,
+    authConfig,
+    onPlayerJoin: (displayName: string) =>
       createPlayer(
         world as unknown as Parameters<typeof createPlayer>[0],
-        "Test",
+        displayName,
       ),
     onPlayerLeave: (eid) => removeEntity(world, eid),
   });
@@ -86,15 +112,25 @@ beforeEach(() => {
 
 afterEach(async () => {
   // Stop server. Elysia 1.4.x exposes `app.stop()`; fall back to `app.server?.stop()`.
+  // Force-close active connections so a half-closed WS (one we rejected from
+  // `open()` with ws.close(4001)) doesn't make stop() hang.
+  // Bun's stop(true) can still hang in some half-upgraded states; cap with a
+  // race so the test suite doesn't lock up.
   const a = app as unknown as {
-    stop?: () => unknown;
-    server?: { stop?: () => unknown };
+    stop?: (force?: boolean) => Promise<unknown>;
+    server?: { stop?: (force?: boolean) => unknown };
   };
-  if (typeof a.stop === "function") {
-    await a.stop.call(app);
-  } else if (typeof a.server?.stop === "function") {
-    await a.server.stop.call(a.server);
-  }
+  const stopPromise = (async () => {
+    if (typeof a.stop === "function") {
+      await a.stop.call(app, true);
+    } else if (typeof a.server?.stop === "function") {
+      await a.server.stop.call(a.server, true);
+    }
+  })();
+  await Promise.race([
+    stopPromise,
+    new Promise<void>((r) => setTimeout(r, 500)),
+  ]);
   // Drain shared module state.
   for (const [, c] of getPlayerConnections()) {
     try {
@@ -104,11 +140,14 @@ afterEach(async () => {
     }
   }
   getPlayerConnections().clear();
+  db.close();
 });
 
-const connect = (port: number) =>
+const connect = (port: number, session: string) =>
   new Promise<WebSocket>((resolve, reject) => {
-    const ws = new WebSocket(`ws://localhost:${port}/ws`);
+    const ws = new WebSocket(`ws://localhost:${port}/ws`, {
+      headers: { Cookie: `burger_session=${session}` },
+    } as unknown as ConstructorParameters<typeof WebSocket>[1]);
     ws.binaryType = "arraybuffer";
     const timer = setTimeout(
       () => reject(new Error("WebSocket connect timeout")),
@@ -135,7 +174,7 @@ const collectMessages = (ws: WebSocket): { messages: Uint8Array[] } => {
 };
 
 test("server sends YOUR_EID with correct protocol version on connect", async () => {
-  const ws = await connect(port);
+  const ws = await connect(port, sessionId);
   const { messages } = collectMessages(ws);
   await sleep(100);
   const yourEid = messages.find((m) => m[0] === MESSAGE_TYPES.YOUR_EID);
@@ -149,7 +188,7 @@ test("server sends YOUR_EID with correct protocol version on connect", async () 
 });
 
 test("server moves player right when right inputs are sent", async () => {
-  const ws = await connect(port);
+  const ws = await connect(port, sessionId);
   await sleep(50);
   // Capture starting position of the (single) connected player.
   let startX = 0;
@@ -181,7 +220,7 @@ test("server moves player right when right inputs are sent", async () => {
 });
 
 test("malicious client cannot speed-hack via input flood (per-tick cap holds)", async () => {
-  const ws = await connect(port);
+  const ws = await connect(port, sessionId);
   await sleep(50);
   // Flood 1000 right inputs in one batch.
   for (let i = 1; i <= 1000; i++) {
@@ -213,7 +252,7 @@ test("malicious client cannot speed-hack via input flood (per-tick cap holds)", 
 });
 
 test("server rejects malformed input messages", async () => {
-  const ws = await connect(port);
+  const ws = await connect(port, sessionId);
   await sleep(50);
   // Send garbage. Server should ignore silently (no crash).
   ws.send("not even json");
@@ -245,7 +284,7 @@ test("server rejects malformed input messages", async () => {
 });
 
 test("server rejects replayed sequence numbers", async () => {
-  const ws = await connect(port);
+  const ws = await connect(port, sessionId);
   await sleep(50);
   // Send seq 1, then seq 1 again, then seq 2.
   for (const seq of [1, 1, 2]) {
@@ -272,10 +311,31 @@ test("server rejects replayed sequence numbers", async () => {
 });
 
 test("disconnect cleans up server-side state", async () => {
-  const ws = await connect(port);
+  const ws = await connect(port, sessionId);
   await sleep(50);
   expect(getPlayerConnections().size).toBe(1);
   ws.close();
   await sleep(100);
+  expect(getPlayerConnections().size).toBe(0);
+});
+
+test("unauthenticated connection is rejected with code 4001", async () => {
+  const result = await new Promise<{ code: number }>((resolve) => {
+    const ws = new WebSocket(`ws://localhost:${port}/ws`);
+    ws.addEventListener("close", (e) => resolve({ code: e.code }));
+  });
+  expect(result.code).toBe(4001);
+  // Server must not register a player for the rejected connection.
+  expect(getPlayerConnections().size).toBe(0);
+});
+
+test("invalid session id is rejected with code 4001", async () => {
+  const result = await new Promise<{ code: number }>((resolve) => {
+    const ws = new WebSocket(`ws://localhost:${port}/ws`, {
+      headers: { Cookie: "burger_session=does-not-exist" },
+    } as unknown as ConstructorParameters<typeof WebSocket>[1]);
+    ws.addEventListener("close", (e) => resolve({ code: e.code }));
+  });
+  expect(result.code).toBe(4001);
   expect(getPlayerConnections().size).toBe(0);
 });

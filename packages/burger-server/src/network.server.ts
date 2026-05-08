@@ -27,6 +27,7 @@
  */
 
 import { existsSync, mkdirSync } from "node:fs";
+import type { Database } from "bun:sqlite";
 import { Elysia, file, type TSchema } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
 import {
@@ -47,6 +48,10 @@ import debugFactory from "debug";
 import type { ServerWebSocket } from "elysia/ws/bun";
 import type { TypeCheck } from "elysia/type-system";
 import { validateInput } from "./input-validation";
+import { parseSessionCookie, getSession } from "./auth/sessions";
+import { getUserById } from "./auth/users";
+import { authRoutes } from "./auth/routes";
+import type { AuthConfig } from "./auth/config";
 
 const debug = debugFactory("burger:network.server");
 
@@ -55,6 +60,10 @@ export type PlayerConnection = {
   inputQueue: InputCmd[];
   lastAckedSeq: number;
   lastReceivedSeq: number;
+  userId: string;
+  username: string;
+  displayName: string;
+  isAdmin: boolean;
 };
 
 type WS = ServerWebSocket<{
@@ -87,12 +96,16 @@ const tagMessage = (type: number, data: ArrayBuffer): ArrayBuffer => {
 export const createServer = ({
   port,
   world,
+  db,
+  authConfig,
   onPlayerJoin,
   onPlayerLeave,
 }: {
   port: number;
   world: World;
-  onPlayerJoin: () => number;
+  db: Database;
+  authConfig: AuthConfig;
+  onPlayerJoin: (displayName: string) => number;
   onPlayerLeave: (eid: number) => void;
 }) => {
   const { Networked } = world.components;
@@ -114,19 +127,43 @@ export const createServer = ({
         prefix: "/assets",
       }),
     )
+    .use(authRoutes({ db, config: authConfig }))
     .get("/", () => file("./public/index.html"))
     .get("/api/atlas", () => world.typeIdToAtlasSrc)
     .ws("/ws", {
       open(ws) {
-        const eid = onPlayerJoin();
+        const data = ws.data as { headers?: Record<string, string | undefined> };
+        const cookieHeader = data.headers?.cookie ?? null;
+        const sessionId = parseSessionCookie(cookieHeader);
+        if (!sessionId) {
+          ws.close(4001, "unauthenticated");
+          return;
+        }
+        const session = getSession(db, sessionId);
+        if (!session) {
+          ws.close(4001, "unauthenticated");
+          return;
+        }
+        const user = getUserById(db, session.userId);
+        if (!user) {
+          ws.close(4001, "unauthenticated");
+          return;
+        }
 
-        console.log(`client connected: eid=${eid}`);
+        const displayName = user.displayName ?? user.username;
+        const eid = onPlayerJoin(displayName);
+
+        console.log(`client connected: eid=${eid}, user=${user.username}`);
 
         playerConnections.set(ws.raw, {
           eid,
           inputQueue: [],
           lastAckedSeq: -1,
           lastReceivedSeq: -1,
+          userId: user.id,
+          username: user.username,
+          displayName,
+          isAdmin: user.isAdmin,
         });
 
         observerSerializers.set(
