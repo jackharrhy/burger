@@ -28,7 +28,9 @@ const atlasLoader = async () => {
   const user = await fetchMe();
   if (!user) throw redirect("/login");
   if (!user.isAdmin) throw redirect("/");
-  return { user };
+  const { data: catalog, error } = await eden.api.catalog.get();
+  if (error || !catalog) throw new Error("failed to load catalog");
+  return { user, catalog };
 };
 
 export const router = createBrowserRouter([
