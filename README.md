@@ -29,51 +29,7 @@ packages/
 
 ## Auth
 
-burger uses [4orm](https://github.com/jackharrhy/4orm) for OAuth. All WebSocket connections require a valid session — anonymous play is not supported.
-
-Before running the server, register burger as an OAuth client in 4orm's `oauth2_clients.toml`:
-
-```toml
-[clients.burger]
-client_name = "burger"
-redirect_uris = [
-    "https://big.burger.beauty/auth/4orm/callback",
-    "http://localhost:5173/auth/4orm/callback",
-]
-scope = "openid profile"
-```
-
-Configure burger via a root-level `.env` file (gitignored). See `.env.example` for the full list of variables. Defaults for local development:
-
-```
-FOURM_URL=https://4orm.harrhy.xyz
-FOURM_CLIENT_ID=burger
-BURGER_URL=http://localhost:5173
-DB_PATH=./data/burger.db
-NODE_ENV=development
-```
-
-In dev, the browser sees `:5173` (vite). Vite proxies `/auth`, `/api`, `/ws` to the elysia server on `:5000`. The session cookie scopes to `:5173` so the SPA picks it up. Production runs single-origin on `https://big.burger.beauty`.
-
-The first user signing in inherits their `is_admin` flag from 4orm. Sessions persist in SQLite for 30 days.
-
-## World data
-
-Tiles, the tile catalog, and world settings (spawn zone, world bounds) live in the same SQLite database as users and sessions. The catalog is seeded from `packages/burger-server/atlas.toml` on every server boot — that file is the source of truth for what tiles exist; edit it and restart the server to add new tiles. Tile placements (`tiles` table) are written by the import script or by admins painting in-game (PR C).
-
-To bootstrap from an LDtk export:
-
-```bash
-DB_PATH=./data/burger.db pnpm --filter burger-server exec bun scripts/import-ldtk.ts
-```
-
-Requires `packages/burger-server/src/burger.json` (gitignored) to be present. Re-running the script is idempotent — existing tiles are overwritten to match the LDtk source; tiles painted later that aren't in the LDtk export are preserved.
-
-## Editor
-
-Admins (per 4orm `is_admin`) can paint tiles in-game. Press `e` to toggle edit mode. The bottom-of-screen palette shows every catalog entry. Left-click paints, right-click erases. Number keys 1-9 select palette slots; mouse wheel cycles. Each paint is server-authoritative, persisted to SQLite, and broadcast to all connected clients.
-
-The catalog is defined in `packages/burger-server/atlas.toml`. Edit it and restart the server to add new tiles.
+burger uses [4orm](https://github.com/jackharrhy/4orm) for OAuth. WebSocket connections require a valid session.
 
 ## Scripts (root)
 
@@ -103,16 +59,3 @@ pnpm fmt:check              # oxfmt — check (used in CI)
 docker compose up --build
 # server on http://127.0.0.1:5000
 ```
-
-## CI
-
-`.github/workflows/ci.yml` runs on every push and pull request:
-
-- `pnpm install --frozen-lockfile`
-- `pnpm lint` (oxlint)
-- `pnpm fmt:check` (oxfmt)
-- `pnpm typecheck` (tsc across all packages)
-- `pnpm test` (bun test, ~75 tests)
-- `pnpm build-frontend` (vite build smoke)
-
-Pushes to `main` chain into a `deploy` job that builds the Docker image and pushes to `ghcr.io`. The deploy is gated on the check job passing.
