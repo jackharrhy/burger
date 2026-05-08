@@ -24,3 +24,6 @@ export const TILE_TYPES = {
 } as const;
 
 export type TileType = (typeof TILE_TYPES)[keyof typeof TILE_TYPES];
+
+export const PROTOCOL_VERSION = 1;
+export const MAX_INPUTS_PER_TICK = 8;
