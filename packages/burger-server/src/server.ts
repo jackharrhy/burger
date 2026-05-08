@@ -1,12 +1,12 @@
 import invariant from "tiny-invariant";
 import {
-  sharedComponents,
   applyInputToVelocity,
+  createSharedWorld,
   moveAndSlide,
   type PlayerState,
   SERVER_TICK_RATE_MS,
 } from "burger-shared";
-import { createWorld, removeEntity } from "bitecs";
+import { removeEntity } from "bitecs";
 import {
   createServer,
   getPlayerConnections,
@@ -17,9 +17,7 @@ import { spawnAiPlayers, updateAiPlayers, getAiEntities } from "./ai";
 import { createLevel } from "./level";
 import { createPlayer } from "./players";
 
-const world = createWorld({
-  components: { ...sharedComponents },
-  time: { delta: 0, elapsed: 0, then: performance.now() },
+const world = createSharedWorld({
   playerSpawns: [] as { x: number; y: number }[],
   typeIdToAtlasSrc: {} as Record<number, [number, number]>,
 });
