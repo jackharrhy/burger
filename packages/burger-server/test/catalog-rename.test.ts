@@ -7,15 +7,25 @@ const setupDb = (): Database => {
   const db = new Database(":memory:");
   runMigrations(db);
   // seed catalog
-  db.run("INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (1, 'floor', 0, 0, 'floor')");
-  db.run("INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (2, 'wall', 32, 0, 'wall')");
+  db.run(
+    "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (1, 'floor', 0, 0, 'floor')",
+  );
+  db.run(
+    "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (2, 'wall', 32, 0, 'wall')",
+  );
   // seed user (for tile_edits FK)
-  db.run("INSERT INTO users (id, fourm_id, username, is_admin, created_at) VALUES ('u1', 'fid', 'u', 0, 0)");
+  db.run(
+    "INSERT INTO users (id, fourm_id, username, is_admin, created_at) VALUES ('u1', 'fid', 'u', 0, 0)",
+  );
   // seed tiles + edits referencing id=1
   db.run("INSERT INTO tiles (x, y, tile_id) VALUES (16, 16, 1)");
   db.run("INSERT INTO tiles (x, y, tile_id) VALUES (48, 16, 1)");
-  db.run("INSERT INTO tile_edits (x, y, old_tile_id, new_tile_id, user_id, edited_at) VALUES (16, 16, NULL, 1, 'u1', 0)");
-  db.run("INSERT INTO tile_edits (x, y, old_tile_id, new_tile_id, user_id, edited_at) VALUES (48, 16, 1, 2, 'u1', 0)");
+  db.run(
+    "INSERT INTO tile_edits (x, y, old_tile_id, new_tile_id, user_id, edited_at) VALUES (16, 16, NULL, 1, 'u1', 0)",
+  );
+  db.run(
+    "INSERT INTO tile_edits (x, y, old_tile_id, new_tile_id, user_id, edited_at) VALUES (48, 16, 1, 2, 'u1', 0)",
+  );
   return db;
 };
 

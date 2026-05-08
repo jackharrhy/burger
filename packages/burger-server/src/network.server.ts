@@ -209,7 +209,13 @@ export const getSoaPayloadForDirty = (): ArrayBuffer | null => {
 };
 
 export const broadcastCatalogUpdated = (
-  catalog: { id: number; type: string; src_x: number; src_y: number; label: string }[],
+  catalog: {
+    id: number;
+    type: string;
+    src_x: number;
+    src_y: number;
+    label: string;
+  }[],
 ): void => {
   if (playerConnections.size === 0) return;
   const json = JSON.stringify(catalog);

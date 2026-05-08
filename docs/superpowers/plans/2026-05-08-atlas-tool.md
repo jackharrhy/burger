@@ -15,31 +15,32 @@
 
 ## File structure (final state, additions only)
 
-| Path | Responsibility |
-|---|---|
-| `packages/burger-shared/src/const.shared.ts` | Add `MESSAGE_TYPES.CATALOG_UPDATED = 10` |
-| `packages/burger-server/src/catalog-validation.ts` | NEW. Pure validator |
-| `packages/burger-server/src/catalog-save.ts` | NEW. atlas.toml serialize + DB sync |
-| `packages/burger-server/src/catalog-rename.ts` | NEW. Atomic rename transaction |
-| `packages/burger-server/src/app.ts` | Add 2 POST routes |
-| `packages/burger-server/src/network.server.ts` | Add `broadcastCatalogUpdated(catalog)` helper |
-| `packages/burger-server/test/catalog-validation.test.ts` | NEW |
-| `packages/burger-server/test/catalog-save.test.ts` | NEW |
-| `packages/burger-server/test/catalog-rename.test.ts` | NEW |
-| `packages/burger-server/test/catalog-e2e.test.ts` | NEW. End-to-end |
-| `packages/burger-client/src/routes/Atlas.tsx` | Replace placeholder |
-| `packages/burger-client/src/atlas/AtlasGrid.tsx` | NEW. Grid display |
-| `packages/burger-client/src/atlas/CatalogForm.tsx` | NEW. Right-pane form |
-| `packages/burger-client/src/atlas/types.ts` | NEW. `CatalogEntry` etc. |
-| `packages/burger-client/src/game/network.ts` | Handle `CATALOG_UPDATED` |
-| `packages/burger-client/src/router.ts` | `atlasLoader` fetches catalog |
-| `packages/burger-client/src/style.css` | Atlas tool styles |
+| Path                                                     | Responsibility                                |
+| -------------------------------------------------------- | --------------------------------------------- |
+| `packages/burger-shared/src/const.shared.ts`             | Add `MESSAGE_TYPES.CATALOG_UPDATED = 10`      |
+| `packages/burger-server/src/catalog-validation.ts`       | NEW. Pure validator                           |
+| `packages/burger-server/src/catalog-save.ts`             | NEW. atlas.toml serialize + DB sync           |
+| `packages/burger-server/src/catalog-rename.ts`           | NEW. Atomic rename transaction                |
+| `packages/burger-server/src/app.ts`                      | Add 2 POST routes                             |
+| `packages/burger-server/src/network.server.ts`           | Add `broadcastCatalogUpdated(catalog)` helper |
+| `packages/burger-server/test/catalog-validation.test.ts` | NEW                                           |
+| `packages/burger-server/test/catalog-save.test.ts`       | NEW                                           |
+| `packages/burger-server/test/catalog-rename.test.ts`     | NEW                                           |
+| `packages/burger-server/test/catalog-e2e.test.ts`        | NEW. End-to-end                               |
+| `packages/burger-client/src/routes/Atlas.tsx`            | Replace placeholder                           |
+| `packages/burger-client/src/atlas/AtlasGrid.tsx`         | NEW. Grid display                             |
+| `packages/burger-client/src/atlas/CatalogForm.tsx`       | NEW. Right-pane form                          |
+| `packages/burger-client/src/atlas/types.ts`              | NEW. `CatalogEntry` etc.                      |
+| `packages/burger-client/src/game/network.ts`             | Handle `CATALOG_UPDATED`                      |
+| `packages/burger-client/src/router.ts`                   | `atlasLoader` fetches catalog                 |
+| `packages/burger-client/src/style.css`                   | Atlas tool styles                             |
 
 ---
 
 ## Task 1: Catalog validator (pure functions + tests)
 
 **Files:**
+
 - Create: `packages/burger-server/src/catalog-validation.ts`
 - Create: `packages/burger-server/test/catalog-validation.test.ts`
 
@@ -62,24 +63,36 @@ const ok = (label: string) => ({
 });
 
 test("valid single-entry catalog passes", () => {
-  const result = validateCatalog([ok("floor")], { atlasW: ATLAS_W, atlasH: ATLAS_H });
+  const result = validateCatalog([ok("floor")], {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(true);
   if (result.ok) expect(result.entries).toHaveLength(1);
 });
 
 test("rejects non-array input", () => {
-  const result = validateCatalog("not an array" as unknown, { atlasW: ATLAS_W, atlasH: ATLAS_H });
+  const result = validateCatalog("not an array" as unknown, {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(false);
 });
 
 test("rejects non-integer id", () => {
-  const result = validateCatalog([{ ...ok("x"), id: 1.5 }], { atlasW: ATLAS_W, atlasH: ATLAS_H });
+  const result = validateCatalog([{ ...ok("x"), id: 1.5 }], {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(false);
   if (!result.ok) expect(result.errors[0]?.field).toContain("id");
 });
 
 test("rejects id < 1", () => {
-  const result = validateCatalog([{ ...ok("x"), id: 0 }], { atlasW: ATLAS_W, atlasH: ATLAS_H });
+  const result = validateCatalog([{ ...ok("x"), id: 0 }], {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(false);
 });
 
@@ -92,15 +105,18 @@ test("rejects unknown type", () => {
 });
 
 test("rejects empty label", () => {
-  const result = validateCatalog([ok("")], { atlasW: ATLAS_W, atlasH: ATLAS_H });
+  const result = validateCatalog([ok("")], {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(false);
 });
 
 test("rejects src_x not aligned to TILE_SIZE", () => {
-  const result = validateCatalog(
-    [{ ...ok("x"), src_x: 17 }],
-    { atlasW: ATLAS_W, atlasH: ATLAS_H },
-  );
+  const result = validateCatalog([{ ...ok("x"), src_x: 17 }], {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(false);
 });
 
@@ -184,7 +200,10 @@ export const validateCatalog = (
   { atlasW, atlasH }: { atlasW: number; atlasH: number },
 ): ValidationResult => {
   if (!Array.isArray(raw)) {
-    return { ok: false, errors: [{ field: "root", message: "expected array" }] };
+    return {
+      ok: false,
+      errors: [{ field: "root", message: "expected array" }],
+    };
   }
 
   const errors: ValidationError[] = [];
@@ -250,7 +269,10 @@ export const validateCatalog = (
     seenCoords.add(coordKey);
 
     if (typeof e.label !== "string" || e.label.length === 0) {
-      errors.push({ field: `${prefix}.label`, message: "must be non-empty string" });
+      errors.push({
+        field: `${prefix}.label`,
+        message: "must be non-empty string",
+      });
       continue;
     }
 
@@ -288,6 +310,7 @@ git commit -m "feat(server): catalog validator"
 ## Task 2: Add `MESSAGE_TYPES.CATALOG_UPDATED` constant
 
 **Files:**
+
 - Modify: `packages/burger-shared/src/const.shared.ts`
 
 - [ ] **Step 1: Add the constant**
@@ -334,6 +357,7 @@ git commit -m "feat: add MESSAGE_TYPES.CATALOG_UPDATED"
 ## Task 3: catalog-save (writes atlas.toml + syncs DB + broadcasts)
 
 **Files:**
+
 - Create: `packages/burger-server/src/catalog-save.ts`
 - Create: `packages/burger-server/test/catalog-save.test.ts`
 
@@ -415,7 +439,9 @@ test("saveCatalog writes the toml file and syncs tile_catalog rows", async () =>
   expect(text).toContain("id = 1");
   expect(text).toContain("id = 2");
   // db synced
-  const rows = db.query("SELECT id, type, src_x, src_y, label FROM tile_catalog ORDER BY id").all();
+  const rows = db
+    .query("SELECT id, type, src_x, src_y, label FROM tile_catalog ORDER BY id")
+    .all();
   expect(rows).toHaveLength(2);
   // broadcast called
   expect(broadcasted).not.toBeNull();
@@ -538,9 +564,11 @@ export const saveCatalog = async ({
       ok: false,
       errors: blocked.map((id) => ({
         field: `entries.removed[${id}]`,
-        message: `cannot delete catalog id ${id}: ${db
-          .query("SELECT COUNT(*) as c FROM tiles WHERE tile_id = ?")
-          .get(id) as { c: number }} tile(s) reference it`,
+        message: `cannot delete catalog id ${id}: ${
+          db
+            .query("SELECT COUNT(*) as c FROM tiles WHERE tile_id = ?")
+            .get(id) as { c: number }
+        } tile(s) reference it`,
       })),
     };
   }
@@ -591,6 +619,7 @@ git commit -m "feat(server): catalog save (toml write + db sync)"
 ## Task 4: catalog-rename (atomic id renumber)
 
 **Files:**
+
 - Create: `packages/burger-server/src/catalog-rename.ts`
 - Create: `packages/burger-server/test/catalog-rename.test.ts`
 
@@ -607,15 +636,25 @@ const setupDb = (): Database => {
   const db = new Database(":memory:");
   runMigrations(db);
   // seed catalog
-  db.run("INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (1, 'floor', 0, 0, 'floor')");
-  db.run("INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (2, 'wall', 32, 0, 'wall')");
+  db.run(
+    "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (1, 'floor', 0, 0, 'floor')",
+  );
+  db.run(
+    "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (2, 'wall', 32, 0, 'wall')",
+  );
   // seed user (for tile_edits FK)
-  db.run("INSERT INTO users (id, fourm_id, username, is_admin, created_at) VALUES ('u1', 'fid', 'u', 0, 0)");
+  db.run(
+    "INSERT INTO users (id, fourm_id, username, is_admin, created_at) VALUES ('u1', 'fid', 'u', 0, 0)",
+  );
   // seed tiles + edits referencing id=1
   db.run("INSERT INTO tiles (x, y, tile_id) VALUES (16, 16, 1)");
   db.run("INSERT INTO tiles (x, y, tile_id) VALUES (48, 16, 1)");
-  db.run("INSERT INTO tile_edits (x, y, old_tile_id, new_tile_id, user_id, edited_at) VALUES (16, 16, NULL, 1, 'u1', 0)");
-  db.run("INSERT INTO tile_edits (x, y, old_tile_id, new_tile_id, user_id, edited_at) VALUES (48, 16, 1, 2, 'u1', 0)");
+  db.run(
+    "INSERT INTO tile_edits (x, y, old_tile_id, new_tile_id, user_id, edited_at) VALUES (16, 16, NULL, 1, 'u1', 0)",
+  );
+  db.run(
+    "INSERT INTO tile_edits (x, y, old_tile_id, new_tile_id, user_id, edited_at) VALUES (48, 16, 1, 2, 'u1', 0)",
+  );
   return db;
 };
 
@@ -707,9 +746,9 @@ export const renameCatalogId = (
 
   const fromExists =
     (
-      db.query("SELECT COUNT(*) as c FROM tile_catalog WHERE id = ?").get(
-        from,
-      ) as { c: number }
+      db
+        .query("SELECT COUNT(*) as c FROM tile_catalog WHERE id = ?")
+        .get(from) as { c: number }
     ).c > 0;
   if (!fromExists) {
     return {
@@ -719,9 +758,9 @@ export const renameCatalogId = (
   }
   const toExists =
     (
-      db.query("SELECT COUNT(*) as c FROM tile_catalog WHERE id = ?").get(
-        to,
-      ) as { c: number }
+      db
+        .query("SELECT COUNT(*) as c FROM tile_catalog WHERE id = ?")
+        .get(to) as { c: number }
     ).c > 0;
   if (toExists) {
     return {
@@ -773,6 +812,7 @@ git commit -m "feat(server): atomic catalog id rename"
 ## Task 5: Wire up the broadcast helper + the two POST routes
 
 **Files:**
+
 - Modify: `packages/burger-server/src/network.server.ts`
 - Modify: `packages/burger-server/src/app.ts`
 
@@ -784,7 +824,13 @@ Find the existing broadcast functions (e.g. `broadcastGameState`). Add this help
 
 ```ts
 export const broadcastCatalogUpdated = (
-  catalog: { id: number; type: string; src_x: number; src_y: number; label: string }[],
+  catalog: {
+    id: number;
+    type: string;
+    src_x: number;
+    src_y: number;
+    label: string;
+  }[],
 ): void => {
   if (playerConnections.size === 0) return;
   const json = JSON.stringify(catalog);
@@ -987,6 +1033,7 @@ git commit -m "feat(server): /api/catalog/save and /api/catalog/rename routes"
 ## Task 6: e2e tests for the routes
 
 **Files:**
+
 - Create: `packages/burger-server/test/catalog-e2e.test.ts`
 
 This task adds end-to-end tests against a real Elysia server with admin/non-admin sessions, mirroring the pattern from `paint-e2e.test.ts`.
@@ -1035,9 +1082,15 @@ beforeEach(() => {
   db = new Database(":memory:");
   runMigrations(db);
   // seed atlas.toml-equivalent catalog
-  db.run("INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (1, 'wall', 0, 0, 'wall')");
-  db.run("INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (2, 'counter', 0, 32, 'counter')");
-  db.run("INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (3, 'floor', 32, 0, 'floor')");
+  db.run(
+    "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (1, 'wall', 0, 0, 'wall')",
+  );
+  db.run(
+    "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (2, 'counter', 0, 32, 'counter')",
+  );
+  db.run(
+    "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (3, 'floor', 32, 0, 'floor')",
+  );
 
   world = initWorld(db);
   port = 5900 + Math.floor(Math.random() * 100);
@@ -1058,7 +1111,8 @@ afterEach(async () => {
   };
   const stopPromise = (async () => {
     if (typeof a.stop === "function") await a.stop.call(app, true);
-    else if (typeof a.server?.stop === "function") await a.server.stop.call(a.server, true);
+    else if (typeof a.server?.stop === "function")
+      await a.server.stop.call(a.server, true);
   })();
   await Promise.race([
     stopPromise,
@@ -1074,7 +1128,9 @@ afterEach(async () => {
 });
 
 const post = async (path: string, body: unknown, sessionId?: string) => {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (sessionId) headers.Cookie = `burger_session=${sessionId}`;
   const res = await fetch(`http://localhost:${port}${path}`, {
     method: "POST",
@@ -1106,9 +1162,7 @@ test("admin POST /api/catalog/save accepts valid catalog and updates DB", async 
   const { status, data } = await post("/api/catalog/save", newCatalog, sess);
   expect(status).toBe(200);
   expect(data).toEqual({ ok: true });
-  const rows = db
-    .query("SELECT id, label FROM tile_catalog ORDER BY id")
-    .all();
+  const rows = db.query("SELECT id, label FROM tile_catalog ORDER BY id").all();
   expect(rows).toHaveLength(4);
   expect((rows[0] as any).label).toBe("wall renamed");
 });
@@ -1137,7 +1191,9 @@ test("admin POST /api/catalog/rename succeeds and cascades", async () => {
   );
   expect(status).toBe(200);
   expect(data).toEqual({ ok: true });
-  const tile = db.query("SELECT tile_id FROM tiles WHERE x = 16 AND y = 16").get();
+  const tile = db
+    .query("SELECT tile_id FROM tiles WHERE x = 16 AND y = 16")
+    .get();
   expect(tile).toEqual({ tile_id: 99 });
 });
 
@@ -1172,6 +1228,7 @@ git commit -m "test(server): catalog save + rename e2e"
 ## Task 7: Client atlas tool — types + grid component
 
 **Files:**
+
 - Create: `packages/burger-client/src/atlas/types.ts`
 - Create: `packages/burger-client/src/atlas/AtlasGrid.tsx`
 
@@ -1190,10 +1247,10 @@ export type CatalogEntry = {
 };
 
 export type AtlasInfo = {
-  url: string;       // /assets/atlas.png
-  width: number;     // 192
-  height: number;    // 288
-  tileSize: number;  // 32
+  url: string; // /assets/atlas.png
+  width: number; // 192
+  height: number; // 288
+  tileSize: number; // 32
 };
 
 export type DraftEntry = {
@@ -1225,7 +1282,13 @@ type Props = {
   onSelect: (src: { src_x: number; src_y: number }) => void;
 };
 
-const AtlasGrid = ({ atlas, entries, selectedSrc, scale = 2, onSelect }: Props) => {
+const AtlasGrid = ({
+  atlas,
+  entries,
+  selectedSrc,
+  scale = 2,
+  onSelect,
+}: Props) => {
   const cellPx = atlas.tileSize * scale;
   const cols = atlas.width / atlas.tileSize;
   const rows = atlas.height / atlas.tileSize;
@@ -1258,7 +1321,9 @@ const AtlasGrid = ({ atlas, entries, selectedSrc, scale = 2, onSelect }: Props) 
             boxSizing: "border-box",
             cursor: "pointer",
           }}
-          title={entry ? `id=${entry.id} ${entry.type} ${entry.label}` : "(empty)"}
+          title={
+            entry ? `id=${entry.id} ${entry.type} ${entry.label}` : "(empty)"
+          }
         />,
       );
     }
@@ -1304,6 +1369,7 @@ git commit -m "feat(client): atlas grid component"
 ## Task 8: Client atlas tool — catalog form component
 
 **Files:**
+
 - Create: `packages/burger-client/src/atlas/CatalogForm.tsx`
 
 - [ ] **Step 1: Create the component**
@@ -1437,6 +1503,7 @@ git commit -m "feat(client): catalog form component"
 ## Task 9: Client atlas tool — Atlas route + loader
 
 **Files:**
+
 - Modify: `packages/burger-client/src/routes/Atlas.tsx`
 - Modify: `packages/burger-client/src/router.ts`
 - Modify: `packages/burger-client/src/style.css`
@@ -1484,18 +1551,19 @@ const Atlas = () => {
   const revalidator = useRevalidator();
 
   const [entries, setEntries] = useState<CatalogEntry[]>(initial);
-  const [selectedSrc, setSelectedSrc] = useState<
-    { src_x: number; src_y: number } | null
-  >(null);
+  const [selectedSrc, setSelectedSrc] = useState<{
+    src_x: number;
+    src_y: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const dirty = JSON.stringify(entries) !== JSON.stringify(initial);
 
   const selected = selectedSrc
-    ? entries.find(
+    ? (entries.find(
         (e) => e.src_x === selectedSrc.src_x && e.src_y === selectedSrc.src_y,
-      ) ?? null
+      ) ?? null)
     : null;
 
   const onCellSelect = (src: { src_x: number; src_y: number }) => {
@@ -1559,9 +1627,7 @@ const Atlas = () => {
     <div className="atlas-tool">
       <div className="atlas-toolbar">
         <h1>atlas</h1>
-        <span className="user">
-          {user.displayName ?? user.username}
-        </span>
+        <span className="user">{user.displayName ?? user.username}</span>
         <button onClick={onSave} disabled={!dirty || saving}>
           {saving ? "saving…" : `save ${dirty ? "(unsaved changes)" : ""}`}
         </button>
@@ -1725,6 +1791,7 @@ git commit -m "feat(client): atlas tool route at /atlas"
 ## Task 10: Client — handle CATALOG_UPDATED in the game
 
 **Files:**
+
 - Modify: `packages/burger-client/src/game/network.ts`
 
 This task makes the running game catch up when an admin saves a catalog change in another tab. Without this, a connected player's `assets.tiles` map would have stale textures until they reload.
@@ -1943,6 +2010,7 @@ EOF
 ## Final state
 
 After all 11 tasks:
+
 - Admins can edit the tile catalog visually at `/atlas`.
 - Saves write `atlas.toml` and update the running server's catalog.
 - ID renumbering is atomic across `tile_catalog`, `tiles`, `tile_edits`, and the in-memory ECS.

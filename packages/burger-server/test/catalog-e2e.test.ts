@@ -56,7 +56,8 @@ afterEach(async () => {
   };
   const stopPromise = (async () => {
     if (typeof a.stop === "function") await a.stop.call(app, true);
-    else if (typeof a.server?.stop === "function") await a.server.stop.call(a.server, true);
+    else if (typeof a.server?.stop === "function")
+      await a.server.stop.call(a.server, true);
   })();
   await Promise.race([
     stopPromise,
@@ -72,7 +73,9 @@ afterEach(async () => {
 });
 
 const post = async (path: string, body: unknown, sessionId?: string) => {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (sessionId) headers.Cookie = `burger_session=${sessionId}`;
   const res = await fetch(`http://localhost:${port}${path}`, {
     method: "POST",
@@ -104,9 +107,7 @@ test("admin POST /api/catalog/save accepts valid catalog and updates DB", async 
   const { status, data } = await post("/api/catalog/save", newCatalog, sess);
   expect(status).toBe(200);
   expect(data).toEqual({ ok: true });
-  const rows = db
-    .query("SELECT id, label FROM tile_catalog ORDER BY id")
-    .all();
+  const rows = db.query("SELECT id, label FROM tile_catalog ORDER BY id").all();
   expect(rows).toHaveLength(4);
   expect((rows[0] as any).label).toBe("wall renamed");
 });
@@ -135,7 +136,9 @@ test("admin POST /api/catalog/rename succeeds and cascades", async () => {
   );
   expect(status).toBe(200);
   expect(data).toEqual({ ok: true });
-  const tile = db.query("SELECT tile_id FROM tiles WHERE x = 16 AND y = 16").get();
+  const tile = db
+    .query("SELECT tile_id FROM tiles WHERE x = 16 AND y = 16")
+    .get();
   expect(tile).toEqual({ tile_id: 99 });
 });
 

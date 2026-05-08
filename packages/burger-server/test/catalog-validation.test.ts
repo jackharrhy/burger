@@ -13,21 +13,27 @@ const ok = (label: string) => ({
 });
 
 test("valid single-entry catalog passes", () => {
-  const result = validateCatalog([ok("floor")], { atlasW: ATLAS_W, atlasH: ATLAS_H });
+  const result = validateCatalog([ok("floor")], {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(true);
   if (result.ok) expect(result.entries).toHaveLength(1);
 });
 
 test("rejects non-array input", () => {
-  const result = validateCatalog("not an array" as unknown, { atlasW: ATLAS_W, atlasH: ATLAS_H });
+  const result = validateCatalog("not an array" as unknown, {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(false);
 });
 
 test("rejects non-object array elements", () => {
-  const result = validateCatalog(
-    [null, 42, "string", undefined],
-    { atlasW: ATLAS_W, atlasH: ATLAS_H },
-  );
+  const result = validateCatalog([null, 42, "string", undefined], {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(false);
   if (!result.ok) {
     expect(result.errors).toHaveLength(4);
@@ -37,13 +43,19 @@ test("rejects non-object array elements", () => {
 });
 
 test("rejects non-integer id", () => {
-  const result = validateCatalog([{ ...ok("x"), id: 1.5 }], { atlasW: ATLAS_W, atlasH: ATLAS_H });
+  const result = validateCatalog([{ ...ok("x"), id: 1.5 }], {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(false);
   if (!result.ok) expect(result.errors[0]?.field).toContain("id");
 });
 
 test("rejects id < 1", () => {
-  const result = validateCatalog([{ ...ok("x"), id: 0 }], { atlasW: ATLAS_W, atlasH: ATLAS_H });
+  const result = validateCatalog([{ ...ok("x"), id: 0 }], {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(false);
 });
 
@@ -56,15 +68,18 @@ test("rejects unknown type", () => {
 });
 
 test("rejects empty label", () => {
-  const result = validateCatalog([ok("")], { atlasW: ATLAS_W, atlasH: ATLAS_H });
+  const result = validateCatalog([ok("")], {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(false);
 });
 
 test("rejects src_x not aligned to TILE_SIZE", () => {
-  const result = validateCatalog(
-    [{ ...ok("x"), src_x: 17 }],
-    { atlasW: ATLAS_W, atlasH: ATLAS_H },
-  );
+  const result = validateCatalog([{ ...ok("x"), src_x: 17 }], {
+    atlasW: ATLAS_W,
+    atlasH: ATLAS_H,
+  });
   expect(result.ok).toBe(false);
 });
 

@@ -7,10 +7,10 @@ export type CatalogEntry = {
 };
 
 export type AtlasInfo = {
-  url: string;       // /assets/atlas.png
-  width: number;     // 192
-  height: number;    // 288
-  tileSize: number;  // 32
+  url: string; // /assets/atlas.png
+  width: number; // 192
+  height: number; // 288
+  tileSize: number; // 32
 };
 
 export type DraftEntry = {

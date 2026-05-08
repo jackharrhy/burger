@@ -14,7 +14,13 @@ type Props = {
   onSelect: (src: { src_x: number; src_y: number }) => void;
 };
 
-const AtlasGrid = ({ atlas, entries, selectedSrc, scale = 2, onSelect }: Props) => {
+const AtlasGrid = ({
+  atlas,
+  entries,
+  selectedSrc,
+  scale = 2,
+  onSelect,
+}: Props) => {
   const cellPx = atlas.tileSize * scale;
   const cols = atlas.width / atlas.tileSize;
   const rows = atlas.height / atlas.tileSize;
@@ -47,7 +53,9 @@ const AtlasGrid = ({ atlas, entries, selectedSrc, scale = 2, onSelect }: Props) 
             boxSizing: "border-box",
             cursor: "pointer",
           }}
-          title={entry ? `id=${entry.id} ${entry.type} ${entry.label}` : "(empty)"}
+          title={
+            entry ? `id=${entry.id} ${entry.type} ${entry.label}` : "(empty)"
+          }
         />,
       );
     }
