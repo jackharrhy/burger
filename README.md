@@ -65,6 +65,12 @@ DB_PATH=./data/burger.db pnpm --filter burger-server exec bun scripts/import-ldt
 
 Requires `packages/burger-server/src/burger.json` (gitignored) to be present. Re-running the script is idempotent — existing tiles are overwritten to match the LDtk source; tiles painted later that aren't in the LDtk export are preserved.
 
+## Editor
+
+Admins (per 4orm `is_admin`) can paint tiles in-game. Press `e` to toggle edit mode. The bottom-of-screen palette shows every catalog entry. Left-click paints, right-click erases. Number keys 1-9 select palette slots; mouse wheel cycles. Each paint is server-authoritative, persisted to SQLite, and broadcast to all connected clients.
+
+The catalog is defined in `packages/burger-server/atlas.toml`. Edit it and restart the server to add new tiles.
+
 ## Scripts (root)
 
 ```bash
