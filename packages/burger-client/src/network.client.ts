@@ -12,11 +12,11 @@
  * When server state arrives, the client:
  * - Discards acknowledged inputs
  * - Resets to server position
- * - Replays unacknowledged inputs at fixed SERVER_TICK_RATE_MS
+ * - Replays unacknowledged inputs at the dt each was originally predicted
+ *   with (cmd.msec). The server applies the same cmd.msec server-side
+ *   (clamped to MAX_INPUT_MSEC), so client prediction and server
+ *   simulation agree on motion-per-input regardless of frame rate.
  * - Smooths any prediction error over time
- *
- * (Prediction itself uses real frame dt for responsive feel; only
- * reconciliation replay uses fixed dt to match server semantics.)
  *
  * INTERPOLATION
  * Remote players are rendered with a delay (INTERP_DELAY), interpolating
@@ -47,7 +47,6 @@ import {
   type GameStateMessage,
   CLIENT_UPDATE_RATE,
   PROTOCOL_VERSION,
-  SERVER_TICK_RATE_MS,
 } from "burger-shared";
 import {
   createObserverDeserializer,
@@ -242,6 +241,7 @@ export const sendInputs = (
     const msg = JSON.stringify({
       type: "input",
       seq: cmd.seq,
+      msec: cmd.msec,
       up: cmd.up,
       down: cmd.down,
       left: cmd.left,
@@ -292,11 +292,16 @@ export const reconcile = (
       Velocity.y[eid] = playerState.vy;
 
       for (const cmd of pendingInputs) {
+        // Replay each unacked input at the same dt the client originally
+        // predicted with — and the same dt the server (will / already did)
+        // applied. cmd.msec is bounded by MAX_INPUT_MSEC server-side, so
+        // malicious local replay can't desync further than the server-side
+        // clamp would allow.
         const newVel = applyInputToVelocity(
           Velocity.x[eid]!,
           Velocity.y[eid]!,
           cmd,
-          SERVER_TICK_RATE_MS,
+          cmd.msec,
         );
         Velocity.x[eid] = newVel.vx;
         Velocity.y[eid] = newVel.vy;
@@ -307,7 +312,7 @@ export const reconcile = (
           Position.y[eid]!,
           Velocity.x[eid]!,
           Velocity.y[eid]!,
-          SERVER_TICK_RATE_MS,
+          cmd.msec,
         );
         Position.x[eid] = newPos.x;
         Position.y[eid] = newPos.y;

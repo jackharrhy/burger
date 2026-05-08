@@ -10,8 +10,12 @@
  *    Each input has a sequence number for acknowledgment.
  *
  * 2. AUTHORITATIVE PHYSICS
- *    The server runs physics at (TICK_RATE)hz at fixed SERVER_TICK_RATE_MS dt.
- *    All position/velocity updates happen here.
+ *    The server runs the physics tick at (TICK_RATE)hz, but each input is
+ *    applied at the client-supplied cmd.msec (clamped to MAX_INPUT_MSEC by
+ *    the validator). This keeps motion-per-input frame-rate-independent:
+ *    a 144Hz client sends ~144 short inputs/sec, a 60Hz client sends ~60
+ *    longer inputs/sec, and both produce the same total motion per second.
+ *    The clamp bounds speed-hacking to ~2x normal per input.
  *
  * 3. STATE BROADCAST
  *    Every tick, the server broadcasts GAME_STATE to all clients.

@@ -311,6 +311,7 @@ const predictionSystem = ({ world, me, network }: Context): void => {
 
   const cmd: InputCmd = {
     seq: network.inputSeq++,
+    msec: dt,
     up: input.up,
     down: input.down,
     left: input.left,

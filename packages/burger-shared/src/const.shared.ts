@@ -35,3 +35,10 @@ export type TileType = (typeof TILE_TYPES)[keyof typeof TILE_TYPES];
 export const PROTOCOL_VERSION = 1;
 export const MAX_INPUTS_PER_TICK = 8;
 export const MAX_PAINTS_PER_TICK = 4;
+
+// Upper clamp for client-supplied input dt (ms). Caps how much motion a
+// single input can produce so a malicious client can't speed-hack by
+// sending huge msec values. Twice the server tick is a generous ceiling
+// for legitimate clients (e.g. on a temporary stutter) while still
+// constraining motion per input to roughly 2x normal.
+export const MAX_INPUT_MSEC = 2 * SERVER_TICK_RATE_MS;

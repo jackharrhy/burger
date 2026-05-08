@@ -40,11 +40,14 @@ const activeTick = () => {
     invariant(Position.x[eid] !== undefined);
     invariant(Position.y[eid] !== undefined);
 
+    // Apply physics for the dt the client perceived for this input. The
+    // validator clamps cmd.msec to [0, MAX_INPUT_MSEC] so a malicious
+    // client can't smuggle absurd values. Frame-rate-independent.
     const newVel = applyInputToVelocity(
       Velocity.x[eid],
       Velocity.y[eid],
       cmd,
-      SERVER_TICK_RATE_MS,
+      cmd.msec,
     );
     Velocity.x[eid] = newVel.vx;
     Velocity.y[eid] = newVel.vy;
@@ -55,7 +58,7 @@ const activeTick = () => {
       Position.y[eid],
       Velocity.x[eid],
       Velocity.y[eid],
-      SERVER_TICK_RATE_MS,
+      cmd.msec,
     );
     Position.x[eid] = newPos.x;
     Position.y[eid] = newPos.y;

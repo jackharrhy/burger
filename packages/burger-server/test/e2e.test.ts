@@ -6,6 +6,7 @@ import {
   moveAndSlide,
   SERVER_TICK_RATE_MS,
   PROTOCOL_VERSION,
+  MAX_INPUT_MSEC,
   MAX_INPUTS_PER_TICK,
   MESSAGE_TYPES,
   PLAYER_SPEED,
@@ -188,12 +189,14 @@ test("server moves player right when right inputs are sent", async () => {
   let startX = 0;
   for (const [, c] of getPlayerConnections())
     startX = world.components.Position.x[c.eid]!;
-  // Send 30 valid right inputs.
+  // Send 30 valid right inputs at the server tick rate (the canonical
+  // legitimate dt for a 60Hz client).
   for (let i = 1; i <= 30; i++) {
     ws.send(
       JSON.stringify({
         type: "input",
         seq: i,
+        msec: SERVER_TICK_RATE_MS,
         up: false,
         down: false,
         left: false,
@@ -220,12 +223,15 @@ test("malicious client cannot speed-hack via input flood (per-tick cap holds)", 
   let startX = 0;
   for (const [, c] of getPlayerConnections())
     startX = world.components.Position.x[c.eid]!;
-  // Flood 1000 right inputs in one batch.
+  // Flood 1000 right inputs at the maximum-allowed dt (the validator clamps
+  // anything bigger). Combined with the per-tick cap, this is the most a
+  // malicious client could do in one tick.
   for (let i = 1; i <= 1000; i++) {
     ws.send(
       JSON.stringify({
         type: "input",
         seq: i,
+        msec: MAX_INPUT_MSEC,
         up: false,
         down: false,
         left: false,
@@ -241,9 +247,10 @@ test("malicious client cannot speed-hack via input flood (per-tick cap holds)", 
   for (const [, c] of getPlayerConnections())
     endX = world.components.Position.x[c.eid]!;
   // Loose upper bound: even if every input reached steady-state PLAYER_SPEED,
-  // the player can't move further than MAX_INPUTS_PER_TICK * PLAYER_SPEED * SERVER_TICK_RATE_MS.
+  // the player can't move further than MAX_INPUTS_PER_TICK * PLAYER_SPEED *
+  // MAX_INPUT_MSEC. (MAX_INPUT_MSEC = 2 * SERVER_TICK_RATE_MS.)
   const maxPossible =
-    MAX_INPUTS_PER_TICK * PLAYER_SPEED * SERVER_TICK_RATE_MS + 1;
+    MAX_INPUTS_PER_TICK * PLAYER_SPEED * MAX_INPUT_MSEC + 1;
   expect(endX - startX).toBeLessThan(maxPossible);
   ws.close();
   await sleep(50);
@@ -255,14 +262,17 @@ test("server rejects malformed input messages", async () => {
   // Send garbage. Server should ignore silently (no crash).
   ws.send("not even json");
   ws.send(JSON.stringify({ totally: "wrong" }));
-  ws.send(JSON.stringify({ type: "input", seq: "string" }));
-  ws.send(JSON.stringify({ type: "input", seq: -5 }));
+  ws.send(JSON.stringify({ type: "input", seq: "string", msec: 16 }));
+  ws.send(JSON.stringify({ type: "input", seq: -5, msec: 16 }));
+  ws.send(JSON.stringify({ type: "input", seq: 1, msec: -1 }));
+  ws.send(JSON.stringify({ type: "input", seq: 1, msec: NaN }));
   await sleep(50);
   // Then send one valid input.
   ws.send(
     JSON.stringify({
       type: "input",
       seq: 1,
+      msec: SERVER_TICK_RATE_MS,
       up: false,
       down: false,
       left: false,
@@ -290,6 +300,7 @@ test("server rejects replayed sequence numbers", async () => {
       JSON.stringify({
         type: "input",
         seq,
+        msec: SERVER_TICK_RATE_MS,
         up: false,
         down: false,
         left: false,
