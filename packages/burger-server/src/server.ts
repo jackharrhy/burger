@@ -11,6 +11,7 @@ import {
   getPlayerConnections,
   processPlayerInputs,
   broadcastGameState,
+  resetPaintCounters,
 } from "./network.server";
 import { spawnAiPlayers, updateAiPlayers, getAiEntities } from "./ai";
 import { createPlayer } from "./players";
@@ -28,6 +29,8 @@ let isIdle = false;
 
 const activeTick = () => {
   const { Position, Velocity } = world.components;
+
+  resetPaintCounters();
 
   updateAiPlayers(world, SERVER_TICK_RATE_MS);
 
