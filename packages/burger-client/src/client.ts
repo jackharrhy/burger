@@ -50,6 +50,12 @@ import {
   renderSignInScreen,
   type Me,
 } from "./auth.client";
+import {
+  initEditor,
+  updateEditor,
+  type EditorState,
+  type CatalogEntry,
+} from "./editor.client";
 
 const debug = debugFactory("burger:client");
 
@@ -118,6 +124,7 @@ type Context = {
   };
   gui?: GUI;
   user: Me;
+  editor: EditorState | null;
 };
 
 declare global {
@@ -465,6 +472,11 @@ const debugSystem = ({ world }: Context) => {
   }
 };
 
+const editorSystem = (context: Context) => {
+  if (!context.editor) return;
+  updateEditor(context.editor, context.assets.tiles);
+};
+
 const update = (context: Context) => {
   timeSystem(context);
   inputSystem(context);
@@ -476,6 +488,7 @@ const update = (context: Context) => {
   spritesSystem(context);
   metricsSystem(context);
   debugSystem(context);
+  editorSystem(context);
 };
 
 const loadAssets = async () => {
@@ -484,22 +497,16 @@ const loadAssets = async () => {
   const player = await Assets.load<Texture>("/assets/sprites/player.png");
   player.source.scaleMode = "nearest";
 
-  const typeIdToAtlasSrc = await (await fetch("/api/atlas")).json();
+  const catalog = (await (await fetch("/api/catalog")).json()) as CatalogEntry[];
+  const tiles: Record<number, Texture> = {};
+  for (const entry of catalog) {
+    tiles[entry.id] = new Texture({
+      source: atlas,
+      frame: new Rectangle(entry.src_x, entry.src_y, TILE_SIZE, TILE_SIZE),
+    });
+  }
 
-  const tiles = Object.fromEntries(
-    Object.entries(typeIdToAtlasSrc).map(([k, v]) => {
-      const [x, y] = v as any;
-      return [
-        k,
-        new Texture({
-          source: atlas,
-          frame: new Rectangle(x, y, TILE_SIZE, TILE_SIZE),
-        }),
-      ];
-    }),
-  );
-
-  return { atlas, player, tiles };
+  return { atlas, player, tiles, catalog };
 };
 
 const setupRenderer = async (user: Me) => {
@@ -572,6 +579,7 @@ const setupRenderer = async (user: Me) => {
       jitter: 0,
     },
     user,
+    editor: null,
   };
 
   setupPlayerObserver(context);
@@ -650,6 +658,18 @@ const setup = async () => {
           interact: false,
           interactPressed: false,
         };
+      }
+
+      if (context.user.isAdmin) {
+        context.editor = initEditor(
+          context.app,
+          context.assets.catalog,
+          context.assets.tiles,
+          context.network,
+          context.containers.main,
+          () => context.camera,
+          () => ZOOM,
+        );
       }
     },
     onSnapshotReceived: () => {

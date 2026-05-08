@@ -175,6 +175,19 @@ export const setupSocket = ({
   });
 };
 
+export const sendPaint = (
+  network: NetworkState,
+  x: number,
+  y: number,
+  tileId: number | null,
+): void => {
+  const { socket } = network;
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  const msg = JSON.stringify({ type: "paint", x, y, tileId });
+  socket.send(msg);
+  network.bytesSent += msg.length;
+};
+
 const tryMapLocalPlayer = (
   me: PlayerIdentity,
   idMap: Map<number, number>,
