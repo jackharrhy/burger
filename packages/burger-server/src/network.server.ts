@@ -25,6 +25,13 @@
  *    - YOUR_EID: Sent on connect with [PROTOCOL_VERSION, eid, bounds.x,
  *      bounds.y, bounds.w, bounds.h]; clients verify the version, attach
  *      bounds to their world, and disconnect on version mismatch.
+ *
+ * 5. PAINT (admin only)
+ *    Admins can place/erase tiles via PAINT messages. Each paint is
+ *    validated (paint-validation.ts), gated on isAdmin, capped to
+ *    MAX_PAINTS_PER_TICK per connection per tick, persisted to SQLite
+ *    via paint.ts, and broadcast through the existing observer
+ *    serializer when the underlying ECS entity changes.
  */
 
 import { existsSync, mkdirSync } from "node:fs";
@@ -33,6 +40,7 @@ import { Elysia, file, type TSchema } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
 import {
   MAX_INPUTS_PER_TICK,
+  MAX_PAINTS_PER_TICK,
   MESSAGE_TYPES,
   networkedComponents,
   PROTOCOL_VERSION,
@@ -49,6 +57,8 @@ import debugFactory from "debug";
 import type { ServerWebSocket } from "elysia/ws/bun";
 import type { TypeCheck } from "elysia/type-system";
 import { validateInput } from "./input-validation";
+import { validatePaint } from "./paint-validation";
+import { applyPaint } from "./paint";
 import { parseSessionCookie, getSession } from "./auth/sessions";
 import { getUserById } from "./auth/users";
 import { authRoutes } from "./auth/routes";
@@ -65,6 +75,7 @@ export type PlayerConnection = {
   username: string;
   displayName: string;
   isAdmin: boolean;
+  paintsThisTick: number;
 };
 
 type WS = ServerWebSocket<{
@@ -131,6 +142,13 @@ export const createServer = ({
     .use(authRoutes({ db, config: authConfig }))
     .get("/", () => file("./public/index.html"))
     .get("/api/atlas", () => world.typeIdToAtlasSrc)
+    .get("/api/catalog", () =>
+      db
+        .query(
+          "SELECT id, type, src_x, src_y, label FROM tile_catalog ORDER BY id",
+        )
+        .all(),
+    )
     .ws("/ws", {
       open(ws) {
         const data = ws.data as { headers?: Record<string, string | undefined> };
@@ -165,6 +183,7 @@ export const createServer = ({
           username: user.username,
           displayName,
           isAdmin: user.isAdmin,
+          paintsThisTick: 0,
         });
 
         observerSerializers.set(
@@ -205,7 +224,11 @@ export const createServer = ({
         const connection = playerConnections.get(ws.raw);
         if (!connection) return;
         try {
-          handleInputMessage(connection, message);
+          if (message?.type === "paint") {
+            handlePaintMessage(world, db, connection, message);
+          } else {
+            handleInputMessage(connection, message);
+          }
         } catch (e) {
           console.error("Failed to parse message:", e);
         }
@@ -228,7 +251,27 @@ const handleInputMessage = (
   while (connection.inputQueue.length > 128) connection.inputQueue.shift();
 };
 
+const handlePaintMessage = (
+  world: World,
+  db: Database,
+  connection: PlayerConnection,
+  data: unknown,
+): void => {
+  if (!connection.isAdmin) return;
+  if (connection.paintsThisTick >= MAX_PAINTS_PER_TICK) return;
+  const cmd = validatePaint(data, world, world.catalogIds);
+  if (!cmd) return;
+  connection.paintsThisTick++;
+  applyPaint(world, db, cmd, connection.userId);
+};
+
 export const getPlayerConnections = () => playerConnections;
+
+export const resetPaintCounters = (): void => {
+  for (const [, connection] of playerConnections) {
+    connection.paintsThisTick = 0;
+  }
+};
 
 export const processPlayerInputs = (
   applyInput: (eid: number, cmd: InputCmd) => void,
