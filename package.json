@@ -4,12 +4,16 @@
   "description": "hi, may i take your order?",
   "scripts": {
     "format": "pnpx prettier --write .",
+    "dev": "concurrently -n server,client -c blue,magenta \"pnpm dev:server\" \"pnpm dev:client\"",
     "dev:client": "pnpm --filter burger-client dev",
     "dev:server": "pnpm --filter burger-server dev",
     "build-frontend": "pnpm --filter burger-client build",
     "copy-frontend": "rm -rf ./packages/burger-server/public && cp -r ./packages/burger-client/dist/ ./packages/burger-server/public/",
     "prod:server": "pnpm --filter burger-server start",
     "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   },
   "license": "ISC"
 }

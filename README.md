@@ -31,6 +31,7 @@ packages/
 ```bash
 pnpm install                # install all workspace deps
 
+pnpm dev                    # run server + client together via concurrently
 pnpm dev:server             # run the server with file-watch (DEBUG=burger:*)
 pnpm dev:client             # run the vite dev server (proxies /ws and /api to :5000)
 
@@ -41,6 +42,8 @@ pnpm prod:server            # run the server without watch (serves /public)
 pnpm test                   # run bun tests in every package
 pnpm format                 # prettier the whole workspace
 ```
+
+`pnpm dev` opens vite on `:5173` (proxied to the server on `:5000`).
 
 ## Docker
 
