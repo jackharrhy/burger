@@ -15,36 +15,37 @@
 
 ## File structure (final state)
 
-| Path | Responsibility |
-|---|---|
-| `packages/burger-server/src/app.ts` | NEW. `buildApp(deps)` returns the typed Elysia app. `App` type. |
-| `packages/burger-server/src/index.ts` | NEW. Re-exports `App` type for client consumption. |
-| `packages/burger-server/src/network.server.ts` | `createServer` becomes thin listen-wrapper around `buildApp`. Helper exports unchanged. |
-| `packages/burger-server/package.json` | Add `main`/`types`/`exports` fields. |
-| `packages/burger-client/src/main.tsx` | NEW. React entrypoint, mounts `<RouterProvider>`. |
-| `packages/burger-client/src/router.ts` | NEW. Route tree + loaders. |
-| `packages/burger-client/src/eden.ts` | NEW. Typed Eden Treaty client. |
-| `packages/burger-client/src/store.ts` | NEW. Zustand store. |
-| `packages/burger-client/src/types.ts` | NEW. `Me` and shared client types (extracted from auth.client.ts). |
-| `packages/burger-client/src/routes/Game.tsx` | NEW. Game route component. |
-| `packages/burger-client/src/routes/Login.tsx` | NEW. Sign-in screen as JSX. |
-| `packages/burger-client/src/routes/Atlas.tsx` | NEW. Placeholder for phase 2. |
-| `packages/burger-client/src/game/index.ts` | RENAMED from `src/client.ts`. Exports `startGame()`. |
-| `packages/burger-client/src/game/network.ts` | RENAMED from `src/network.client.ts`. |
-| `packages/burger-client/src/game/editor.ts` | RENAMED from `src/editor.client.ts`. |
-| `packages/burger-client/src/game/consts.ts` | RENAMED from `src/consts.client.ts`. |
-| `packages/burger-client/src/auth.client.ts` | DELETED. |
-| `packages/burger-client/src/style.css` | Add styles for `.login-screen`, `.atlas-placeholder`, `.game-root`. |
-| `packages/burger-client/index.html` | Add `<div id="root">`, point to `main.tsx`. |
-| `packages/burger-client/vite.config.ts` | Add `@vitejs/plugin-react`. |
-| `packages/burger-client/tsconfig.json` | Add `"jsx": "react-jsx"`. |
-| `packages/burger-client/package.json` | Add deps: react, react-dom, react-router, @elysiajs/eden, zustand, burger-server (workspace). devDeps: @vitejs/plugin-react, @types/react, @types/react-dom. |
+| Path                                           | Responsibility                                                                                                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/burger-server/src/app.ts`            | NEW. `buildApp(deps)` returns the typed Elysia app. `App` type.                                                                                              |
+| `packages/burger-server/src/index.ts`          | NEW. Re-exports `App` type for client consumption.                                                                                                           |
+| `packages/burger-server/src/network.server.ts` | `createServer` becomes thin listen-wrapper around `buildApp`. Helper exports unchanged.                                                                      |
+| `packages/burger-server/package.json`          | Add `main`/`types`/`exports` fields.                                                                                                                         |
+| `packages/burger-client/src/main.tsx`          | NEW. React entrypoint, mounts `<RouterProvider>`.                                                                                                            |
+| `packages/burger-client/src/router.ts`         | NEW. Route tree + loaders.                                                                                                                                   |
+| `packages/burger-client/src/eden.ts`           | NEW. Typed Eden Treaty client.                                                                                                                               |
+| `packages/burger-client/src/store.ts`          | NEW. Zustand store.                                                                                                                                          |
+| `packages/burger-client/src/types.ts`          | NEW. `Me` and shared client types (extracted from auth.client.ts).                                                                                           |
+| `packages/burger-client/src/routes/Game.tsx`   | NEW. Game route component.                                                                                                                                   |
+| `packages/burger-client/src/routes/Login.tsx`  | NEW. Sign-in screen as JSX.                                                                                                                                  |
+| `packages/burger-client/src/routes/Atlas.tsx`  | NEW. Placeholder for phase 2.                                                                                                                                |
+| `packages/burger-client/src/game/index.ts`     | RENAMED from `src/client.ts`. Exports `startGame()`.                                                                                                         |
+| `packages/burger-client/src/game/network.ts`   | RENAMED from `src/network.client.ts`.                                                                                                                        |
+| `packages/burger-client/src/game/editor.ts`    | RENAMED from `src/editor.client.ts`.                                                                                                                         |
+| `packages/burger-client/src/game/consts.ts`    | RENAMED from `src/consts.client.ts`.                                                                                                                         |
+| `packages/burger-client/src/auth.client.ts`    | DELETED.                                                                                                                                                     |
+| `packages/burger-client/src/style.css`         | Add styles for `.login-screen`, `.atlas-placeholder`, `.game-root`.                                                                                          |
+| `packages/burger-client/index.html`            | Add `<div id="root">`, point to `main.tsx`.                                                                                                                  |
+| `packages/burger-client/vite.config.ts`        | Add `@vitejs/plugin-react`.                                                                                                                                  |
+| `packages/burger-client/tsconfig.json`         | Add `"jsx": "react-jsx"`.                                                                                                                                    |
+| `packages/burger-client/package.json`          | Add deps: react, react-dom, react-router, @elysiajs/eden, zustand, burger-server (workspace). devDeps: @vitejs/plugin-react, @types/react, @types/react-dom. |
 
 ---
 
 ## Task 1: Lift server Elysia chain into app.ts
 
 **Files:**
+
 - Create: `packages/burger-server/src/app.ts`
 - Create: `packages/burger-server/src/index.ts`
 - Modify: `packages/burger-server/src/network.server.ts`
@@ -57,6 +58,7 @@ This task extracts the Elysia route construction from `createServer()` so the re
 The exports `getPlayerConnections`, `markEntityDirty`, `resetPaintCounters`, `processPlayerInputs`, `broadcastGameState`, `tagMessage`, `validateInput`, `validatePaint`, `applyPaint`, `setRadioSignalHandler`, etc. are all helpers used by the active tick loop. They stay in `network.server.ts`. Only the `new Elysia()...` chain inside `createServer` moves.
 
 The module-level state stays in `network.server.ts`:
+
 - `playerConnections: Map<WS, PlayerConnection>`
 - `observerSerializers: Map<WS, () => ArrayBuffer>`
 - `snapshotSerializer`, `soaSerializer` (let bindings)
@@ -477,6 +479,7 @@ export const broadcastGameState = ({
 ```
 
 The diff vs current file:
+
 - Top docstring slimmed (full protocol doc moves to spec/app.ts).
 - The Elysia chain is gone — moved to `buildApp` in `app.ts`.
 - New helpers: `registerConnection`, `unregisterConnection`, `getObserverSerializers`, `getSnapshotPayload`, `handleIncomingMessage`, `getSoaPayloadForDirty`. Each wraps state previously inlined in the chain.
@@ -552,6 +555,7 @@ git commit -m "chore: lift Elysia app construction to app.ts; export App type"
 ## Task 2: Add client deps for React + RR + Eden + Zustand
 
 **Files:**
+
 - Modify: `packages/burger-client/package.json`
 - Modify: `packages/burger-client/tsconfig.json`
 
@@ -620,6 +624,7 @@ git commit -m "chore: add react, react-router, eden, zustand client deps"
 This task refactors the existing `client.ts` from top-level imperative bootstrap into a `startGame(parent, user)` function that returns a cleanup. The function is renamed and moved to `src/game/index.ts` along with its sibling files. Behavior is unchanged.
 
 **Files:**
+
 - Create: `packages/burger-client/src/game/index.ts` (renamed from `client.ts`)
 - Create: `packages/burger-client/src/game/network.ts` (renamed from `network.client.ts`)
 - Create: `packages/burger-client/src/game/editor.ts` (renamed from `editor.client.ts`)
@@ -660,20 +665,24 @@ export type Me = {
 The moved files import each other via the old `./consts.client`, `./network.client`, `./editor.client` paths. Update each to use the new co-located names:
 
 In `game/index.ts`:
+
 - `./consts.client` → `./consts`
 - `./network.client` → `./network`
 - `./editor.client` → `./editor`
 - `./auth.client` → `../types` for the `Me` type; the imperative sign-in screen helpers (`fetchMe`, `signIn`, `signOut`, `renderSignInScreen`) are removed entirely from this file (the React routes will own that flow).
 
 In `game/network.ts`:
+
 - `./client` → `.` (it imports the `World` type from the renamed entry; if it was importing `./client` for World, change to `./` or extract World type to a separate file. The cleanest fix: the World type currently lives in `client.ts` — extract it to a new `game/world.ts` if needed. **Step 5 handles this.**)
 
 In `game/editor.ts`:
+
 - `./network.client` → `./network`
 
 - [ ] **Step 4: Refactor `game/index.ts` to export `startGame(parent, user)`**
 
 The current top-level structure:
+
 ```ts
 const world = createWorld({...});
 export type World = typeof world;
@@ -700,7 +709,14 @@ const makeWorld = () =>
   createWorld({
     components: {
       ...sharedComponents,
-      Input: [] as { up: boolean; down: boolean; left: boolean; right: boolean; interact: boolean; interactPressed: boolean }[],
+      Input: [] as {
+        up: boolean;
+        down: boolean;
+        left: boolean;
+        right: boolean;
+        interact: boolean;
+        interactPressed: boolean;
+      }[],
       Sprite: [] as (PixiSprite | null)[],
       DebugText: [] as (PixiText | null)[],
       RenderPosition: { x: [] as number[], y: [] as number[] },
@@ -819,23 +835,37 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
     if (showDebug) {
       const gui = new GUI();
       gui.add(context.debugMetrics, "updatesHz").name("Updates/sec").listen();
-      gui.add(context.debugMetrics, "tickrate").name("Server Tickrate (Hz)").listen();
-      gui.add(context.debugMetrics, "bytesSentPerSec").name("Bytes Sent/sec").listen();
-      gui.add(context.debugMetrics, "bytesReceivedPerSec").name("Bytes Received/sec").listen();
+      gui
+        .add(context.debugMetrics, "tickrate")
+        .name("Server Tickrate (Hz)")
+        .listen();
+      gui
+        .add(context.debugMetrics, "bytesSentPerSec")
+        .name("Bytes Sent/sec")
+        .listen();
+      gui
+        .add(context.debugMetrics, "bytesReceivedPerSec")
+        .name("Bytes Received/sec")
+        .listen();
       gui.add(context.debugMetrics, "lag", 0, 1000).name("Lag (ms)").listen();
-      gui.add(context.debugMetrics, "jitter", 0, 500).name("Jitter (ms)").listen();
+      gui
+        .add(context.debugMetrics, "jitter", 0, 500)
+        .name("Jitter (ms)")
+        .listen();
       const accountFolder = gui.addFolder("Account");
       const accountInfo = { name: user.displayName ?? user.username };
       accountFolder.add(accountInfo, "name").name("Signed in as").disable();
-      accountFolder.add(
-        {
-          signOut: async () => {
-            await fetch("/auth/logout", { method: "POST" });
-            window.location.href = "/login";
+      accountFolder
+        .add(
+          {
+            signOut: async () => {
+              await fetch("/auth/logout", { method: "POST" });
+              window.location.href = "/login";
+            },
           },
-        },
-        "signOut",
-      ).name("Sign out");
+          "signOut",
+        )
+        .name("Sign out");
       gui.domElement.style.position = "absolute";
       gui.domElement.style.top = "10px";
       gui.domElement.style.right = "10px";
@@ -869,8 +899,12 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
           const { Input } = world.components;
           addComponent(world, context.me.eid, Input);
           Input[context.me.eid] = {
-            up: false, down: false, left: false, right: false,
-            interact: false, interactPressed: false,
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+            interact: false,
+            interactPressed: false,
           };
           if (context.user.isAdmin) {
             context.editor = initEditor(
@@ -921,6 +955,7 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
 ```
 
 Key changes from the previous structure:
+
 1. Top-level `setup()` and the call `setup()` are gone.
 2. World creation, app init, container setup, observer setup, ticker, socket — all happen inside `startGame`.
 3. `Context.user: Me` (was `user: Me`) is now passed in via parameter.
@@ -936,14 +971,23 @@ Edit `Context` type to include `user: Me`:
 type Context = {
   world: World;
   app: Application;
-  containers: { main: Container; tiles: Container; entities: Container; debug: Container };
+  containers: {
+    main: Container;
+    tiles: Container;
+    entities: Container;
+    debug: Container;
+  };
   assets: Awaited<ReturnType<typeof loadAssets>>;
   input: { keys: Record<string, boolean>; prevInteract: boolean };
   me: PlayerIdentity;
   network: NetworkState;
   camera: { x: number; y: number; initialized: boolean };
-  metrics: { /* unchanged */ };
-  debugMetrics: { /* unchanged */ };
+  metrics: {
+    /* unchanged */
+  };
+  debugMetrics: {
+    /* unchanged */
+  };
   gui?: GUI;
   user: Me;
   editor: EditorState | null;
@@ -955,6 +999,7 @@ type Context = {
 If `network.ts` does `import type { World } from "./client"` (via the old name), it now needs to import from `./` (game/index.ts). With the rename above, the `World` export is at `./` from network.ts's perspective, so:
 
 In `game/network.ts`:
+
 ```ts
 import type { World } from "./";
 ```
@@ -1005,6 +1050,7 @@ git commit -m "refactor(client): wrap game in startGame() function (no behavior 
 ## Task 4: React Router data mode shell
 
 **Files:**
+
 - Create: `packages/burger-client/src/main.tsx`
 - Create: `packages/burger-client/src/router.ts`
 - Create: `packages/burger-client/src/eden.ts`
@@ -1212,7 +1258,9 @@ createRoot(rootEl).render(
 Append:
 
 ```css
-body { margin: 0; }
+body {
+  margin: 0;
+}
 
 .game-root {
   width: 100vw;
@@ -1264,6 +1312,7 @@ pnpm --filter burger-client build
 Expected: typecheck clean, build succeeds.
 
 Smoke test:
+
 ```bash
 timeout 8 pnpm dev || true
 ```
@@ -1293,6 +1342,7 @@ git commit -m "feat(client): React Router data mode shell (/, /login, /atlas)"
 ## Task 5: Zustand store; route metrics + user through it
 
 **Files:**
+
 - Create: `packages/burger-client/src/store.ts`
 - Modify: `packages/burger-client/src/game/index.ts`
 - Modify: `packages/burger-client/src/routes/Game.tsx`
@@ -1482,13 +1532,15 @@ pnpm --filter burger-client build
 Expected: clean.
 
 Smoke:
+
 ```bash
 timeout 8 pnpm dev || true
 ```
 
 Sign in, play, toggle edit mode. Open browser DevTools console, run:
+
 ```js
-window.__zustand_get?.()  // not exposed yet; the React tree owns it
+window.__zustand_get?.(); // not exposed yet; the React tree owns it
 ```
 
 To verify the store: ad-hoc check that the GUI's metrics still update (visual). The store wiring is mostly invisible until a future React component reads it.
@@ -1519,6 +1571,7 @@ pnpm build-frontend
 ```
 
 Expected:
+
 - typecheck: 0 errors across all 3 packages
 - lint: ≤ 2 warnings (the pre-existing `any` ones), 0 errors
 - fmt:check: clean
@@ -1538,6 +1591,7 @@ Expected: both server and client start, no errors in either log.
 - [ ] **Step 3: Manual smoke (live, with mug deployed)**
 
 For local dev with the local DB:
+
 1. Open `http://localhost:5173/` in a fresh incognito window. Should redirect to `/login`.
 2. Click "sign in with 4orm". Complete the OAuth flow. Land back at `/` with the game running.
 3. Verify game functions: walk around, observe tiles, watch debug GUI metrics tick.
@@ -1595,6 +1649,7 @@ EOF
 ## Final state
 
 After all 6 tasks land:
+
 - Burger client is a React Router data-mode SPA.
 - Three routes; `/` serves the existing game, `/atlas` is a placeholder for phase 2.
 - Eden Treaty is wired up and used by loaders.

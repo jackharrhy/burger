@@ -25,9 +25,9 @@ Three routes, configured via `createBrowserRouter`:
 
 ```ts
 createBrowserRouter([
-  { path: "/",       Component: Game,             loader: gameLoader },
-  { path: "/login",  Component: Login,            loader: loginLoader },
-  { path: "/atlas",  Component: AtlasPlaceholder, loader: atlasLoader },
+  { path: "/", Component: Game, loader: gameLoader },
+  { path: "/login", Component: Login, loader: loginLoader },
+  { path: "/atlas", Component: AtlasPlaceholder, loader: atlasLoader },
 ]);
 ```
 
@@ -51,6 +51,7 @@ export const eden = treaty<App>(window.location.origin);
 The client imports a type-only reference to the server's Elysia `App`. Vite erases type imports at compile time, so the server's runtime modules (`bun:sqlite`, etc.) never reach the browser bundle. If `import type { App } from "burger-server"` doesn't resolve cleanly through Vite/TS, fallback options are documented under "Open Risks" below.
 
 Eden gives us calls like:
+
 ```ts
 const { data, error } = await eden.auth.me.get();
 const { data: catalog } = await eden.api.catalog.get();
@@ -63,6 +64,7 @@ These return `{ data, error }` — easy to use from RR loaders.
 The server's Elysia chain is currently constructed inside `createServer()` in `network.server.ts`. To expose the type, we lift the chain into a new module:
 
 `packages/burger-server/src/app.ts`:
+
 ```ts
 import { Elysia } from "elysia";
 // ...
@@ -88,12 +90,14 @@ export type App = ReturnType<typeof buildApp>;
 ```
 
 `createServer` becomes a thin wrapper:
+
 ```ts
 export const createServer = (deps: AppDeps & { port: number }) =>
   buildApp(deps).listen(deps.port);
 ```
 
 `packages/burger-server/src/index.ts` (new) re-exports the type so `burger-client` can `import type { App } from "burger-server"`:
+
 ```ts
 export type { App } from "./app";
 ```
@@ -190,10 +194,7 @@ The component is intentionally minimal: it owns nothing about the game. `startGa
 `packages/burger-client/src/game/index.ts` (renamed from `client.ts`) exports a single function:
 
 ```ts
-export const startGame = (
-  parent: HTMLDivElement,
-  user: Me,
-): (() => void) => {
+export const startGame = (parent: HTMLDivElement, user: Me): (() => void) => {
   // existing setupRenderer logic — but appendChild to `parent` instead of document.body
   // existing setupSocket logic
   // existing observers, ticker.add
@@ -206,6 +207,7 @@ export const startGame = (
 ```
 
 The internals stay basically as-is. The diff against the current `client.ts` is mostly:
+
 - Wrap the top-level setup in a `startGame` function with parent/user params.
 - Remove the global module-level world creation (move it inside `startGame`).
 - Append the canvas to `parent` instead of `document.body`.
@@ -225,7 +227,9 @@ const Login = () => {
     <div className="login-screen">
       <h1>burger</h1>
       {error && <p className="error">error: {error}</p>}
-      <a href="/auth/4orm" className="button">sign in with 4orm</a>
+      <a href="/auth/4orm" className="button">
+        sign in with 4orm
+      </a>
     </div>
   );
 };
@@ -253,30 +257,30 @@ Stays. The debug GUI is created inside `startGame()` as today, and is wired to `
 
 ### Files
 
-| Path | Action |
-|---|---|
-| `packages/burger-client/index.html` | Add `<div id="root"></div>`, change script src to `/src/main.tsx` |
-| `packages/burger-client/src/main.tsx` | NEW. `<RouterProvider router={router} />` mount |
-| `packages/burger-client/src/router.ts` | NEW. Route tree + loaders |
-| `packages/burger-client/src/eden.ts` | NEW. Typed Eden Treaty client |
-| `packages/burger-client/src/store.ts` | NEW. Zustand store |
-| `packages/burger-client/src/types.ts` | NEW (or move from `auth.client.ts`). `Me` type + shared client types |
-| `packages/burger-client/src/routes/Game.tsx` | NEW. Game route component |
-| `packages/burger-client/src/routes/Login.tsx` | NEW. Sign-in screen |
-| `packages/burger-client/src/routes/Atlas.tsx` | NEW. Placeholder |
-| `packages/burger-client/src/game/index.ts` | RENAMED from `src/client.ts`. Exports `startGame()` |
-| `packages/burger-client/src/game/network.ts` | RENAMED from `src/network.client.ts` |
-| `packages/burger-client/src/game/editor.ts` | RENAMED from `src/editor.client.ts` |
-| `packages/burger-client/src/game/consts.ts` | RENAMED from `src/consts.client.ts` |
-| `packages/burger-client/src/auth.client.ts` | DELETED. `Me` type → `types.ts`. Sign-in screen → `<Login/>` |
-| `packages/burger-client/src/style.css` | Add styles for `.login-screen`, `.atlas-placeholder`, `.game-root` |
-| `packages/burger-client/vite.config.ts` | Add `@vitejs/plugin-react` |
-| `packages/burger-client/package.json` | Add deps: `react`, `react-dom`, `react-router`, `@elysiajs/eden`, `zustand`. devDep: `@vitejs/plugin-react`, `@types/react`, `@types/react-dom` |
-| `packages/burger-client/tsconfig.json` | Add `"jsx": "react-jsx"` (it's not currently set; existing config is fine for non-JSX) |
-| `packages/burger-server/src/app.ts` | NEW. `buildApp` and `App` type |
-| `packages/burger-server/src/network.server.ts` | Lift app construction into `app.ts`. `createServer` becomes a thin listen-wrapper |
-| `packages/burger-server/src/index.ts` | NEW. `export type { App } from "./app"` |
-| `packages/burger-server/package.json` | Add `"main": "./src/index.ts"`, `"types": "./src/index.ts"`, `"exports": { ".": "./src/index.ts" }` to match burger-shared's pattern, so `import type { App } from "burger-server"` resolves cleanly |
+| Path                                           | Action                                                                                                                                                                                               |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/burger-client/index.html`            | Add `<div id="root"></div>`, change script src to `/src/main.tsx`                                                                                                                                    |
+| `packages/burger-client/src/main.tsx`          | NEW. `<RouterProvider router={router} />` mount                                                                                                                                                      |
+| `packages/burger-client/src/router.ts`         | NEW. Route tree + loaders                                                                                                                                                                            |
+| `packages/burger-client/src/eden.ts`           | NEW. Typed Eden Treaty client                                                                                                                                                                        |
+| `packages/burger-client/src/store.ts`          | NEW. Zustand store                                                                                                                                                                                   |
+| `packages/burger-client/src/types.ts`          | NEW (or move from `auth.client.ts`). `Me` type + shared client types                                                                                                                                 |
+| `packages/burger-client/src/routes/Game.tsx`   | NEW. Game route component                                                                                                                                                                            |
+| `packages/burger-client/src/routes/Login.tsx`  | NEW. Sign-in screen                                                                                                                                                                                  |
+| `packages/burger-client/src/routes/Atlas.tsx`  | NEW. Placeholder                                                                                                                                                                                     |
+| `packages/burger-client/src/game/index.ts`     | RENAMED from `src/client.ts`. Exports `startGame()`                                                                                                                                                  |
+| `packages/burger-client/src/game/network.ts`   | RENAMED from `src/network.client.ts`                                                                                                                                                                 |
+| `packages/burger-client/src/game/editor.ts`    | RENAMED from `src/editor.client.ts`                                                                                                                                                                  |
+| `packages/burger-client/src/game/consts.ts`    | RENAMED from `src/consts.client.ts`                                                                                                                                                                  |
+| `packages/burger-client/src/auth.client.ts`    | DELETED. `Me` type → `types.ts`. Sign-in screen → `<Login/>`                                                                                                                                         |
+| `packages/burger-client/src/style.css`         | Add styles for `.login-screen`, `.atlas-placeholder`, `.game-root`                                                                                                                                   |
+| `packages/burger-client/vite.config.ts`        | Add `@vitejs/plugin-react`                                                                                                                                                                           |
+| `packages/burger-client/package.json`          | Add deps: `react`, `react-dom`, `react-router`, `@elysiajs/eden`, `zustand`. devDep: `@vitejs/plugin-react`, `@types/react`, `@types/react-dom`                                                      |
+| `packages/burger-client/tsconfig.json`         | Add `"jsx": "react-jsx"` (it's not currently set; existing config is fine for non-JSX)                                                                                                               |
+| `packages/burger-server/src/app.ts`            | NEW. `buildApp` and `App` type                                                                                                                                                                       |
+| `packages/burger-server/src/network.server.ts` | Lift app construction into `app.ts`. `createServer` becomes a thin listen-wrapper                                                                                                                    |
+| `packages/burger-server/src/index.ts`          | NEW. `export type { App } from "./app"`                                                                                                                                                              |
+| `packages/burger-server/package.json`          | Add `"main": "./src/index.ts"`, `"types": "./src/index.ts"`, `"exports": { ".": "./src/index.ts" }` to match burger-shared's pattern, so `import type { App } from "burger-server"` resolves cleanly |
 
 The internal helpers exported from `network.server.ts` for the server tick (`processPlayerInputs`, `broadcastGameState`, `markEntityDirty`, `resetPaintCounters`, `getPlayerConnections`) keep working — they're independent of the app construction.
 
@@ -287,6 +291,7 @@ The internal helpers exported from `network.server.ts` for the server tick (`pro
 `pnpm build-frontend` works the same — it produces a static SPA in `dist/`. The output is still a single index.html + bundled JS; there's no SSR step.
 
 In production, the Elysia server serves `./public/index.html` for `/` and the prod build artifacts via `staticPlugin`. React Router's `createBrowserRouter` handles client-side routing; the server only ever serves the index.html for non-asset paths. **A small server change** is needed: `app.get("/", () => file("./public/index.html"))` should also catch nested routes like `/login` and `/atlas` so the SPA can route them. Either:
+
 - (a) Add `app.get("/login", ...)` and `app.get("/atlas", ...)` explicitly.
 - (b) Use a fallback route for any non-API/non-static path.
 
@@ -299,6 +304,7 @@ The existing 75 server tests should pass unchanged — server logic is unaffecte
 No new tests for the React shell in this phase. The wrapper components are thin enough that running `pnpm dev` and clicking through is sufficient verification.
 
 The full smoke checklist:
+
 - `pnpm install` (with new deps).
 - `pnpm typecheck` clean across all 3 packages.
 - `pnpm lint` clean.
@@ -313,11 +319,11 @@ The full smoke checklist:
 
 ## Open risks
 
-1. **`import type { App } from "burger-server"` may not resolve cleanly through Vite + TS.** Server has runtime imports (`bun:sqlite`, native node bits) that the browser can't load. Type-only imports erase at compile time, so this *should* work, but Vite's resolver may try to walk the source. Mitigations in order of preference:
+1. **`import type { App } from "burger-server"` may not resolve cleanly through Vite + TS.** Server has runtime imports (`bun:sqlite`, native node bits) that the browser can't load. Type-only imports erase at compile time, so this _should_ work, but Vite's resolver may try to walk the source. Mitigations in order of preference:
    - (a) Add a separate type-only entry `packages/burger-server/src/types.ts` that re-exports just `type App` and avoids importing `bun:sqlite`-touching files at the top level. Configure burger-server's `package.json` exports field with a `./types` entry.
    - (b) Run `tsc --emitDeclarationOnly` on burger-server in CI, ship the `.d.ts` files in a `dist/` directory, point burger-client's import there.
    - (c) Hand-write a minimal `App` type in burger-client that mirrors only the routes the client uses. Worst case; defeats Eden's purpose.
-   
+
    Plan to try (a) first and document fallback during implementation.
 
 2. **`createServer` refactor is a load-bearing change.** All 75 server tests use it. Lifting the app construction into `buildApp` shouldn't change behavior, but the test file's `createServer` calls need verification. The plan keeps the function signature stable.
@@ -345,6 +351,7 @@ PR title: `Convert client to React Router v7 + Eden + Zustand (phase 1 of atlas 
 ## Phase 2 preview
 
 After this lands, Phase 2 builds the actual atlas tool at `/atlas`:
+
 - A grid view of `atlas.png` with 32×32 cells and per-cell catalog metadata.
 - Click a cell to see/edit its catalog entry (id, type, label).
 - "Save" calls `eden.api.catalog.put()` (or similar), server writes back to `atlas.toml`.
