@@ -76,6 +76,7 @@ const world = createWorld({
     elapsed: 0,
     then: performance.now(),
   },
+  bounds: { x: 0, y: 0, w: 0, h: 0 },
   typeIdToAtlasSrc: {} as Record<number, [number, number]>,
 });
 
