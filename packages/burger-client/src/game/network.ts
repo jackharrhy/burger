@@ -54,8 +54,8 @@ import {
   createSoADeserializer,
 } from "bitecs/serialization";
 import debugFactory from "debug";
-import { INTERP_HISTORY_MS, TELEPORT_THRESHOLD } from "./consts.client";
-import type { World } from "./client";
+import { INTERP_HISTORY_MS, TELEPORT_THRESHOLD } from "./consts";
+import type { World } from "./";
 
 const debug = debugFactory("burger:network.client");
 
