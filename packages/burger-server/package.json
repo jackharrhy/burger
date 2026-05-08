@@ -3,7 +3,12 @@
   "version": "0.1.0",
   "description": "hi, may i take your order?",
   "type": "module",
+  "main": "./src/index.ts",
   "module": "index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "dev": "DEBUG=burger:* bun --env-file=../../.env --watch ./src/server.ts",
     "start": "bun ./src/server.ts",
