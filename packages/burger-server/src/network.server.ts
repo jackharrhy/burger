@@ -208,6 +208,21 @@ export const getSoaPayloadForDirty = (): ArrayBuffer | null => {
   return buf;
 };
 
+export const broadcastCatalogUpdated = (
+  catalog: { id: number; type: string; src_x: number; src_y: number; label: string }[],
+): void => {
+  if (playerConnections.size === 0) return;
+  const json = JSON.stringify(catalog);
+  const payload = textEncoder.encode(json);
+  const tagged = new Uint8Array(payload.byteLength + 1);
+  tagged[0] = MESSAGE_TYPES.CATALOG_UPDATED;
+  tagged.set(payload, 1);
+  for (const [ws] of playerConnections) {
+    ws.sendBinary(tagged);
+  }
+  debug("catalog_updated broadcast: %d entries", catalog.length);
+};
+
 export const broadcastGameState = ({
   playerStates,
 }: {
