@@ -289,3 +289,15 @@ body {
 .bulk-fill-form button {
   font-size: 12px;
 }
+
+.palette-marker {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  background: #00ff88;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 4px #00ff88;
+}
