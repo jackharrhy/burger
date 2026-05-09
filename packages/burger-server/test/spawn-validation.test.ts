@@ -3,7 +3,9 @@ import { validateSpawn } from "../src/spawn-validation";
 
 const WORLD = { x: 0, y: 0, w: 2048, h: 2048 };
 
-const ok = (overrides: Partial<{ x: number; y: number; w: number; h: number }> = {}) => ({
+const ok = (
+  overrides: Partial<{ x: number; y: number; w: number; h: number }> = {},
+) => ({
   x: 64,
   y: 64,
   w: 128,
@@ -25,7 +27,9 @@ test("rejects non-object input", () => {
 test("rejects non-integer fields", () => {
   expect(validateSpawn(ok({ x: 1.5 }), WORLD).ok).toBe(false);
   expect(validateSpawn(ok({ y: Number.NaN }), WORLD).ok).toBe(false);
-  expect(validateSpawn(ok({ w: "100" as unknown as number }), WORLD).ok).toBe(false);
+  expect(validateSpawn(ok({ w: "100" as unknown as number }), WORLD).ok).toBe(
+    false,
+  );
 });
 
 test("rejects zero or negative w/h", () => {

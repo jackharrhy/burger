@@ -13,6 +13,7 @@ import {
   Application,
   Assets,
   Container,
+  Graphics,
   Sprite as PixiSprite,
   Text as PixiText,
   Rectangle,
@@ -93,6 +94,10 @@ type Context = {
     tiles: Container;
     entities: Container;
     debug: Container;
+  };
+  // Persistent pixi nodes used by admin/debug systems.
+  overlays: {
+    spawn: Graphics;
   };
   assets: Awaited<ReturnType<typeof loadAssets>>;
   input: { keys: Record<string, boolean>; prevInteract: boolean };
@@ -539,6 +544,19 @@ const editorSystem = (context: Context) => {
   updateEditor(context.editor, context.assets.tiles);
 };
 
+// Draws the spawn-zone preview rectangle when the admin's spawn window is
+// open and editing. Reads from the React store so live edits show without
+// any extra plumbing. Cleared (zero-width path) when no draft is active.
+const spawnOverlaySystem = ({ overlays }: Context) => {
+  const draft = useGameStore.getState().spawnDraft;
+  const g = overlays.spawn;
+  g.clear();
+  if (!draft) return;
+  g.rect(draft.x, draft.y, draft.w, draft.h)
+    .stroke({ width: 2, color: 0x00ff88, alpha: 0.9 })
+    .fill({ color: 0x00ff88, alpha: 0.15 });
+};
+
 const update = (context: Context) => {
   timeSystem(context);
   inputSystem(context);
@@ -552,6 +570,7 @@ const update = (context: Context) => {
   metricsSystem(context);
   nameSystem(context);
   debugSystem(context);
+  spawnOverlaySystem(context);
   editorSystem(context);
 };
 
@@ -634,6 +653,12 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
     mainContainer.addChild(entitiesContainer);
     mainContainer.addChild(debugContainer);
 
+    // Persistent overlays. These live in the world-space debug container so
+    // they pan/zoom with the camera. Drawn (and cleared) by their owning
+    // systems each tick.
+    const spawnOverlay = new Graphics();
+    debugContainer.addChild(spawnOverlay);
+
     const context: Context = {
       world,
       app,
@@ -642,6 +667,9 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
         tiles: tilesContainer,
         entities: entitiesContainer,
         debug: debugContainer,
+      },
+      overlays: {
+        spawn: spawnOverlay,
       },
       assets,
       input: { keys: {}, prevInteract: false },
