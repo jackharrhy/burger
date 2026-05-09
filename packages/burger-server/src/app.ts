@@ -73,6 +73,7 @@ import {
 import { validateCatalog } from "./catalog-validation";
 import { saveCatalog } from "./catalog-save";
 import { renameCatalogId } from "./catalog-rename";
+import { validateSpawn } from "./spawn-validation";
 
 export type AppDeps = {
   world: World;
@@ -243,6 +244,51 @@ export const buildApp = (deps: AppDeps) => {
           body: t.Object({
             from: t.Number(),
             to: t.Number(),
+          }),
+        },
+      )
+      .get("/api/settings/spawn", () => world.spawnZone)
+      .post(
+        "/api/settings/spawn",
+        ({ body, headers, set }) => {
+          const auth = requireAdmin(headers.cookie ?? null);
+          if (!auth.ok) {
+            set.status = 403;
+            return {
+              ok: false,
+              errors: [{ field: "auth", message: "admin required" }],
+            };
+          }
+
+          const validation = validateSpawn(body, world.bounds);
+          if (!validation.ok) {
+            set.status = 400;
+            return { ok: false, errors: validation.errors };
+          }
+          const { zone } = validation;
+
+          // Persist to settings table and mutate the live world atomically.
+          const tx = db.transaction(() => {
+            const upsert = db.prepare(
+              "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            );
+            upsert.run("spawn_x", String(zone.x));
+            upsert.run("spawn_y", String(zone.y));
+            upsert.run("spawn_w", String(zone.w));
+            upsert.run("spawn_h", String(zone.h));
+          });
+          tx();
+
+          world.spawnZone = zone;
+
+          return { ok: true, zone };
+        },
+        {
+          body: t.Object({
+            x: t.Number(),
+            y: t.Number(),
+            w: t.Number(),
+            h: t.Number(),
           }),
         },
       )
