@@ -10,22 +10,28 @@ type Props = {
   atlas: AtlasInfo;
   entries: CatalogEntry[];
   selectedSrc: { src_x: number; src_y: number } | null;
+  paletteIds: number[];
   scale?: number; // displayed pixels per source pixel
   onSelect: (src: { src_x: number; src_y: number }) => void;
+  onCellRightClick?: (src: { src_x: number; src_y: number }) => void;
 };
 
 const AtlasGrid = ({
   atlas,
   entries,
   selectedSrc,
+  paletteIds,
   scale = 2,
   onSelect,
+  onCellRightClick,
 }: Props) => {
   const cellPx = atlas.tileSize * scale;
   const cols = atlas.width / atlas.tileSize;
   const rows = atlas.height / atlas.tileSize;
   const byCoord = new Map<string, CatalogEntry>();
   for (const e of entries) byCoord.set(`${e.src_x},${e.src_y}`, e);
+
+  const paletteSet = new Set(paletteIds);
 
   const cells: React.ReactNode[] = [];
   for (let r = 0; r < rows; r++) {
@@ -34,11 +40,17 @@ const AtlasGrid = ({
       const sy = r * atlas.tileSize;
       const entry = byCoord.get(`${sx},${sy}`);
       const selected = selectedSrc?.src_x === sx && selectedSrc?.src_y === sy;
+      const inPalette = entry !== undefined && paletteSet.has(entry.id);
       cells.push(
         <div
           key={`${sx},${sy}`}
           className="atlas-cell"
           onClick={() => onSelect({ src_x: sx, src_y: sy })}
+          onContextMenu={(e) => {
+            if (!onCellRightClick) return;
+            e.preventDefault();
+            onCellRightClick({ src_x: sx, src_y: sy });
+          }}
           style={{
             position: "absolute",
             left: c * cellPx,
@@ -54,9 +66,13 @@ const AtlasGrid = ({
             cursor: "pointer",
           }}
           title={
-            entry ? `id=${entry.id} ${entry.type} ${entry.label}` : "(empty)"
+            entry
+              ? `id=${entry.id} ${entry.type} ${entry.label}${inPalette ? " · in palette" : ""}`
+              : "(empty)"
           }
-        />,
+        >
+          {inPalette && <div className="palette-marker" />}
+        </div>,
       );
     }
   }
