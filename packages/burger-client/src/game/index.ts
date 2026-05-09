@@ -47,6 +47,7 @@ import debugFactory from "debug";
 import type { Me } from "../types";
 import {
   initEditor,
+  setPalette as setEditorPalette,
   updateEditor,
   type EditorState,
   type CatalogEntry,
@@ -773,11 +774,25 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
             context.containers.main,
             () => context.camera,
             () => ZOOM,
+            useGameStore.getState().palette,
           );
           useGameStore.getState().setEditor({
             active: false,
             selectedTileId: context.editor.selectedTileId,
           });
+
+          // Rebuild the editor's slot UI whenever the user's palette changes
+          // (e.g. they right-clicked a cell in the atlas window). zustand's
+          // subscribe runs on every store change; the prev/curr comparison
+          // makes this a no-op for unrelated state changes.
+          let lastPalette = useGameStore.getState().palette;
+          const unsubscribePalette = useGameStore.subscribe((s) => {
+            if (s.palette !== lastPalette && context.editor) {
+              lastPalette = s.palette;
+              setEditorPalette(context.editor, s.palette, context.assets.tiles);
+            }
+          });
+          teardownCallbacks.push(unsubscribePalette);
         }
       },
       onSnapshotReceived: () => {
