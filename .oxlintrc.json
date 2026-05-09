@@ -24,6 +24,7 @@
 
     "unicorn/no-thenable": "off",
     "unicorn/no-array-for-each": "off",
+    "unicorn/no-array-sort": "off",
     "unicorn/prefer-node-protocol": "warn",
     "unicorn/prefer-add-event-listener": "off",
 

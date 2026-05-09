@@ -103,7 +103,9 @@ export const setupSocket = ({
   onLocalPlayerReady: () => void;
   onSnapshotReceived: () => void;
   onSocketClose?: () => void;
-  context: any;
+  // Narrow slice of the game Context that this socket setup needs. Avoids a
+  // circular dep between network.ts and the full Context type in index.ts.
+  context: { metrics: { serverTicksCount: number } };
 }): void => {
   const { Networked } = world.components;
   const { idMap } = network;

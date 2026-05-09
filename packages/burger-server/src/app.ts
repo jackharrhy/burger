@@ -312,7 +312,7 @@ export const buildApp = (deps: AppDeps) => {
           unregisterConnection(ws.raw);
         },
 
-        message(ws, message: any) {
+        message(ws, message) {
           handleIncomingMessage(world, db, ws.raw, message);
         },
       })
