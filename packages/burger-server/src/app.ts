@@ -127,13 +127,6 @@ export const buildApp = (deps: AppDeps) => {
           process.env.VITE_DEV_URL ?? "http://localhost:5173";
         return "";
       })
-      .get("/atlas", ({ set }) => {
-        if (indexExists) return file("./public/index.html");
-        set.status = 302;
-        set.headers["location"] =
-          process.env.VITE_DEV_URL ?? "http://localhost:5173";
-        return "";
-      })
       .get("/api/atlas", () => world.typeIdToAtlasSrc)
       .get("/api/catalog", () =>
         db

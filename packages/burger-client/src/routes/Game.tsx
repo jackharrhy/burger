@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLoaderData } from "react-router";
 import { startGame } from "../game";
+import WindowManager from "../windows/WindowManager";
 import type { Me } from "../types";
 
 type LoaderData = { user: Me };
@@ -16,7 +17,12 @@ const Game = () => {
     return () => stop();
   }, [user]);
 
-  return <div ref={canvasRef} className="game-root" />;
+  return (
+    <>
+      <div ref={canvasRef} className="game-root" />
+      <WindowManager />
+    </>
+  );
 };
 
 export default Game;

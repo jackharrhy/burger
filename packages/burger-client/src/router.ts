@@ -1,7 +1,6 @@
 import { createBrowserRouter, redirect } from "react-router";
 import Game from "./routes/Game";
 import Login from "./routes/Login";
-import Atlas from "./routes/Atlas";
 import { eden } from "./eden";
 import type { Me } from "./types";
 
@@ -24,15 +23,6 @@ const loginLoader = async ({ request }: { request: Request }) => {
   return { error: url.searchParams.get("error") };
 };
 
-const atlasLoader = async () => {
-  const user = await fetchMe();
-  if (!user) throw redirect("/login");
-  if (!user.isAdmin) throw redirect("/");
-  const { data: catalog, error } = await eden.api.catalog.get();
-  if (error || !catalog) throw new Error("failed to load catalog");
-  return { user, catalog };
-};
-
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -44,10 +34,5 @@ export const router = createBrowserRouter([
     path: "/login",
     Component: Login,
     loader: loginLoader,
-  },
-  {
-    path: "/atlas",
-    Component: Atlas,
-    loader: atlasLoader,
   },
 ]);

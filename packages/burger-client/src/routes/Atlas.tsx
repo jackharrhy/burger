@@ -1,12 +1,9 @@
-import { useState } from "react";
-import { useLoaderData, useRevalidator, Link } from "react-router";
+import { useEffect, useState } from "react";
 import AtlasGrid from "../atlas/AtlasGrid";
 import CatalogForm from "../atlas/CatalogForm";
 import type { AtlasInfo, CatalogEntry } from "../atlas/types";
 import { eden } from "../eden";
-import type { Me } from "../types";
-
-type LoaderData = { user: Me; catalog: CatalogEntry[] };
+import { useGameStore } from "../store";
 
 const ATLAS_INFO: AtlasInfo = {
   url: "/assets/atlas.png",
@@ -20,11 +17,17 @@ const assignNewIds = (es: CatalogEntry[]): CatalogEntry[] => {
   return es.map((e) => (e.id === 0 ? { ...e, id: nextId++ } : e));
 };
 
-const Atlas = () => {
-  const { user, catalog: initial } = useLoaderData() as LoaderData;
-  const revalidator = useRevalidator();
+const fetchCatalog = async (): Promise<CatalogEntry[]> => {
+  const { data, error } = await eden.api.catalog.get();
+  if (error || !data) throw new Error("failed to load catalog");
+  return data as CatalogEntry[];
+};
 
-  const [entries, setEntries] = useState<CatalogEntry[]>(initial);
+const Atlas = () => {
+  const user = useGameStore((s) => s.user);
+
+  const [initial, setInitial] = useState<CatalogEntry[] | null>(null);
+  const [entries, setEntries] = useState<CatalogEntry[]>([]);
   const [selectedSrc, setSelectedSrc] = useState<{
     src_x: number;
     src_y: number;
@@ -32,7 +35,26 @@ const Atlas = () => {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const dirty = JSON.stringify(entries) !== JSON.stringify(initial);
+  const reload = () =>
+    fetchCatalog()
+      .then((c) => {
+        setInitial(c);
+        setEntries(c);
+      })
+      .catch((e: unknown) => {
+        setError(`load failed: ${e instanceof Error ? e.message : String(e)}`);
+      });
+
+  // Initial load. The window stays mounted while closed (for state preservation),
+  // so we only fetch once unless the user explicitly hits Reload.
+  useEffect(() => {
+    if (initial !== null) return;
+    void reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const dirty =
+    initial !== null && JSON.stringify(entries) !== JSON.stringify(initial);
 
   const selected = selectedSrc
     ? (entries.find(
@@ -70,7 +92,7 @@ const Atlas = () => {
       setError(JSON.stringify(data.errors));
       return;
     }
-    revalidator.revalidate();
+    void reload();
   };
 
   const onRename = async (from: number, to: number) => {
@@ -84,24 +106,31 @@ const Atlas = () => {
       setError(JSON.stringify(data.errors));
       return;
     }
-    revalidator.revalidate();
+    void reload();
   };
 
   const onReload = () => {
     if (dirty && !confirm("discard unsaved changes?")) return;
-    revalidator.revalidate();
+    void reload();
   };
+
+  if (initial === null) {
+    return (
+      <div className="atlas-tool">
+        <p>loading catalog…</p>
+        {error && <div className="atlas-error">{error}</div>}
+      </div>
+    );
+  }
 
   return (
     <div className="atlas-tool">
       <div className="atlas-toolbar">
-        <h1>atlas</h1>
-        <span className="user">{user.displayName ?? user.username}</span>
+        <span className="user">{user?.displayName ?? user?.username}</span>
         <button onClick={onSave} disabled={!dirty || saving}>
           {saving ? "saving…" : `save ${dirty ? "(unsaved changes)" : ""}`}
         </button>
         <button onClick={onReload}>reload</button>
-        <Link to="/">back to game</Link>
       </div>
       {error && <div className="atlas-error">{error}</div>}
       <div className="atlas-panes">
