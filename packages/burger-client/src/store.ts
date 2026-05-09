@@ -30,15 +30,23 @@ export type WindowState = {
   z: number;
 };
 
+export type SpawnZone = { x: number; y: number; w: number; h: number };
+
 type GameStore = {
   user: Me | null;
   editor: EditorPublicState | null;
   metrics: DebugMetrics;
   windows: Record<string, WindowState>;
+  // The spawn zone the admin is currently editing. When non-null, the pixi
+  // SpawnOverlay draws a rectangle at these coords. Set to null when the
+  // window closes or after a successful save (the saved value becomes the
+  // new server-side truth, no preview needed).
+  spawnDraft: SpawnZone | null;
   // Lag/jitter sliders feed back into the live network state. The game's
   // metrics system reads these every tick.
   setLag: (ms: number) => void;
   setJitter: (ms: number) => void;
+  setSpawnDraft: (zone: SpawnZone | null) => void;
 
   setUser: (u: Me | null) => void;
   setEditor: (e: EditorPublicState | null) => void;
@@ -70,11 +78,13 @@ export const useGameStore = create<GameStore>((set) => ({
     bytesReceivedPerSec: 0,
   },
   windows: {},
+  spawnDraft: null,
 
   setLag: (lag) =>
     set((s) => ({ metrics: { ...s.metrics, lag: Math.max(0, lag) } })),
   setJitter: (jitter) =>
     set((s) => ({ metrics: { ...s.metrics, jitter: Math.max(0, jitter) } })),
+  setSpawnDraft: (spawnDraft) => set({ spawnDraft }),
 
   setUser: (user) => set({ user }),
   setEditor: (editor) => set({ editor }),

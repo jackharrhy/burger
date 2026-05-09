@@ -4,10 +4,12 @@ import Atlas from "../routes/Atlas";
 import Taskbar from "./Taskbar";
 import Window from "./Window";
 import DebugWindow from "./DebugWindow";
+import SpawnWindow from "./SpawnWindow";
 
 // Window IDs are stable strings; treat them like keys in the store.
 export const WINDOW_DEBUG = "debug";
 export const WINDOW_ATLAS = "atlas";
+export const WINDOW_SPAWN = "spawn";
 
 const showDebug = import.meta.env.DEV;
 
@@ -39,6 +41,14 @@ const WindowManager = () => {
         h: Math.min(640, window.innerHeight - 160),
         open: false,
       });
+      registerWindow(WINDOW_SPAWN, {
+        title: "Spawn",
+        x: 80,
+        y: 80,
+        w: 280,
+        h: 260,
+        open: false,
+      });
     }
   }, [isAdmin, registerWindow]);
 
@@ -60,7 +70,7 @@ const WindowManager = () => {
 
   // Admin taskbar shows admin tools; the debug window is opt-in via the
   // `~` hotkey only and not exposed in the taskbar.
-  const taskbarIds = isAdmin ? [WINDOW_ATLAS] : [];
+  const taskbarIds = isAdmin ? [WINDOW_ATLAS, WINDOW_SPAWN] : [];
 
   return (
     <>
@@ -70,9 +80,14 @@ const WindowManager = () => {
         </Window>
       )}
       {isAdmin && (
-        <Window id={WINDOW_ATLAS}>
-          <Atlas />
-        </Window>
+        <>
+          <Window id={WINDOW_ATLAS}>
+            <Atlas />
+          </Window>
+          <Window id={WINDOW_SPAWN}>
+            <SpawnWindow />
+          </Window>
+        </>
       )}
       <Taskbar ids={taskbarIds} />
     </>

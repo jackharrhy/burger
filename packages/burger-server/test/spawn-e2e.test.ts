@@ -68,7 +68,9 @@ afterEach(async () => {
 });
 
 const post = async (path: string, body: unknown, sessionId?: string) => {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (sessionId) headers.Cookie = `burger_session=${sessionId}`;
   const res = await fetch(`http://localhost:${port}${path}`, {
     method: "POST",

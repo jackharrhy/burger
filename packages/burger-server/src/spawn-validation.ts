@@ -19,7 +19,10 @@ export const validateSpawn = (
   world: WorldBounds,
 ): SpawnValidationResult => {
   if (typeof raw !== "object" || raw === null) {
-    return { ok: false, errors: [{ field: "root", message: "must be object" }] };
+    return {
+      ok: false,
+      errors: [{ field: "root", message: "must be object" }],
+    };
   }
   const obj = raw as Record<string, unknown>;
 
