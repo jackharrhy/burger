@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { eden } from "../eden";
 import { useGameStore } from "../store";
 import Atlas from "../routes/Atlas";
 import Taskbar from "./Taskbar";
@@ -19,6 +20,7 @@ const WindowManager = () => {
   const user = useGameStore((s) => s.user);
   const registerWindow = useGameStore((s) => s.registerWindow);
   const toggleWindow = useGameStore((s) => s.toggleWindow);
+  const setPalette = useGameStore((s) => s.setPalette);
   const isAdmin = user?.isAdmin === true;
 
   // Register built-in windows once. registerWindow is idempotent so a remount
@@ -61,6 +63,25 @@ const WindowManager = () => {
       });
     }
   }, [isAdmin, registerWindow]);
+
+  // Fetch the user's curated palette once they're confirmed admin. The pixi
+  // editor watches the store and rebuilds slots when this lands.
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await eden.api.palette.get();
+      if (cancelled) return;
+      if (error || !data || !("ok" in data) || !data.ok) {
+        console.warn("failed to load palette");
+        return;
+      }
+      setPalette(data.ids ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, setPalette]);
 
   // `~` toggles the debug window (dev only).
   useEffect(() => {
