@@ -74,6 +74,7 @@ import { validateCatalog } from "./catalog-validation";
 import { saveCatalog } from "./catalog-save";
 import { renameCatalogId } from "./catalog-rename";
 import { validateSpawn } from "./spawn-validation";
+import { resetAiPlayers, getAiEntities } from "./ai";
 
 export type AppDeps = {
   world: World;
@@ -292,6 +293,19 @@ export const buildApp = (deps: AppDeps) => {
           }),
         },
       )
+      .get("/api/bots", () => ({ count: getAiEntities().length }))
+      .post("/api/bots/reset", ({ headers, set }) => {
+        const auth = requireAdmin(headers.cookie ?? null);
+        if (!auth.ok) {
+          set.status = 403;
+          return {
+            ok: false,
+            errors: [{ field: "auth", message: "admin required" }],
+          };
+        }
+        const count = resetAiPlayers(world);
+        return { ok: true, count };
+      })
       .ws("/ws", {
         open(ws) {
           const data = ws.data as {
