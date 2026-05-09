@@ -117,16 +117,17 @@ test("admin PUT /api/palette rejects ids not in catalog", async () => {
 
 test("admin PUT /api/palette rejects more than 9 ids", async () => {
   const sess = setupSession(db, true);
-  // catalog has ids 1-3 from atlas.toml; add 7 more so we can submit 10 valid
-  // catalog ids and exercise the length cap (not the catalog-membership cap).
-  for (let i = 4; i <= 10; i++) {
+  // atlas.toml seeds catalog ids 1-54; pick high ids to avoid collisions and
+  // submit 10 of them to exercise the length cap (not the catalog-membership
+  // cap, which is tested separately).
+  for (let i = 100; i <= 109; i++) {
     db.run(
       "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (?, 'floor', ?, 0, ?)",
-      [i, (i - 1) * 32, `t${i}`],
+      [i, (i - 100) * 32, `t${i}`],
     );
     world.catalogIds.add(i);
   }
-  const ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const ids = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109];
   const put = await req("PUT", "/api/palette", { ids }, sess);
   expect(put.status).toBe(400);
 });

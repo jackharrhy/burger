@@ -5,8 +5,8 @@
 [meta]
 # Atlas image dimensions in pixels. Must match packages/burger-client/public/assets/atlas.png.
 # Update this when you swap in a larger atlas. Width and height should both be multiples of 32.
-width = 192
-height = 288
+width = 896
+height = 896
 
 [[tiles]]
 id = 1
@@ -28,3 +28,360 @@ type = "floor"
 src_x = 32
 src_y = 0
 label = "floor"
+
+[[tiles]]
+id = 4
+type = "floor"
+src_x = 64
+src_y = 0
+label = "tile-2x0"
+
+[[tiles]]
+id = 5
+type = "floor"
+src_x = 96
+src_y = 0
+label = "tile-3x0"
+
+[[tiles]]
+id = 6
+type = "floor"
+src_x = 128
+src_y = 0
+label = "tile-4x0"
+
+[[tiles]]
+id = 7
+type = "floor"
+src_x = 160
+src_y = 0
+label = "tile-5x0"
+
+[[tiles]]
+id = 8
+type = "floor"
+src_x = 32
+src_y = 32
+label = "tile-1x1"
+
+[[tiles]]
+id = 9
+type = "floor"
+src_x = 64
+src_y = 32
+label = "tile-2x1"
+
+[[tiles]]
+id = 10
+type = "floor"
+src_x = 96
+src_y = 32
+label = "tile-3x1"
+
+[[tiles]]
+id = 11
+type = "floor"
+src_x = 128
+src_y = 32
+label = "tile-4x1"
+
+[[tiles]]
+id = 12
+type = "floor"
+src_x = 160
+src_y = 32
+label = "tile-5x1"
+
+[[tiles]]
+id = 13
+type = "floor"
+src_x = 0
+src_y = 64
+label = "tile-0x2"
+
+[[tiles]]
+id = 14
+type = "floor"
+src_x = 32
+src_y = 64
+label = "tile-1x2"
+
+[[tiles]]
+id = 15
+type = "floor"
+src_x = 64
+src_y = 64
+label = "tile-2x2"
+
+[[tiles]]
+id = 16
+type = "floor"
+src_x = 96
+src_y = 64
+label = "tile-3x2"
+
+[[tiles]]
+id = 17
+type = "floor"
+src_x = 128
+src_y = 64
+label = "tile-4x2"
+
+[[tiles]]
+id = 18
+type = "floor"
+src_x = 160
+src_y = 64
+label = "tile-5x2"
+
+[[tiles]]
+id = 19
+type = "floor"
+src_x = 0
+src_y = 96
+label = "tile-0x3"
+
+[[tiles]]
+id = 20
+type = "floor"
+src_x = 32
+src_y = 96
+label = "tile-1x3"
+
+[[tiles]]
+id = 21
+type = "floor"
+src_x = 64
+src_y = 96
+label = "tile-2x3"
+
+[[tiles]]
+id = 22
+type = "floor"
+src_x = 96
+src_y = 96
+label = "tile-3x3"
+
+[[tiles]]
+id = 23
+type = "floor"
+src_x = 128
+src_y = 96
+label = "tile-4x3"
+
+[[tiles]]
+id = 24
+type = "floor"
+src_x = 160
+src_y = 96
+label = "tile-5x3"
+
+[[tiles]]
+id = 25
+type = "floor"
+src_x = 0
+src_y = 128
+label = "tile-0x4"
+
+[[tiles]]
+id = 26
+type = "floor"
+src_x = 32
+src_y = 128
+label = "tile-1x4"
+
+[[tiles]]
+id = 27
+type = "floor"
+src_x = 64
+src_y = 128
+label = "tile-2x4"
+
+[[tiles]]
+id = 28
+type = "floor"
+src_x = 96
+src_y = 128
+label = "tile-3x4"
+
+[[tiles]]
+id = 29
+type = "floor"
+src_x = 128
+src_y = 128
+label = "tile-4x4"
+
+[[tiles]]
+id = 30
+type = "floor"
+src_x = 160
+src_y = 128
+label = "tile-5x4"
+
+[[tiles]]
+id = 31
+type = "floor"
+src_x = 0
+src_y = 160
+label = "tile-0x5"
+
+[[tiles]]
+id = 32
+type = "floor"
+src_x = 32
+src_y = 160
+label = "tile-1x5"
+
+[[tiles]]
+id = 33
+type = "floor"
+src_x = 64
+src_y = 160
+label = "tile-2x5"
+
+[[tiles]]
+id = 34
+type = "floor"
+src_x = 96
+src_y = 160
+label = "tile-3x5"
+
+[[tiles]]
+id = 35
+type = "floor"
+src_x = 128
+src_y = 160
+label = "tile-4x5"
+
+[[tiles]]
+id = 36
+type = "floor"
+src_x = 160
+src_y = 160
+label = "tile-5x5"
+
+[[tiles]]
+id = 37
+type = "floor"
+src_x = 0
+src_y = 192
+label = "tile-0x6"
+
+[[tiles]]
+id = 38
+type = "floor"
+src_x = 32
+src_y = 192
+label = "tile-1x6"
+
+[[tiles]]
+id = 39
+type = "floor"
+src_x = 64
+src_y = 192
+label = "tile-2x6"
+
+[[tiles]]
+id = 40
+type = "floor"
+src_x = 96
+src_y = 192
+label = "tile-3x6"
+
+[[tiles]]
+id = 41
+type = "floor"
+src_x = 128
+src_y = 192
+label = "tile-4x6"
+
+[[tiles]]
+id = 42
+type = "floor"
+src_x = 160
+src_y = 192
+label = "tile-5x6"
+
+[[tiles]]
+id = 43
+type = "floor"
+src_x = 0
+src_y = 224
+label = "tile-0x7"
+
+[[tiles]]
+id = 44
+type = "floor"
+src_x = 32
+src_y = 224
+label = "tile-1x7"
+
+[[tiles]]
+id = 45
+type = "floor"
+src_x = 64
+src_y = 224
+label = "tile-2x7"
+
+[[tiles]]
+id = 46
+type = "floor"
+src_x = 96
+src_y = 224
+label = "tile-3x7"
+
+[[tiles]]
+id = 47
+type = "floor"
+src_x = 128
+src_y = 224
+label = "tile-4x7"
+
+[[tiles]]
+id = 48
+type = "floor"
+src_x = 160
+src_y = 224
+label = "tile-5x7"
+
+[[tiles]]
+id = 49
+type = "floor"
+src_x = 0
+src_y = 256
+label = "tile-0x8"
+
+[[tiles]]
+id = 50
+type = "floor"
+src_x = 32
+src_y = 256
+label = "tile-1x8"
+
+[[tiles]]
+id = 51
+type = "floor"
+src_x = 64
+src_y = 256
+label = "tile-2x8"
+
+[[tiles]]
+id = 52
+type = "floor"
+src_x = 96
+src_y = 256
+label = "tile-3x8"
+
+[[tiles]]
+id = 53
+type = "floor"
+src_x = 128
+src_y = 256
+label = "tile-4x8"
+
+[[tiles]]
+id = 54
+type = "floor"
+src_x = 160
+src_y = 256
+label = "tile-5x8"
