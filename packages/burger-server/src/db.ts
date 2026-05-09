@@ -66,6 +66,14 @@ export const runMigrations = (db: Database): void => {
       value TEXT NOT NULL
     )
   `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS palettes (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      tile_ids TEXT NOT NULL DEFAULT '[]',
+      updated_at INTEGER NOT NULL
+    )
+  `);
 };
 
 export const openDatabase = (path?: string): Database => {
