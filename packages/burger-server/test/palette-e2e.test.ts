@@ -1,0 +1,132 @@
+import { expect, test, beforeEach, afterEach } from "bun:test";
+import { Database } from "bun:sqlite";
+import { removeEntity } from "bitecs";
+import { runMigrations } from "../src/db";
+import { initWorld } from "../src/world";
+import { createServer, getPlayerConnections } from "../src/network.server";
+import { createPlayer } from "../src/players";
+import { createSession } from "../src/auth/sessions";
+import type { AuthConfig } from "../src/auth/config";
+
+let db: Database;
+let world: ReturnType<typeof initWorld>;
+let app: ReturnType<typeof createServer>;
+let port: number;
+
+const authConfig: AuthConfig = {
+  fourmUrl: "http://localhost:8000",
+  burgerUrl: "http://localhost:5000",
+  clientId: "burger",
+  isProduction: false,
+};
+
+const setupSession = (database: Database, isAdmin: boolean): string => {
+  const userId = isAdmin ? "admin1" : "user1";
+  database.run(
+    "INSERT INTO users (id, fourm_id, username, display_name, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    [userId, `fid-${userId}`, userId, userId, isAdmin ? 1 : 0, Date.now()],
+  );
+  return createSession(database, userId);
+};
+
+beforeEach(() => {
+  db = new Database(":memory:");
+  runMigrations(db);
+  world = initWorld(db);
+  port = 6200 + Math.floor(Math.random() * 100);
+  app = createServer({
+    port,
+    world,
+    db,
+    authConfig,
+    onPlayerJoin: (name) => createPlayer(world, name),
+    onPlayerLeave: (eid) => removeEntity(world, eid),
+  });
+});
+
+afterEach(async () => {
+  const a = app as unknown as {
+    stop?: (force?: boolean) => Promise<unknown>;
+    server?: { stop?: (force?: boolean) => unknown };
+  };
+  const stopPromise = (async () => {
+    if (typeof a.stop === "function") await a.stop.call(app, true);
+    else if (typeof a.server?.stop === "function")
+      await a.server.stop.call(a.server, true);
+  })();
+  await Promise.race([
+    stopPromise,
+    new Promise<void>((r) => setTimeout(r, 500)),
+  ]);
+  for (const [, c] of getPlayerConnections()) {
+    try {
+      removeEntity(world, c.eid);
+    } catch {}
+  }
+  getPlayerConnections().clear();
+  db.close();
+});
+
+const req = async (
+  method: string,
+  path: string,
+  body: unknown,
+  sessionId?: string,
+) => {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (sessionId) headers.Cookie = `burger_session=${sessionId}`;
+  const res = await fetch(`http://localhost:${port}${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = await res.json();
+  return { status: res.status, data };
+};
+
+test("non-admin GET /api/palette returns 403", async () => {
+  const sess = setupSession(db, false);
+  const { status } = await req("GET", "/api/palette", undefined, sess);
+  expect(status).toBe(403);
+});
+
+test("admin GET /api/palette returns empty initially", async () => {
+  const sess = setupSession(db, true);
+  const { status, data } = await req("GET", "/api/palette", undefined, sess);
+  expect(status).toBe(200);
+  expect(data).toEqual({ ok: true, ids: [] });
+});
+
+test("admin PUT /api/palette persists; subsequent GET returns same ids", async () => {
+  const sess = setupSession(db, true);
+  const put = await req("PUT", "/api/palette", { ids: [1, 2] }, sess);
+  expect(put.status).toBe(200);
+  expect(put.data).toEqual({ ok: true, ids: [1, 2] });
+
+  const get = await req("GET", "/api/palette", undefined, sess);
+  expect(get.data).toEqual({ ok: true, ids: [1, 2] });
+});
+
+test("admin PUT /api/palette rejects ids not in catalog", async () => {
+  const sess = setupSession(db, true);
+  const put = await req("PUT", "/api/palette", { ids: [9999] }, sess);
+  expect(put.status).toBe(400);
+});
+
+test("admin PUT /api/palette rejects more than 9 ids", async () => {
+  const sess = setupSession(db, true);
+  // catalog has ids 1-3 from atlas.toml; add 7 more so we can submit 10 valid
+  // catalog ids and exercise the length cap (not the catalog-membership cap).
+  for (let i = 4; i <= 10; i++) {
+    db.run(
+      "INSERT INTO tile_catalog (id, type, src_x, src_y, label) VALUES (?, 'floor', ?, 0, ?)",
+      [i, (i - 1) * 32, `t${i}`],
+    );
+    world.catalogIds.add(i);
+  }
+  const ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const put = await req("PUT", "/api/palette", { ids }, sess);
+  expect(put.status).toBe(400);
+});

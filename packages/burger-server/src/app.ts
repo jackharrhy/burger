@@ -75,6 +75,7 @@ import { saveCatalog } from "./catalog-save";
 import { renameCatalogId } from "./catalog-rename";
 import { validateSpawn } from "./spawn-validation";
 import { resetAiPlayers, getAiEntities } from "./ai";
+import { getPalette, setPalette, validatePaletteIds } from "./palette";
 
 export type AppDeps = {
   world: World;
@@ -311,6 +312,52 @@ export const buildApp = (deps: AppDeps) => {
         const count = resetAiPlayers(world);
         return { ok: true, count };
       })
+      .get("/api/palette", ({ headers, set }) => {
+        const auth = requireAdmin(headers.cookie ?? null);
+        if (!auth.ok) {
+          set.status = 403;
+          return {
+            ok: false,
+            errors: [{ field: "auth", message: "admin required" }],
+          };
+        }
+        return { ok: true, ids: getPalette(db, auth.userId) };
+      })
+      .put(
+        "/api/palette",
+        ({ body, headers, set }) => {
+          const auth = requireAdmin(headers.cookie ?? null);
+          if (!auth.ok) {
+            set.status = 403;
+            return {
+              ok: false,
+              errors: [{ field: "auth", message: "admin required" }],
+            };
+          }
+          const validation = validatePaletteIds(body.ids);
+          if (!validation.ok) {
+            set.status = 400;
+            return { ok: false, errors: validation.errors };
+          }
+          // Reject ids not in the catalog.
+          for (const id of validation.ids) {
+            if (!world.catalogIds.has(id)) {
+              set.status = 400;
+              return {
+                ok: false,
+                errors: [
+                  { field: "ids", message: `tile id ${id} not in catalog` },
+                ],
+              };
+            }
+          }
+          setPalette(db, auth.userId, validation.ids);
+          return { ok: true, ids: validation.ids };
+        },
+        {
+          body: t.Object({ ids: t.Array(t.Number()) }),
+        },
+      )
       .ws("/ws", {
         open(ws) {
           const data = ws.data as {
