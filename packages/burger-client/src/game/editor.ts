@@ -198,6 +198,19 @@ export const initEditor = (
 
   // Toggle edit mode with `e` (or Tab).
   window.addEventListener("keydown", (e) => {
+    // Don't hijack keys while the user is typing in a form field. Without
+    // this, pressing "e" in the atlas tool's label input would toggle paint
+    // mode (and swallow the character). Same trick the debug-window hotkey
+    // uses in WindowManager.
+    const target = e.target as HTMLElement | null;
+    if (
+      target?.tagName === "INPUT" ||
+      target?.tagName === "TEXTAREA" ||
+      target?.isContentEditable
+    ) {
+      return;
+    }
+
     if (e.key === "e" || e.key === "Tab") {
       e.preventDefault();
       state.active = !state.active;
@@ -240,6 +253,13 @@ export const initEditor = (
 
   app.canvas.addEventListener("mousedown", (e) => {
     if (!state.active) return;
+    // Only paint when the click actually landed on the canvas. DOM overlays
+    // (taskbar, windows, atlas tool) live above the canvas; clicks on them
+    // shouldn't translate into world paints. The target check is belt-and-
+    // suspenders: in normal browser layout DOM elements above the canvas
+    // capture clicks before they bubble, but this catches edge cases where
+    // an overlay's listener doesn't stop propagation.
+    if (e.target !== app.canvas) return;
     e.preventDefault();
     if (e.button === 0) {
       state.isPainting = true;
