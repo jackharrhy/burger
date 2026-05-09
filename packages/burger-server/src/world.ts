@@ -17,6 +17,7 @@ export type WorldExtras = {
   tilesAtPosition: Map<string, number>;
   spawnZone: { x: number; y: number; w: number; h: number };
   typeIdToAtlasSrc: Record<number, [number, number]>;
+  atlasInfo: { width: number; height: number };
 };
 
 const DEFAULT_WORLD_WIDTH = TILE_SIZE * 64; // 2048px
@@ -133,7 +134,15 @@ const loadTilesIntoEcs = (
   }
 };
 
-const tomlTiles = (atlas as { tiles: CatalogEntry[] }).tiles;
+const tomlData = atlas as {
+  meta?: { width?: number; height?: number };
+  tiles: CatalogEntry[];
+};
+const tomlTiles = tomlData.tiles;
+const tomlAtlasInfo = {
+  width: tomlData.meta?.width ?? 192,
+  height: tomlData.meta?.height ?? 288,
+};
 
 export const initWorld = (db: Database) => {
   syncCatalog(db, tomlTiles);
@@ -160,6 +169,7 @@ export const initWorld = (db: Database) => {
     tilesAtPosition: new Map<string, number>(),
     spawnZone,
     typeIdToAtlasSrc,
+    atlasInfo: tomlAtlasInfo,
   });
 
   world.bounds = {
