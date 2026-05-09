@@ -163,12 +163,9 @@ export const buildApp = (deps: AppDeps) => {
             return { ok: false, errors: validation.errors };
           }
 
-          const tomlPath = "./atlas.toml";
           const result = await saveCatalog({
             db,
-            tomlPath,
             entries: validation.entries,
-            meta: world.atlasInfo,
             broadcast: (catalog) => {
               // Update in-memory catalog (world.catalog: Map<number, CatalogEntry>).
               world.catalog.clear();

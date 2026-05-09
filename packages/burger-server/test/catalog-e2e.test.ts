@@ -1,8 +1,5 @@
 import { expect, test, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { mkdtempSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { removeEntity } from "bitecs";
 import { runMigrations } from "../src/db";
 import { initWorld } from "../src/world";
@@ -33,8 +30,6 @@ const setupSession = (database: Database, isAdmin: boolean): string => {
 };
 
 beforeEach(() => {
-  // Run from a fresh tmpdir so atlas.toml writes don't pollute the repo.
-  process.chdir(mkdtempSync(join(tmpdir(), "atlas-e2e-")));
   db = new Database(":memory:");
   runMigrations(db);
   world = initWorld(db);
