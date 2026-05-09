@@ -5,8 +5,8 @@
 [meta]
 # Atlas image dimensions in pixels. Must match packages/burger-client/public/assets/atlas.png.
 # Update this when you swap in a larger atlas. Width and height should both be multiples of 32.
-width = 896
-height = 896
+width = 448
+height = 448
 
 [[tiles]]
 id = 1
@@ -385,3 +385,997 @@ type = "floor"
 src_x = 160
 src_y = 256
 label = "tile-5x8"
+
+[[tiles]]
+id = 55
+type = "floor"
+src_x = 192
+src_y = 0
+label = "tile-6x0"
+
+[[tiles]]
+id = 56
+type = "floor"
+src_x = 224
+src_y = 0
+label = "tile-7x0"
+
+[[tiles]]
+id = 57
+type = "floor"
+src_x = 256
+src_y = 0
+label = "tile-8x0"
+
+[[tiles]]
+id = 58
+type = "floor"
+src_x = 288
+src_y = 0
+label = "tile-9x0"
+
+[[tiles]]
+id = 59
+type = "floor"
+src_x = 320
+src_y = 0
+label = "tile-10x0"
+
+[[tiles]]
+id = 60
+type = "floor"
+src_x = 352
+src_y = 0
+label = "tile-11x0"
+
+[[tiles]]
+id = 61
+type = "floor"
+src_x = 384
+src_y = 0
+label = "tile-12x0"
+
+[[tiles]]
+id = 62
+type = "floor"
+src_x = 416
+src_y = 0
+label = "tile-13x0"
+
+[[tiles]]
+id = 63
+type = "floor"
+src_x = 192
+src_y = 32
+label = "tile-6x1"
+
+[[tiles]]
+id = 64
+type = "floor"
+src_x = 224
+src_y = 32
+label = "tile-7x1"
+
+[[tiles]]
+id = 65
+type = "floor"
+src_x = 256
+src_y = 32
+label = "tile-8x1"
+
+[[tiles]]
+id = 66
+type = "floor"
+src_x = 288
+src_y = 32
+label = "tile-9x1"
+
+[[tiles]]
+id = 67
+type = "floor"
+src_x = 320
+src_y = 32
+label = "tile-10x1"
+
+[[tiles]]
+id = 68
+type = "floor"
+src_x = 352
+src_y = 32
+label = "tile-11x1"
+
+[[tiles]]
+id = 69
+type = "floor"
+src_x = 384
+src_y = 32
+label = "tile-12x1"
+
+[[tiles]]
+id = 70
+type = "floor"
+src_x = 416
+src_y = 32
+label = "tile-13x1"
+
+[[tiles]]
+id = 71
+type = "floor"
+src_x = 192
+src_y = 64
+label = "tile-6x2"
+
+[[tiles]]
+id = 72
+type = "floor"
+src_x = 224
+src_y = 64
+label = "tile-7x2"
+
+[[tiles]]
+id = 73
+type = "floor"
+src_x = 256
+src_y = 64
+label = "tile-8x2"
+
+[[tiles]]
+id = 74
+type = "floor"
+src_x = 288
+src_y = 64
+label = "tile-9x2"
+
+[[tiles]]
+id = 75
+type = "floor"
+src_x = 320
+src_y = 64
+label = "tile-10x2"
+
+[[tiles]]
+id = 76
+type = "floor"
+src_x = 352
+src_y = 64
+label = "tile-11x2"
+
+[[tiles]]
+id = 77
+type = "floor"
+src_x = 384
+src_y = 64
+label = "tile-12x2"
+
+[[tiles]]
+id = 78
+type = "floor"
+src_x = 416
+src_y = 64
+label = "tile-13x2"
+
+[[tiles]]
+id = 79
+type = "floor"
+src_x = 192
+src_y = 96
+label = "tile-6x3"
+
+[[tiles]]
+id = 80
+type = "floor"
+src_x = 224
+src_y = 96
+label = "tile-7x3"
+
+[[tiles]]
+id = 81
+type = "floor"
+src_x = 256
+src_y = 96
+label = "tile-8x3"
+
+[[tiles]]
+id = 82
+type = "floor"
+src_x = 288
+src_y = 96
+label = "tile-9x3"
+
+[[tiles]]
+id = 83
+type = "floor"
+src_x = 320
+src_y = 96
+label = "tile-10x3"
+
+[[tiles]]
+id = 84
+type = "floor"
+src_x = 352
+src_y = 96
+label = "tile-11x3"
+
+[[tiles]]
+id = 85
+type = "floor"
+src_x = 384
+src_y = 96
+label = "tile-12x3"
+
+[[tiles]]
+id = 86
+type = "floor"
+src_x = 416
+src_y = 96
+label = "tile-13x3"
+
+[[tiles]]
+id = 87
+type = "floor"
+src_x = 192
+src_y = 128
+label = "tile-6x4"
+
+[[tiles]]
+id = 88
+type = "floor"
+src_x = 224
+src_y = 128
+label = "tile-7x4"
+
+[[tiles]]
+id = 89
+type = "floor"
+src_x = 256
+src_y = 128
+label = "tile-8x4"
+
+[[tiles]]
+id = 90
+type = "floor"
+src_x = 288
+src_y = 128
+label = "tile-9x4"
+
+[[tiles]]
+id = 91
+type = "floor"
+src_x = 320
+src_y = 128
+label = "tile-10x4"
+
+[[tiles]]
+id = 92
+type = "floor"
+src_x = 352
+src_y = 128
+label = "tile-11x4"
+
+[[tiles]]
+id = 93
+type = "floor"
+src_x = 384
+src_y = 128
+label = "tile-12x4"
+
+[[tiles]]
+id = 94
+type = "floor"
+src_x = 416
+src_y = 128
+label = "tile-13x4"
+
+[[tiles]]
+id = 95
+type = "floor"
+src_x = 192
+src_y = 160
+label = "tile-6x5"
+
+[[tiles]]
+id = 96
+type = "floor"
+src_x = 224
+src_y = 160
+label = "tile-7x5"
+
+[[tiles]]
+id = 97
+type = "floor"
+src_x = 256
+src_y = 160
+label = "tile-8x5"
+
+[[tiles]]
+id = 98
+type = "floor"
+src_x = 288
+src_y = 160
+label = "tile-9x5"
+
+[[tiles]]
+id = 99
+type = "floor"
+src_x = 320
+src_y = 160
+label = "tile-10x5"
+
+[[tiles]]
+id = 100
+type = "floor"
+src_x = 352
+src_y = 160
+label = "tile-11x5"
+
+[[tiles]]
+id = 101
+type = "floor"
+src_x = 384
+src_y = 160
+label = "tile-12x5"
+
+[[tiles]]
+id = 102
+type = "floor"
+src_x = 416
+src_y = 160
+label = "tile-13x5"
+
+[[tiles]]
+id = 103
+type = "floor"
+src_x = 192
+src_y = 192
+label = "tile-6x6"
+
+[[tiles]]
+id = 104
+type = "floor"
+src_x = 224
+src_y = 192
+label = "tile-7x6"
+
+[[tiles]]
+id = 105
+type = "floor"
+src_x = 256
+src_y = 192
+label = "tile-8x6"
+
+[[tiles]]
+id = 106
+type = "floor"
+src_x = 288
+src_y = 192
+label = "tile-9x6"
+
+[[tiles]]
+id = 107
+type = "floor"
+src_x = 320
+src_y = 192
+label = "tile-10x6"
+
+[[tiles]]
+id = 108
+type = "floor"
+src_x = 352
+src_y = 192
+label = "tile-11x6"
+
+[[tiles]]
+id = 109
+type = "floor"
+src_x = 384
+src_y = 192
+label = "tile-12x6"
+
+[[tiles]]
+id = 110
+type = "floor"
+src_x = 416
+src_y = 192
+label = "tile-13x6"
+
+[[tiles]]
+id = 111
+type = "floor"
+src_x = 192
+src_y = 224
+label = "tile-6x7"
+
+[[tiles]]
+id = 112
+type = "floor"
+src_x = 224
+src_y = 224
+label = "tile-7x7"
+
+[[tiles]]
+id = 113
+type = "floor"
+src_x = 256
+src_y = 224
+label = "tile-8x7"
+
+[[tiles]]
+id = 114
+type = "floor"
+src_x = 288
+src_y = 224
+label = "tile-9x7"
+
+[[tiles]]
+id = 115
+type = "floor"
+src_x = 320
+src_y = 224
+label = "tile-10x7"
+
+[[tiles]]
+id = 116
+type = "floor"
+src_x = 352
+src_y = 224
+label = "tile-11x7"
+
+[[tiles]]
+id = 117
+type = "floor"
+src_x = 384
+src_y = 224
+label = "tile-12x7"
+
+[[tiles]]
+id = 118
+type = "floor"
+src_x = 416
+src_y = 224
+label = "tile-13x7"
+
+[[tiles]]
+id = 119
+type = "floor"
+src_x = 192
+src_y = 256
+label = "tile-6x8"
+
+[[tiles]]
+id = 120
+type = "floor"
+src_x = 224
+src_y = 256
+label = "tile-7x8"
+
+[[tiles]]
+id = 121
+type = "floor"
+src_x = 256
+src_y = 256
+label = "tile-8x8"
+
+[[tiles]]
+id = 122
+type = "floor"
+src_x = 288
+src_y = 256
+label = "tile-9x8"
+
+[[tiles]]
+id = 123
+type = "floor"
+src_x = 320
+src_y = 256
+label = "tile-10x8"
+
+[[tiles]]
+id = 124
+type = "floor"
+src_x = 352
+src_y = 256
+label = "tile-11x8"
+
+[[tiles]]
+id = 125
+type = "floor"
+src_x = 384
+src_y = 256
+label = "tile-12x8"
+
+[[tiles]]
+id = 126
+type = "floor"
+src_x = 416
+src_y = 256
+label = "tile-13x8"
+
+[[tiles]]
+id = 127
+type = "floor"
+src_x = 0
+src_y = 288
+label = "tile-0x9"
+
+[[tiles]]
+id = 128
+type = "floor"
+src_x = 32
+src_y = 288
+label = "tile-1x9"
+
+[[tiles]]
+id = 129
+type = "floor"
+src_x = 64
+src_y = 288
+label = "tile-2x9"
+
+[[tiles]]
+id = 130
+type = "floor"
+src_x = 96
+src_y = 288
+label = "tile-3x9"
+
+[[tiles]]
+id = 131
+type = "floor"
+src_x = 128
+src_y = 288
+label = "tile-4x9"
+
+[[tiles]]
+id = 132
+type = "floor"
+src_x = 160
+src_y = 288
+label = "tile-5x9"
+
+[[tiles]]
+id = 133
+type = "floor"
+src_x = 192
+src_y = 288
+label = "tile-6x9"
+
+[[tiles]]
+id = 134
+type = "floor"
+src_x = 224
+src_y = 288
+label = "tile-7x9"
+
+[[tiles]]
+id = 135
+type = "floor"
+src_x = 256
+src_y = 288
+label = "tile-8x9"
+
+[[tiles]]
+id = 136
+type = "floor"
+src_x = 288
+src_y = 288
+label = "tile-9x9"
+
+[[tiles]]
+id = 137
+type = "floor"
+src_x = 320
+src_y = 288
+label = "tile-10x9"
+
+[[tiles]]
+id = 138
+type = "floor"
+src_x = 352
+src_y = 288
+label = "tile-11x9"
+
+[[tiles]]
+id = 139
+type = "floor"
+src_x = 384
+src_y = 288
+label = "tile-12x9"
+
+[[tiles]]
+id = 140
+type = "floor"
+src_x = 416
+src_y = 288
+label = "tile-13x9"
+
+[[tiles]]
+id = 141
+type = "floor"
+src_x = 0
+src_y = 320
+label = "tile-0x10"
+
+[[tiles]]
+id = 142
+type = "floor"
+src_x = 32
+src_y = 320
+label = "tile-1x10"
+
+[[tiles]]
+id = 143
+type = "floor"
+src_x = 64
+src_y = 320
+label = "tile-2x10"
+
+[[tiles]]
+id = 144
+type = "floor"
+src_x = 96
+src_y = 320
+label = "tile-3x10"
+
+[[tiles]]
+id = 145
+type = "floor"
+src_x = 128
+src_y = 320
+label = "tile-4x10"
+
+[[tiles]]
+id = 146
+type = "floor"
+src_x = 160
+src_y = 320
+label = "tile-5x10"
+
+[[tiles]]
+id = 147
+type = "floor"
+src_x = 192
+src_y = 320
+label = "tile-6x10"
+
+[[tiles]]
+id = 148
+type = "floor"
+src_x = 224
+src_y = 320
+label = "tile-7x10"
+
+[[tiles]]
+id = 149
+type = "floor"
+src_x = 256
+src_y = 320
+label = "tile-8x10"
+
+[[tiles]]
+id = 150
+type = "floor"
+src_x = 288
+src_y = 320
+label = "tile-9x10"
+
+[[tiles]]
+id = 151
+type = "floor"
+src_x = 320
+src_y = 320
+label = "tile-10x10"
+
+[[tiles]]
+id = 152
+type = "floor"
+src_x = 352
+src_y = 320
+label = "tile-11x10"
+
+[[tiles]]
+id = 153
+type = "floor"
+src_x = 384
+src_y = 320
+label = "tile-12x10"
+
+[[tiles]]
+id = 154
+type = "floor"
+src_x = 416
+src_y = 320
+label = "tile-13x10"
+
+[[tiles]]
+id = 155
+type = "floor"
+src_x = 0
+src_y = 352
+label = "tile-0x11"
+
+[[tiles]]
+id = 156
+type = "floor"
+src_x = 32
+src_y = 352
+label = "tile-1x11"
+
+[[tiles]]
+id = 157
+type = "floor"
+src_x = 64
+src_y = 352
+label = "tile-2x11"
+
+[[tiles]]
+id = 158
+type = "floor"
+src_x = 96
+src_y = 352
+label = "tile-3x11"
+
+[[tiles]]
+id = 159
+type = "floor"
+src_x = 128
+src_y = 352
+label = "tile-4x11"
+
+[[tiles]]
+id = 160
+type = "floor"
+src_x = 160
+src_y = 352
+label = "tile-5x11"
+
+[[tiles]]
+id = 161
+type = "floor"
+src_x = 192
+src_y = 352
+label = "tile-6x11"
+
+[[tiles]]
+id = 162
+type = "floor"
+src_x = 224
+src_y = 352
+label = "tile-7x11"
+
+[[tiles]]
+id = 163
+type = "floor"
+src_x = 256
+src_y = 352
+label = "tile-8x11"
+
+[[tiles]]
+id = 164
+type = "floor"
+src_x = 288
+src_y = 352
+label = "tile-9x11"
+
+[[tiles]]
+id = 165
+type = "floor"
+src_x = 320
+src_y = 352
+label = "tile-10x11"
+
+[[tiles]]
+id = 166
+type = "floor"
+src_x = 352
+src_y = 352
+label = "tile-11x11"
+
+[[tiles]]
+id = 167
+type = "floor"
+src_x = 384
+src_y = 352
+label = "tile-12x11"
+
+[[tiles]]
+id = 168
+type = "floor"
+src_x = 416
+src_y = 352
+label = "tile-13x11"
+
+[[tiles]]
+id = 169
+type = "floor"
+src_x = 0
+src_y = 384
+label = "tile-0x12"
+
+[[tiles]]
+id = 170
+type = "floor"
+src_x = 32
+src_y = 384
+label = "tile-1x12"
+
+[[tiles]]
+id = 171
+type = "floor"
+src_x = 64
+src_y = 384
+label = "tile-2x12"
+
+[[tiles]]
+id = 172
+type = "floor"
+src_x = 96
+src_y = 384
+label = "tile-3x12"
+
+[[tiles]]
+id = 173
+type = "floor"
+src_x = 128
+src_y = 384
+label = "tile-4x12"
+
+[[tiles]]
+id = 174
+type = "floor"
+src_x = 160
+src_y = 384
+label = "tile-5x12"
+
+[[tiles]]
+id = 175
+type = "floor"
+src_x = 192
+src_y = 384
+label = "tile-6x12"
+
+[[tiles]]
+id = 176
+type = "floor"
+src_x = 224
+src_y = 384
+label = "tile-7x12"
+
+[[tiles]]
+id = 177
+type = "floor"
+src_x = 256
+src_y = 384
+label = "tile-8x12"
+
+[[tiles]]
+id = 178
+type = "floor"
+src_x = 288
+src_y = 384
+label = "tile-9x12"
+
+[[tiles]]
+id = 179
+type = "floor"
+src_x = 320
+src_y = 384
+label = "tile-10x12"
+
+[[tiles]]
+id = 180
+type = "floor"
+src_x = 352
+src_y = 384
+label = "tile-11x12"
+
+[[tiles]]
+id = 181
+type = "floor"
+src_x = 384
+src_y = 384
+label = "tile-12x12"
+
+[[tiles]]
+id = 182
+type = "floor"
+src_x = 416
+src_y = 384
+label = "tile-13x12"
+
+[[tiles]]
+id = 183
+type = "floor"
+src_x = 0
+src_y = 416
+label = "tile-0x13"
+
+[[tiles]]
+id = 184
+type = "floor"
+src_x = 32
+src_y = 416
+label = "tile-1x13"
+
+[[tiles]]
+id = 185
+type = "floor"
+src_x = 64
+src_y = 416
+label = "tile-2x13"
+
+[[tiles]]
+id = 186
+type = "floor"
+src_x = 96
+src_y = 416
+label = "tile-3x13"
+
+[[tiles]]
+id = 187
+type = "floor"
+src_x = 128
+src_y = 416
+label = "tile-4x13"
+
+[[tiles]]
+id = 188
+type = "floor"
+src_x = 160
+src_y = 416
+label = "tile-5x13"
+
+[[tiles]]
+id = 189
+type = "floor"
+src_x = 192
+src_y = 416
+label = "tile-6x13"
+
+[[tiles]]
+id = 190
+type = "floor"
+src_x = 224
+src_y = 416
+label = "tile-7x13"
+
+[[tiles]]
+id = 191
+type = "floor"
+src_x = 256
+src_y = 416
+label = "tile-8x13"
+
+[[tiles]]
+id = 192
+type = "floor"
+src_x = 288
+src_y = 416
+label = "tile-9x13"
+
+[[tiles]]
+id = 193
+type = "floor"
+src_x = 320
+src_y = 416
+label = "tile-10x13"
+
+[[tiles]]
+id = 194
+type = "floor"
+src_x = 352
+src_y = 416
+label = "tile-11x13"
+
+[[tiles]]
+id = 195
+type = "floor"
+src_x = 384
+src_y = 416
+label = "tile-12x13"
+
+[[tiles]]
+id = 196
+type = "floor"
+src_x = 416
+src_y = 416
+label = "tile-13x13"

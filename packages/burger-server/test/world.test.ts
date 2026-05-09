@@ -153,5 +153,5 @@ test("initWorld populates atlasInfo from atlas.toml meta", () => {
   const db = setupDb();
   seedDefaultSettings(db);
   const world = initWorld(db);
-  expect(world.atlasInfo).toEqual({ width: 896, height: 896 });
+  expect(world.atlasInfo).toEqual({ width: 448, height: 448 });
 });
