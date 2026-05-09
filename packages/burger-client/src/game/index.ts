@@ -43,7 +43,6 @@ import {
   ZOOM,
 } from "./consts";
 import debugFactory from "debug";
-import { GUI } from "lil-gui";
 import type { Me } from "../types";
 import {
   initEditor,
@@ -120,7 +119,6 @@ type Context = {
     lag: number;
     jitter: number;
   };
-  gui?: GUI;
   user: Me;
   editor: EditorState | null;
 };
@@ -375,13 +373,18 @@ const metricsSystem = ({ network, metrics, debugMetrics }: Context) => {
   debugMetrics.tickrate = metrics.serverTickrate;
   debugMetrics.bytesSentPerSec = Math.round(metrics.bytesSentPerSec);
   debugMetrics.bytesReceivedPerSec = Math.round(metrics.bytesReceivedPerSec);
+
+  // Lag/jitter sliders live in the React store; pull them from there each
+  // tick so changes from the debug window apply immediately.
+  const storeMetrics = useGameStore.getState().metrics;
+  debugMetrics.lag = storeMetrics.lag;
+  debugMetrics.jitter = storeMetrics.jitter;
   network.lagMs = debugMetrics.lag;
   network.jitterMs = debugMetrics.jitter;
 
-  // Mirror to the React store so the chrome can render these.
+  // Mirror computed values back to the store so the debug window can render.
   useGameStore.getState().setMetrics({
     tickrate: debugMetrics.tickrate,
-    lag: debugMetrics.lag,
     updatesHz: debugMetrics.updatesHz,
     bytesSentPerSec: debugMetrics.bytesSentPerSec,
     bytesReceivedPerSec: debugMetrics.bytesReceivedPerSec,
@@ -697,49 +700,6 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
 
     setupPlayerObserver(context);
     setupTileObserver(context);
-
-    if (showDebug) {
-      const gui = new GUI();
-      gui.add(context.debugMetrics, "updatesHz").name("Updates/sec").listen();
-      gui
-        .add(context.debugMetrics, "tickrate")
-        .name("Server Tickrate (Hz)")
-        .listen();
-      gui
-        .add(context.debugMetrics, "bytesSentPerSec")
-        .name("Bytes Sent/sec")
-        .listen();
-      gui
-        .add(context.debugMetrics, "bytesReceivedPerSec")
-        .name("Bytes Received/sec")
-        .listen();
-      gui.add(context.debugMetrics, "lag", 0, 1000).name("Lag (ms)").listen();
-      gui
-        .add(context.debugMetrics, "jitter", 0, 500)
-        .name("Jitter (ms)")
-        .listen();
-
-      const accountFolder = gui.addFolder("Account");
-      const accountInfo = { name: user.displayName ?? user.username };
-      accountFolder.add(accountInfo, "name").name("Signed in as").disable();
-      accountFolder
-        .add(
-          {
-            signOut: async () => {
-              await fetch("/auth/logout", { method: "POST" });
-              window.location.href = "/login";
-            },
-          },
-          "signOut",
-        )
-        .name("Sign out");
-
-      gui.domElement.style.position = "absolute";
-      gui.domElement.style.top = "10px";
-      gui.domElement.style.right = "10px";
-      context.gui = gui;
-      teardownCallbacks.push(() => gui.destroy());
-    }
 
     const onKeyDown = (e: KeyboardEvent) => {
       context.input.keys[e.key.toLowerCase()] = true;
