@@ -23,9 +23,9 @@ const fetchCatalog = async (): Promise<CatalogEntry[]> => {
 const fetchAtlasInfo = async (): Promise<AtlasInfo> => {
   const { data, error } = await eden.api.atlas.get();
   if (error || !data) throw new Error("failed to load atlas info");
-  const d = data as { width: number; height: number };
+  const d = data as { width: number; height: number; url: string };
   return {
-    url: "/assets/atlas.png",
+    url: d.url,
     width: d.width,
     height: d.height,
     tileSize: 32,

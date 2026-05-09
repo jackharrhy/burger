@@ -576,7 +576,16 @@ const update = (context: Context) => {
 };
 
 const loadAssets = async () => {
-  const atlas = await Assets.load<TextureSource>("/assets/atlas.png");
+  // Fetch atlas info first so we can use the versioned URL the server hands
+  // back. The version busts the browser cache when atlas.png changes.
+  const atlasInfo = (await (await fetch("/api/atlas")).json()) as {
+    width: number;
+    height: number;
+    url: string;
+    typeIdToAtlasSrc: Record<number, [number, number]>;
+  };
+
+  const atlas = await Assets.load<TextureSource>(atlasInfo.url);
   atlas.source.scaleMode = "nearest";
   const player = await Assets.load<Texture>("/assets/sprites/player.png");
   player.source.scaleMode = "nearest";

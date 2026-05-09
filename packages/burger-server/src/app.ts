@@ -133,6 +133,9 @@ export const buildApp = (deps: AppDeps) => {
       .get("/api/atlas", () => ({
         width: world.atlasInfo.width,
         height: world.atlasInfo.height,
+        // url carries the cache-busting version so clients don't have to
+        // know how to construct it. URL changes whenever atlas.png changes.
+        url: `/assets/atlas.png?v=${world.atlasInfo.version}`,
         typeIdToAtlasSrc: world.typeIdToAtlasSrc,
       }))
       .get("/api/catalog", () =>

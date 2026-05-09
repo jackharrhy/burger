@@ -153,5 +153,9 @@ test("initWorld populates atlasInfo from atlas.toml meta", () => {
   const db = setupDb();
   seedDefaultSettings(db);
   const world = initWorld(db);
-  expect(world.atlasInfo).toEqual({ width: 448, height: 448 });
+  expect(world.atlasInfo.width).toBe(448);
+  expect(world.atlasInfo.height).toBe(448);
+  // version is a non-empty cache-bust string (hash hex or boot timestamp).
+  expect(typeof world.atlasInfo.version).toBe("string");
+  expect(world.atlasInfo.version.length).toBeGreaterThan(0);
 });

@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { addComponent, addEntity } from "bitecs";
 import type { Database } from "bun:sqlite";
 import { createSharedWorld, TILE_SIZE } from "burger-shared";
@@ -17,7 +18,35 @@ export type WorldExtras = {
   tilesAtPosition: Map<string, number>;
   spawnZone: { x: number; y: number; w: number; h: number };
   typeIdToAtlasSrc: Record<number, [number, number]>;
-  atlasInfo: { width: number; height: number };
+  atlasInfo: { width: number; height: number; version: string };
+};
+
+// Try a couple of well-known locations for atlas.png and hash whichever we
+// find. The path differs between dev (sibling client package) and prod
+// (copied into burger-server's public dir by `pnpm copy-frontend`).
+const ATLAS_CANDIDATE_PATHS = [
+  "./public/assets/atlas.png", // prod (copy-frontend output)
+  "../burger-client/public/assets/atlas.png", // dev (sibling package)
+];
+
+const computeAtlasVersion = (): string => {
+  for (const path of ATLAS_CANDIDATE_PATHS) {
+    if (!existsSync(path)) continue;
+    try {
+      const bytes = readFileSync(path);
+      // Bun.hash returns a non-crypto 64-bit hash as bigint — plenty for cache
+      // busting and faster than SHA. Encode as hex for a stable URL-safe token.
+      return Bun.hash(bytes).toString(16);
+    } catch {
+      // Fall through to next candidate.
+    }
+  }
+  // Neither path exists (atypical — neither dev nor prod). Use boot time
+  // so at least each server restart cycles the version.
+  console.warn(
+    "atlas.png not found in known paths; using boot timestamp as cache-bust version",
+  );
+  return Date.now().toString(16);
 };
 
 const DEFAULT_WORLD_WIDTH = TILE_SIZE * 64; // 2048px
@@ -142,6 +171,7 @@ const tomlTiles = tomlData.tiles;
 const tomlAtlasInfo = {
   width: tomlData.meta?.width ?? 192,
   height: tomlData.meta?.height ?? 288,
+  version: computeAtlasVersion(),
 };
 
 export const initWorld = (db: Database) => {
