@@ -67,10 +67,13 @@ test("seedDefaultSettings inserts defaults when missing", () => {
   const db = setupDb();
   seedDefaultSettings(db);
   const settings = readSettings(db);
-  expect(settings.spawn_x).toBe("0");
-  expect(settings.spawn_y).toBe("0");
+  // World 2048x2048, default spawn 128x128, centered: (2048-128)/2 = 960
   expect(settings.world_width).toBe(String(64 * 32));
   expect(settings.world_height).toBe(String(64 * 32));
+  expect(settings.spawn_w).toBe("128");
+  expect(settings.spawn_h).toBe("128");
+  expect(settings.spawn_x).toBe("960");
+  expect(settings.spawn_y).toBe("960");
 });
 
 test("seedDefaultSettings preserves existing values", () => {
@@ -82,6 +85,18 @@ test("seedDefaultSettings preserves existing values", () => {
   seedDefaultSettings(db);
   const settings = readSettings(db);
   expect(settings.world_width).toBe("999");
+});
+
+test("seedDefaultSettings centers spawn against existing world dimensions", () => {
+  const db = setupDb();
+  // Pre-seed a non-default world; spawn defaults should respect it.
+  db.run("INSERT INTO settings (key, value) VALUES ('world_width', '1024')");
+  db.run("INSERT INTO settings (key, value) VALUES ('world_height', '512')");
+  seedDefaultSettings(db);
+  const settings = readSettings(db);
+  // (1024 - 128) / 2 = 448, (512 - 128) / 2 = 192
+  expect(settings.spawn_x).toBe("448");
+  expect(settings.spawn_y).toBe("192");
 });
 
 test("loadCatalog returns rows joined into a Map by id", () => {
@@ -129,6 +144,7 @@ test("initWorld populates spawnZone and bounds from settings", () => {
   const world = initWorld(db);
   expect(world.bounds.w).toBe(64 * 32);
   expect(world.bounds.h).toBe(64 * 32);
-  expect(world.spawnZone.x).toBe(0);
-  expect(world.spawnZone.y).toBe(0);
+  // Default spawn centered in the default 2048x2048 world.
+  expect(world.spawnZone.x).toBe(960);
+  expect(world.spawnZone.y).toBe(960);
 });

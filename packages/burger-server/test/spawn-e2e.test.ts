@@ -90,7 +90,8 @@ const get = async (path: string) => {
 test("GET /api/settings/spawn returns the current zone", async () => {
   const { status, data } = await get("/api/settings/spawn");
   expect(status).toBe(200);
-  expect(data).toEqual({ x: 0, y: 0, w: 128, h: 128 });
+  // Default spawn is centered: (2048 - 128) / 2 = 960.
+  expect(data).toEqual({ x: 960, y: 960, w: 128, h: 128 });
 });
 
 test("non-admin POST /api/settings/spawn returns 403", async () => {

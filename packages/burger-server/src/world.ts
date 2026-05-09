@@ -19,13 +19,35 @@ export type WorldExtras = {
   typeIdToAtlasSrc: Record<number, [number, number]>;
 };
 
-const DEFAULT_SETTINGS: Record<string, string> = {
-  spawn_x: "0",
-  spawn_y: "0",
-  spawn_w: String(TILE_SIZE * 4),
-  spawn_h: String(TILE_SIZE * 4),
-  world_width: String(TILE_SIZE * 64),
-  world_height: String(TILE_SIZE * 64),
+const DEFAULT_WORLD_WIDTH = TILE_SIZE * 64; // 2048px
+const DEFAULT_WORLD_HEIGHT = TILE_SIZE * 64;
+const DEFAULT_SPAWN_W = TILE_SIZE * 4; // 128px
+const DEFAULT_SPAWN_H = TILE_SIZE * 4;
+
+// Spawn defaults are derived from world size so a fresh DB centers the
+// spawn zone instead of pinning it to (0, 0). If world_width/height already
+// exist in the settings table (e.g. an admin set them earlier), we read
+// those values and center against them.
+const computeDefaultSettings = (db: Database): Record<string, string> => {
+  const existing = db
+    .query(
+      "SELECT key, value FROM settings WHERE key IN ('world_width','world_height')",
+    )
+    .all() as { key: string; value: string }[];
+  const byKey = Object.fromEntries(existing.map((r) => [r.key, r.value]));
+  const worldW = parseInt(byKey.world_width ?? String(DEFAULT_WORLD_WIDTH), 10);
+  const worldH = parseInt(
+    byKey.world_height ?? String(DEFAULT_WORLD_HEIGHT),
+    10,
+  );
+  return {
+    spawn_x: String(Math.round((worldW - DEFAULT_SPAWN_W) / 2)),
+    spawn_y: String(Math.round((worldH - DEFAULT_SPAWN_H) / 2)),
+    spawn_w: String(DEFAULT_SPAWN_W),
+    spawn_h: String(DEFAULT_SPAWN_H),
+    world_width: String(worldW),
+    world_height: String(worldH),
+  };
 };
 
 export const syncCatalog = (db: Database, tiles: CatalogEntry[]): void => {
@@ -49,10 +71,11 @@ export const syncCatalog = (db: Database, tiles: CatalogEntry[]): void => {
 };
 
 export const seedDefaultSettings = (db: Database): void => {
+  const defaults = computeDefaultSettings(db);
   const stmt = db.prepare(
     "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING",
   );
-  for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) {
+  for (const [k, v] of Object.entries(defaults)) {
     stmt.run(k, v);
   }
 };
