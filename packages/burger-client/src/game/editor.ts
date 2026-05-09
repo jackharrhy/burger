@@ -21,6 +21,11 @@ export type EditorState = {
   active: boolean;
   selectedTileId: number;
   catalog: CatalogEntry[];
+  // The user's curated palette as catalog ids. Drives slot rendering, hotkey
+  // selection, and wheel scrolling. Empty palette = no slots, but the user
+  // can still paint with whatever selectedTileId resolves to.
+  palette: number[];
+  paletteEntries: CatalogEntry[];
   cursorX: number;
   cursorY: number;
   cursorSprite: PixiSprite | null;
@@ -44,7 +49,7 @@ const positionPalette = (state: EditorState, app: Application): void => {
 const selectTile = (state: EditorState, tileId: number): void => {
   state.selectedTileId = tileId;
   state.paletteSlots.forEach((slot, i) => {
-    slot.outline.visible = state.catalog[i]?.id === tileId;
+    slot.outline.visible = state.paletteEntries[i]?.id === tileId;
   });
   useGameStore.getState().setSelectedTileId(tileId);
 };
@@ -61,6 +66,77 @@ const paintAtCursor = (state: EditorState, network: NetworkState): void => {
   );
 };
 
+// Resolve palette ids to catalog entries, dropping any ids that no longer
+// exist in the catalog (e.g. after a tile was deleted server-side).
+const resolvePaletteEntries = (
+  ids: number[],
+  catalog: CatalogEntry[],
+): CatalogEntry[] => {
+  const byId = new Map(catalog.map((c) => [c.id, c]));
+  return ids
+    .map((id) => byId.get(id))
+    .filter((e): e is CatalogEntry => e !== undefined);
+};
+
+// Tear down existing slots and rebuild from state.paletteEntries. Callable
+// at init and again whenever the palette changes (see setPalette below).
+const rebuildPalette = (
+  state: EditorState,
+  textures: Record<number, Texture>,
+): void => {
+  if (!state.paletteContainer) return;
+  state.paletteContainer.removeChildren();
+  state.paletteSlots = [];
+
+  state.paletteEntries.forEach((entry, i) => {
+    const tex = textures[entry.id];
+    if (!tex) return;
+    const slotBg = new Graphics();
+    slotBg.rect(0, 0, SLOT_SIZE, SLOT_SIZE).fill({ color: 0x222222 });
+    slotBg.x = i * (SLOT_SIZE + SLOT_PADDING);
+    slotBg.y = 0;
+    slotBg.eventMode = "static";
+    slotBg.on("pointertap", () => selectTile(state, entry.id));
+    state.paletteContainer!.addChild(slotBg);
+
+    const sprite = new PixiSprite(tex);
+    sprite.width = TILE_SIZE;
+    sprite.height = TILE_SIZE;
+    sprite.x = slotBg.x + (SLOT_SIZE - TILE_SIZE) / 2;
+    sprite.y = slotBg.y + (SLOT_SIZE - TILE_SIZE) / 2;
+    state.paletteContainer!.addChild(sprite);
+
+    const slotOutline = new Graphics();
+    slotOutline
+      .rect(0, 0, SLOT_SIZE, SLOT_SIZE)
+      .stroke({ color: 0xffffff, width: 2 });
+    slotOutline.x = slotBg.x;
+    slotOutline.y = slotBg.y;
+    slotOutline.visible = entry.id === state.selectedTileId;
+    state.paletteContainer!.addChild(slotOutline);
+
+    state.paletteSlots.push({ sprite, outline: slotOutline });
+  });
+};
+
+// Apply a new palette to the editor: resolve entries, rebuild slot UI, and
+// shift the selected tile if it's no longer in the palette.
+export const setPalette = (
+  state: EditorState,
+  ids: number[],
+  textures: Record<number, Texture>,
+): void => {
+  state.palette = ids;
+  state.paletteEntries = resolvePaletteEntries(ids, state.catalog);
+  if (
+    state.paletteEntries.length > 0 &&
+    !state.paletteEntries.find((e) => e.id === state.selectedTileId)
+  ) {
+    selectTile(state, state.paletteEntries[0]!.id);
+  }
+  rebuildPalette(state, textures);
+};
+
 export const initEditor = (
   app: Application,
   catalog: CatalogEntry[],
@@ -69,11 +145,16 @@ export const initEditor = (
   mainContainer: Container,
   getCamera: () => { x: number; y: number },
   getZoom: () => number,
+  initialPalette: number[],
 ): EditorState => {
+  const paletteEntries = resolvePaletteEntries(initialPalette, catalog);
+  const initialSelected = paletteEntries[0]?.id ?? catalog[0]?.id ?? 1;
   const state: EditorState = {
     active: false,
-    selectedTileId: catalog[0]?.id ?? 1,
+    selectedTileId: initialSelected,
     catalog,
+    palette: initialPalette,
+    paletteEntries,
     cursorX: 0,
     cursorY: 0,
     cursorSprite: null,
@@ -111,35 +192,7 @@ export const initEditor = (
   state.paletteContainer = palette;
   app.stage.addChild(palette);
 
-  catalog.forEach((entry, i) => {
-    const tex = textures[entry.id];
-    if (!tex) return;
-    const slotBg = new Graphics();
-    slotBg.rect(0, 0, SLOT_SIZE, SLOT_SIZE).fill({ color: 0x222222 });
-    slotBg.x = i * (SLOT_SIZE + SLOT_PADDING);
-    slotBg.y = 0;
-    slotBg.eventMode = "static";
-    slotBg.on("pointertap", () => selectTile(state, entry.id));
-    palette.addChild(slotBg);
-
-    const sprite = new PixiSprite(tex);
-    sprite.width = TILE_SIZE;
-    sprite.height = TILE_SIZE;
-    sprite.x = slotBg.x + (SLOT_SIZE - TILE_SIZE) / 2;
-    sprite.y = slotBg.y + (SLOT_SIZE - TILE_SIZE) / 2;
-    palette.addChild(sprite);
-
-    const slotOutline = new Graphics();
-    slotOutline
-      .rect(0, 0, SLOT_SIZE, SLOT_SIZE)
-      .stroke({ color: 0xffffff, width: 2 });
-    slotOutline.x = slotBg.x;
-    slotOutline.y = slotBg.y;
-    slotOutline.visible = entry.id === state.selectedTileId;
-    palette.addChild(slotOutline);
-
-    state.paletteSlots.push({ sprite, outline: slotOutline });
-  });
+  rebuildPalette(state, textures);
 
   positionPalette(state, app);
 
@@ -162,9 +215,9 @@ export const initEditor = (
         !Number.isNaN(num) &&
         num >= 1 &&
         num <= 9 &&
-        state.catalog[num - 1]
+        state.paletteEntries[num - 1]
       ) {
-        selectTile(state, state.catalog[num - 1]!.id);
+        selectTile(state, state.paletteEntries[num - 1]!.id);
       }
     }
   });
@@ -211,10 +264,14 @@ export const initEditor = (
   app.canvas.addEventListener("wheel", (e) => {
     if (!state.active) return;
     e.preventDefault();
+    if (state.paletteEntries.length === 0) return;
     const dir = e.deltaY > 0 ? 1 : -1;
-    const idx = state.catalog.findIndex((c) => c.id === state.selectedTileId);
-    const next = (idx + dir + state.catalog.length) % state.catalog.length;
-    const entry = state.catalog[next];
+    const idx = state.paletteEntries.findIndex(
+      (c) => c.id === state.selectedTileId,
+    );
+    const next =
+      (idx + dir + state.paletteEntries.length) % state.paletteEntries.length;
+    const entry = state.paletteEntries[next];
     if (entry) selectTile(state, entry.id);
   });
 
