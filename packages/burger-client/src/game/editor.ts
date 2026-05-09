@@ -236,8 +236,19 @@ export const initEditor = (
   });
 
   // Mouse position → snapped tile-cell center (paint convention is center).
+  // Hide the cursor preview when the pointer leaves the canvas (e.g. over
+  // a DOM overlay) so it doesn't look like a stale paint cursor.
   app.canvas.addEventListener("mousemove", (e) => {
     if (!state.active) return;
+    // Skip if a DOM overlay is over the cursor — keeps the preview from
+    // updating to coords under the overlay, and stops paint-while-dragging
+    // from continuing if you happen to hold a button while crossing into a
+    // window.
+    const topmost = document.elementFromPoint(e.clientX, e.clientY);
+    if (topmost !== app.canvas) {
+      state.isPainting = false;
+      return;
+    }
     const rect = app.canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
@@ -253,13 +264,14 @@ export const initEditor = (
 
   app.canvas.addEventListener("mousedown", (e) => {
     if (!state.active) return;
-    // Only paint when the click actually landed on the canvas. DOM overlays
-    // (taskbar, windows, atlas tool) live above the canvas; clicks on them
-    // shouldn't translate into world paints. The target check is belt-and-
-    // suspenders: in normal browser layout DOM elements above the canvas
-    // capture clicks before they bubble, but this catches edge cases where
-    // an overlay's listener doesn't stop propagation.
-    if (e.target !== app.canvas) return;
+    // Only paint when the canvas is the topmost element at the click point.
+    // DOM overlays (taskbar, windows) sit above the canvas; if elementFrom-
+    // Point at the click coords returns one of them, the click is meant for
+    // the overlay, not the world. This is more robust than the e.target
+    // check (which can return canvas on edge cases like Rnd's drag-handle
+    // re-dispatch).
+    const topmost = document.elementFromPoint(e.clientX, e.clientY);
+    if (topmost !== app.canvas) return;
     e.preventDefault();
     if (e.button === 0) {
       state.isPainting = true;
