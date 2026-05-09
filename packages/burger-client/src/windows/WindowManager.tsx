@@ -5,11 +5,13 @@ import Taskbar from "./Taskbar";
 import Window from "./Window";
 import DebugWindow from "./DebugWindow";
 import SpawnWindow from "./SpawnWindow";
+import BotsWindow from "./BotsWindow";
 
 // Window IDs are stable strings; treat them like keys in the store.
 export const WINDOW_DEBUG = "debug";
 export const WINDOW_ATLAS = "atlas";
 export const WINDOW_SPAWN = "spawn";
+export const WINDOW_BOTS = "bots";
 
 const showDebug = import.meta.env.DEV;
 
@@ -49,6 +51,14 @@ const WindowManager = () => {
         h: 260,
         open: false,
       });
+      registerWindow(WINDOW_BOTS, {
+        title: "Bots",
+        x: 80,
+        y: 80,
+        w: 240,
+        h: 200,
+        open: false,
+      });
     }
   }, [isAdmin, registerWindow]);
 
@@ -70,7 +80,7 @@ const WindowManager = () => {
 
   // Admin taskbar shows admin tools; the debug window is opt-in via the
   // `~` hotkey only and not exposed in the taskbar.
-  const taskbarIds = isAdmin ? [WINDOW_ATLAS, WINDOW_SPAWN] : [];
+  const taskbarIds = isAdmin ? [WINDOW_ATLAS, WINDOW_SPAWN, WINDOW_BOTS] : [];
 
   return (
     <>
@@ -86,6 +96,9 @@ const WindowManager = () => {
           </Window>
           <Window id={WINDOW_SPAWN}>
             <SpawnWindow />
+          </Window>
+          <Window id={WINDOW_BOTS}>
+            <BotsWindow />
           </Window>
         </>
       )}
