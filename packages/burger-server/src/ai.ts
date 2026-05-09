@@ -76,3 +76,28 @@ export const updateAiPlayers = (world: World, tickRateMs: number): void => {
 };
 
 export const getAiEntities = (): AiState[] => aiEntities;
+
+// Teleport all bots to fresh random positions inside world.spawnZone, zero
+// their velocity, and reset their AI direction state so they pause briefly
+// before wandering. Same eids; clients see the position change via the next
+// GAME_STATE broadcast (no observer events). Returns the count reset.
+export const resetAiPlayers = (world: World): number => {
+  const { Position, Velocity } = world.components;
+  const { spawnZone } = world;
+  const now = performance.now();
+
+  for (const ai of aiEntities) {
+    const { eid } = ai;
+    Position.x[eid] = spawnZone.x + Math.random() * spawnZone.w;
+    Position.y[eid] = spawnZone.y + Math.random() * spawnZone.h;
+    Velocity.x[eid] = 0;
+    Velocity.y[eid] = 0;
+    ai.targetAngle = Math.random() * Math.PI * 2;
+    ai.nextDirectionChange =
+      now +
+      DIRECTION_CHANGE_INTERVAL +
+      Math.random() * DIRECTION_CHANGE_INTERVAL;
+  }
+
+  return aiEntities.length;
+};
