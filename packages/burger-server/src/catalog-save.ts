@@ -1,4 +1,3 @@
-import { writeFileSync } from "node:fs";
 import type { Database } from "bun:sqlite";
 import type { CatalogEntry, ValidationError } from "./catalog-validation";
 
@@ -12,6 +11,11 @@ const escape = (s: string) => s.replace(/"/g, '\\"');
 
 export type AtlasMeta = { width: number; height: number };
 
+// serializeCatalog stays available for one-off "dump current catalog as toml"
+// scripts, but the running server no longer writes atlas.toml at runtime.
+// Bun's --watch on the dev server would otherwise restart the process every
+// time admin clicks Save; in prod the DB is the source of truth so the
+// on-disk toml is just a bootstrap seed and doesn't need updating.
 export const serializeCatalog = (
   entries: CatalogEntry[],
   meta?: AtlasMeta,
@@ -33,15 +37,11 @@ export type SaveResult =
 
 export const saveCatalog = async ({
   db,
-  tomlPath,
   entries,
-  meta,
   broadcast,
 }: {
   db: Database;
-  tomlPath: string;
   entries: CatalogEntry[];
-  meta?: AtlasMeta;
   broadcast: (catalog: CatalogEntry[]) => void;
 }): Promise<SaveResult> => {
   const newIds = new Set(entries.map((e) => e.id));
@@ -83,9 +83,6 @@ export const saveCatalog = async ({
     }
   });
   tx();
-
-  // Write the TOML file.
-  writeFileSync(tomlPath, serializeCatalog(entries, meta), "utf-8");
 
   // Broadcast new catalog.
   broadcast(entries);
