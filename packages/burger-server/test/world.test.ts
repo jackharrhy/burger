@@ -148,3 +148,10 @@ test("initWorld populates spawnZone and bounds from settings", () => {
   expect(world.spawnZone.x).toBe(960);
   expect(world.spawnZone.y).toBe(960);
 });
+
+test("initWorld populates atlasInfo from atlas.toml meta", () => {
+  const db = setupDb();
+  seedDefaultSettings(db);
+  const world = initWorld(db);
+  expect(world.atlasInfo).toEqual({ width: 192, height: 288 });
+});
