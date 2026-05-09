@@ -10,13 +10,21 @@ const HEADER = `# Tile catalog. Source of truth for what can be painted.
 
 const escape = (s: string) => s.replace(/"/g, '\\"');
 
-export const serializeCatalog = (entries: CatalogEntry[]): string => {
+export type AtlasMeta = { width: number; height: number };
+
+export const serializeCatalog = (
+  entries: CatalogEntry[],
+  meta?: AtlasMeta,
+): string => {
   const sorted = [...entries].sort((a, b) => a.id - b.id);
   const blocks = sorted.map(
     (e) =>
       `[[tiles]]\nid = ${e.id}\ntype = "${escape(e.type)}"\nsrc_x = ${e.src_x}\nsrc_y = ${e.src_y}\nlabel = "${escape(e.label)}"\n`,
   );
-  return HEADER + blocks.join("\n");
+  const metaBlock = meta
+    ? `[meta]\n# Atlas image dimensions in pixels. Must match packages/burger-client/public/assets/atlas.png.\n# Update this when you swap in a larger atlas. Width and height should both be multiples of 32.\nwidth = ${meta.width}\nheight = ${meta.height}\n\n`
+    : "";
+  return HEADER + metaBlock + blocks.join("\n");
 };
 
 export type SaveResult =
@@ -27,11 +35,13 @@ export const saveCatalog = async ({
   db,
   tomlPath,
   entries,
+  meta,
   broadcast,
 }: {
   db: Database;
   tomlPath: string;
   entries: CatalogEntry[];
+  meta?: AtlasMeta;
   broadcast: (catalog: CatalogEntry[]) => void;
 }): Promise<SaveResult> => {
   const newIds = new Set(entries.map((e) => e.id));
@@ -75,7 +85,7 @@ export const saveCatalog = async ({
   tx();
 
   // Write the TOML file.
-  writeFileSync(tomlPath, serializeCatalog(entries), "utf-8");
+  writeFileSync(tomlPath, serializeCatalog(entries, meta), "utf-8");
 
   // Broadcast new catalog.
   broadcast(entries);

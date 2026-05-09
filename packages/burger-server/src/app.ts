@@ -129,7 +129,11 @@ export const buildApp = (deps: AppDeps) => {
           process.env.VITE_DEV_URL ?? "http://localhost:5173";
         return "";
       })
-      .get("/api/atlas", () => world.typeIdToAtlasSrc)
+      .get("/api/atlas", () => ({
+        width: world.atlasInfo.width,
+        height: world.atlasInfo.height,
+        typeIdToAtlasSrc: world.typeIdToAtlasSrc,
+      }))
       .get("/api/catalog", () =>
         db
           .query(
@@ -150,8 +154,8 @@ export const buildApp = (deps: AppDeps) => {
           }
 
           const validation = validateCatalog(body, {
-            atlasW: 192, // matches atlas.png dimensions (6×9 cells × 32px)
-            atlasH: 288,
+            atlasW: world.atlasInfo.width,
+            atlasH: world.atlasInfo.height,
           });
           if (!validation.ok) {
             set.status = 400;
@@ -163,6 +167,7 @@ export const buildApp = (deps: AppDeps) => {
             db,
             tomlPath,
             entries: validation.entries,
+            meta: world.atlasInfo,
             broadcast: (catalog) => {
               // Update in-memory catalog (world.catalog: Map<number, CatalogEntry>).
               world.catalog.clear();

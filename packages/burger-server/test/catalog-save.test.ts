@@ -47,6 +47,25 @@ test("serializeCatalog escapes double quotes in labels", () => {
   expect(text).toContain('label = "wall \\"stone\\""');
 });
 
+test("serializeCatalog includes [meta] block when meta provided", () => {
+  const text = serializeCatalog(
+    [{ id: 1, type: "wall", src_x: 0, src_y: 0, label: "wall" }],
+    { width: 256, height: 384 },
+  );
+  expect(text).toContain("[meta]");
+  expect(text).toContain("width = 256");
+  expect(text).toContain("height = 384");
+  // Meta block precedes the first tile block.
+  expect(text.indexOf("[meta]")).toBeLessThan(text.indexOf("[[tiles]]"));
+});
+
+test("serializeCatalog omits [meta] block when meta absent", () => {
+  const text = serializeCatalog([
+    { id: 1, type: "wall", src_x: 0, src_y: 0, label: "wall" },
+  ]);
+  expect(text).not.toContain("[meta]");
+});
+
 test("saveCatalog writes the toml file and syncs tile_catalog rows", async () => {
   const db = setupDb();
   const tomlPath = tmpToml();
