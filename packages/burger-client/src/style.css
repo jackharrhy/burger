@@ -67,13 +67,10 @@ body {
   gap: 1em;
 }
 
-.atlas-toolbar h1 {
-  margin: 0;
-}
-
 .atlas-toolbar .user {
   color: #888;
   margin-right: auto;
+  font-size: 12px;
 }
 
 .atlas-error {
