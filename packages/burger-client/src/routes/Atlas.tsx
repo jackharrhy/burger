@@ -34,6 +34,8 @@ const fetchAtlasInfo = async (): Promise<AtlasInfo> => {
 
 const Atlas = () => {
   const user = useGameStore((s) => s.user);
+  const palette = useGameStore((s) => s.palette);
+  const setPalette = useGameStore((s) => s.setPalette);
 
   const [initial, setInitial] = useState<CatalogEntry[] | null>(null);
   const [entries, setEntries] = useState<CatalogEntry[]>([]);
@@ -109,6 +111,34 @@ const Atlas = () => {
     setEntries((cur) => [...cur, ...newEntries]);
   };
 
+  const onCellRightClick = async (src: { src_x: number; src_y: number }) => {
+    // Find the catalog entry at this cell. If empty or unsaved (id=0), skip.
+    const entry = entries.find(
+      (e) => e.src_x === src.src_x && e.src_y === src.src_y,
+    );
+    if (!entry || entry.id === 0) return;
+
+    const exists = palette.includes(entry.id);
+    const next = exists
+      ? palette.filter((id) => id !== entry.id)
+      : palette.length >= 9
+        ? palette
+        : [...palette, entry.id];
+    if (next === palette) return; // hit cap
+
+    // Optimistic update; revert on failure.
+    setPalette(next);
+    const { data, error: putError } = await eden.api.palette.put({
+      ids: next,
+    });
+    if (putError || !data || ("ok" in data && !data.ok)) {
+      setPalette(palette);
+      setError(
+        `palette save failed: ${putError ? putError.status : "rejected"}`,
+      );
+    }
+  };
+
   const onSave = async () => {
     setError(null);
     setSaving(true);
@@ -171,7 +201,9 @@ const Atlas = () => {
             atlas={atlasInfo}
             entries={entries}
             selectedSrc={selectedSrc}
+            paletteIds={palette}
             onSelect={onCellSelect}
+            onCellRightClick={onCellRightClick}
           />
         </div>
         <div className="atlas-form-pane">
