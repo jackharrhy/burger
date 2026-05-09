@@ -542,7 +542,7 @@ const debugSystem = ({ world }: Context) => {
 
 const editorSystem = (context: Context) => {
   if (!context.editor) return;
-  updateEditor(context.editor, context.assets.tiles);
+  updateEditor(context.editor, context.assets.tiles, context.app);
 };
 
 // Draws the spawn-zone preview rectangle when the admin's spawn window is

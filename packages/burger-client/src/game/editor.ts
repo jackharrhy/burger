@@ -328,15 +328,20 @@ export const initEditor = (
     if (entry) selectTile(state, entry.id);
   });
 
-  window.addEventListener("resize", () => positionPalette(state, app));
-
   return state;
 };
 
 export const updateEditor = (
   state: EditorState,
   textures: Record<number, Texture>,
+  app: Application,
 ): void => {
+  // Reposition the palette every tick. pixi's resize is rAF-deferred via the
+  // ResizePlugin's queueResize, so reading app.screen.height in a window
+  // resize listener returns the stale (pre-resize) value. Doing it here
+  // runs after pixi has settled the new screen size.
+  positionPalette(state, app);
+
   if (!state.cursorSprite || !state.cursorOutline) return;
   if (!state.active) {
     state.cursorSprite.visible = false;
