@@ -6,7 +6,7 @@
   "scripts": {
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "lint": "oxlint",
+    "lint": "oxlint --deny-warnings",
     "typecheck": "pnpm -r exec tsc --noEmit",
     "dev": "concurrently -n server,client -c blue,magenta \"pnpm dev:server\" \"pnpm dev:client\"",
     "dev:client": "pnpm --filter burger-client dev",
