@@ -5,13 +5,6 @@ import type { AtlasInfo, CatalogEntry } from "../atlas/types";
 import { eden } from "../eden";
 import { useGameStore } from "../store";
 
-const ATLAS_INFO: AtlasInfo = {
-  url: "/assets/atlas.png",
-  width: 192,
-  height: 288,
-  tileSize: 32,
-};
-
 const assignNewIds = (es: CatalogEntry[]): CatalogEntry[] => {
   let nextId = es.reduce((max, e) => (e.id > max ? e.id : max), 0) + 1;
   return es.map((e) => (e.id === 0 ? { ...e, id: nextId++ } : e));
@@ -23,11 +16,24 @@ const fetchCatalog = async (): Promise<CatalogEntry[]> => {
   return data as CatalogEntry[];
 };
 
+const fetchAtlasInfo = async (): Promise<AtlasInfo> => {
+  const { data, error } = await eden.api.atlas.get();
+  if (error || !data) throw new Error("failed to load atlas info");
+  const d = data as { width: number; height: number };
+  return {
+    url: "/assets/atlas.png",
+    width: d.width,
+    height: d.height,
+    tileSize: 32,
+  };
+};
+
 const Atlas = () => {
   const user = useGameStore((s) => s.user);
 
   const [initial, setInitial] = useState<CatalogEntry[] | null>(null);
   const [entries, setEntries] = useState<CatalogEntry[]>([]);
+  const [atlasInfo, setAtlasInfo] = useState<AtlasInfo | null>(null);
   const [selectedSrc, setSelectedSrc] = useState<{
     src_x: number;
     src_y: number;
@@ -36,10 +42,11 @@ const Atlas = () => {
   const [saving, setSaving] = useState(false);
 
   const reload = () =>
-    fetchCatalog()
-      .then((c) => {
+    Promise.all([fetchCatalog(), fetchAtlasInfo()])
+      .then(([c, info]) => {
         setInitial(c);
         setEntries(c);
+        setAtlasInfo(info);
       })
       .catch((e: unknown) => {
         setError(`load failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -114,7 +121,7 @@ const Atlas = () => {
     void reload();
   };
 
-  if (initial === null) {
+  if (initial === null || atlasInfo === null) {
     return (
       <div className="atlas-tool">
         <p>loading catalog…</p>
@@ -136,7 +143,7 @@ const Atlas = () => {
       <div className="atlas-panes">
         <div className="atlas-grid-pane">
           <AtlasGrid
-            atlas={ATLAS_INFO}
+            atlas={atlasInfo}
             entries={entries}
             selectedSrc={selectedSrc}
             onSelect={onCellSelect}
