@@ -235,23 +235,42 @@ export const initEditor = (
     }
   });
 
+  // Returns true if the screen-space point (canvas-local) is inside the
+  // pixi palette strip. The palette renders inside the canvas (not DOM), so
+  // elementFromPoint always returns the canvas for palette clicks — we have
+  // to AABB-test against the palette container ourselves to avoid the
+  // double-fire (slot's pointertap selects the tile + canvas mousedown
+  // paints behind it).
+  const isOverPalette = (canvasX: number, canvasY: number): boolean => {
+    const palette = state.paletteContainer;
+    if (!palette || !palette.visible) return false;
+    const w = state.paletteEntries.length * (SLOT_SIZE + SLOT_PADDING);
+    const h = SLOT_SIZE;
+    return (
+      canvasX >= palette.x &&
+      canvasX < palette.x + w &&
+      canvasY >= palette.y &&
+      canvasY < palette.y + h
+    );
+  };
+
   // Mouse position → snapped tile-cell center (paint convention is center).
   // Hide the cursor preview when the pointer leaves the canvas (e.g. over
   // a DOM overlay) so it doesn't look like a stale paint cursor.
   app.canvas.addEventListener("mousemove", (e) => {
     if (!state.active) return;
-    // Skip if a DOM overlay is over the cursor — keeps the preview from
-    // updating to coords under the overlay, and stops paint-while-dragging
-    // from continuing if you happen to hold a button while crossing into a
-    // window.
-    const topmost = document.elementFromPoint(e.clientX, e.clientY);
-    if (topmost !== app.canvas) {
-      state.isPainting = false;
-      return;
-    }
     const rect = app.canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
+    // Skip if a DOM overlay is over the cursor — keeps the preview from
+    // updating to coords under the overlay, and stops paint-while-dragging
+    // from continuing if you happen to hold a button while crossing into a
+    // window. Same gate for the in-canvas palette strip.
+    const topmost = document.elementFromPoint(e.clientX, e.clientY);
+    if (topmost !== app.canvas || isOverPalette(mouseX, mouseY)) {
+      state.isPainting = false;
+      return;
+    }
     const cam = getCamera();
     const zoom = getZoom();
     const worldX = (mouseX - app.screen.width / 2) / zoom + cam.x;
@@ -264,14 +283,16 @@ export const initEditor = (
 
   app.canvas.addEventListener("mousedown", (e) => {
     if (!state.active) return;
-    // Only paint when the canvas is the topmost element at the click point.
-    // DOM overlays (taskbar, windows) sit above the canvas; if elementFrom-
-    // Point at the click coords returns one of them, the click is meant for
-    // the overlay, not the world. This is more robust than the e.target
-    // check (which can return canvas on edge cases like Rnd's drag-handle
-    // re-dispatch).
+    // Bail if a DOM overlay is on top of the click (taskbar, window) or if
+    // the click landed on the in-canvas palette strip. The palette has its
+    // own pointertap handler for selecting tiles; we don't want to paint
+    // the world tile underneath when the user is just picking a slot.
     const topmost = document.elementFromPoint(e.clientX, e.clientY);
     if (topmost !== app.canvas) return;
+    const rect = app.canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    if (isOverPalette(canvasX, canvasY)) return;
     e.preventDefault();
     if (e.button === 0) {
       state.isPainting = true;
