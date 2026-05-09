@@ -1,11 +1,8 @@
 import { addComponent, addEntity, removeEntity } from "bitecs";
 import type { Database } from "bun:sqlite";
-import type { World } from "./world";
+import { isSolid, type World } from "./world";
 import type { ValidatedPaint } from "./paint-validation";
 import { markEntityDirty } from "./network.server";
-
-const isSolid = (type: string): boolean =>
-  type === "wall" || type === "counter";
 
 /**
  * Apply a validated paint command:

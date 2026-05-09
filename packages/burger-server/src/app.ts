@@ -53,7 +53,7 @@ import {
   networkedComponents,
 } from "burger-shared";
 import { createObserverSerializer } from "bitecs/serialization";
-import type { World } from "./world";
+import { reconcileTileSolidity, type World } from "./world";
 import type { AuthConfig } from "./auth/config";
 import { authRoutes } from "./auth/routes";
 import { parseSessionCookie, getSession } from "./auth/sessions";
@@ -178,6 +178,10 @@ export const buildApp = (deps: AppDeps) => {
                 world.catalogIds.add(e.id);
                 world.typeIdToAtlasSrc[e.id] = [e.src_x, e.src_y];
               }
+              // Catch up any tile entity whose catalog row's type just flipped
+              // (wall → floor or vice versa). The bitecs observer stream picks
+              // up the Solid add/remove and broadcasts to all clients.
+              reconcileTileSolidity(world);
               broadcastCatalogUpdated(catalog);
             },
           });

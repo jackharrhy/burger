@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { addComponent, addEntity } from "bitecs";
+import { addComponent, addEntity, hasComponent, removeComponent } from "bitecs";
 import type { Database } from "bun:sqlite";
 import { createSharedWorld, TILE_SIZE } from "burger-shared";
 import atlas from "../atlas.toml";
@@ -11,6 +11,11 @@ export type CatalogEntry = {
   src_y: number;
   label: string;
 };
+
+// Whether a catalog type implies tile entities of this type should have the
+// Solid component. Wall and counter block player movement; floor doesn't.
+export const isSolid = (type: string): boolean =>
+  type === "wall" || type === "counter";
 
 export type WorldExtras = {
   catalog: Map<number, CatalogEntry>;
@@ -153,13 +158,37 @@ const loadTilesIntoEcs = (
     addComponent(world, eid, Tile);
     Tile.type[eid] = row.tile_id;
 
-    if (cat.type === "wall" || cat.type === "counter") {
+    if (isSolid(cat.type)) {
       addComponent(world, eid, Solid);
     }
 
     addComponent(world, eid, Networked);
 
     world.tilesAtPosition.set(`${row.x},${row.y}`, eid);
+  }
+};
+
+// Walk every tile entity and reconcile its Solid component against the
+// current catalog. Used after a catalog save when an admin may have flipped
+// a tile's type (e.g. wall → floor) and existing tile entities need to
+// gain or lose the Solid component to match. The bitecs observer stream
+// announces add/remove of Solid to clients automatically.
+export const reconcileTileSolidity = (
+  world: ReturnType<typeof createSharedWorld<WorldExtras>>,
+): void => {
+  const { Tile, Solid } = world.components;
+  for (const [, eid] of world.tilesAtPosition) {
+    const tileId = Tile.type[eid];
+    if (tileId === undefined) continue;
+    const cat = world.catalog.get(tileId);
+    if (!cat) continue; // orphan tile; saveCatalog blocks deleting referenced ids
+    const shouldBeSolid = isSolid(cat.type);
+    const currentlySolid = hasComponent(world, eid, Solid);
+    if (shouldBeSolid && !currentlySolid) {
+      addComponent(world, eid, Solid);
+    } else if (!shouldBeSolid && currentlySolid) {
+      removeComponent(world, eid, Solid);
+    }
   }
 };
 

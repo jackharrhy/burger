@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { hasComponent, query } from "bitecs";
 import { runMigrations } from "../src/db";
 import {
   syncCatalog,
@@ -7,6 +8,7 @@ import {
   readSettings,
   loadCatalog,
   initWorld,
+  reconcileTileSolidity,
 } from "../src/world";
 
 const setupDb = (): Database => {
@@ -158,4 +160,82 @@ test("initWorld populates atlasInfo from atlas.toml meta", () => {
   // version is a non-empty cache-bust string (hash hex or boot timestamp).
   expect(typeof world.atlasInfo.version).toBe("string");
   expect(world.atlasInfo.version.length).toBeGreaterThan(0);
+});
+
+test("reconcileTileSolidity adds Solid when type flips floor → wall", () => {
+  const db = setupDb();
+  // Use ids outside atlas.toml's reserved range so initWorld's syncCatalog
+  // doesn't overwrite our test fixtures.
+  syncCatalog(db, [{ id: 100, type: "floor", src_x: 0, src_y: 0, label: "f" }]);
+  db.run("INSERT INTO tiles (x, y, tile_id) VALUES (32, 32, 100)");
+  seedDefaultSettings(db);
+  const world = initWorld(db);
+  const { Position, Solid } = world.components;
+
+  expect(query(world, [Position, Solid])).toHaveLength(0);
+
+  // Admin flips id=100 from floor to wall (e.g. via the atlas tool).
+  world.catalog.set(100, {
+    id: 100,
+    type: "wall",
+    src_x: 0,
+    src_y: 0,
+    label: "f",
+  });
+  reconcileTileSolidity(world);
+
+  expect(query(world, [Position, Solid])).toHaveLength(1);
+});
+
+test("reconcileTileSolidity removes Solid when type flips wall → floor", () => {
+  const db = setupDb();
+  syncCatalog(db, [{ id: 101, type: "wall", src_x: 0, src_y: 0, label: "w" }]);
+  db.run("INSERT INTO tiles (x, y, tile_id) VALUES (32, 32, 101)");
+  seedDefaultSettings(db);
+  const world = initWorld(db);
+  const { Position, Tile, Solid } = world.components;
+
+  // Sanity: the wall got the Solid component at boot.
+  expect(query(world, [Position, Solid])).toHaveLength(1);
+
+  // Admin flips id=101 from wall to floor.
+  world.catalog.set(101, {
+    id: 101,
+    type: "floor",
+    src_x: 0,
+    src_y: 0,
+    label: "w",
+  });
+  reconcileTileSolidity(world);
+
+  expect(query(world, [Position, Solid])).toHaveLength(0);
+  // The Tile entity itself still exists, just without Solid.
+  expect(query(world, [Position, Tile])).toHaveLength(1);
+});
+
+test("reconcileTileSolidity is a no-op when types haven't changed", () => {
+  const db = setupDb();
+  syncCatalog(db, [
+    { id: 102, type: "wall", src_x: 0, src_y: 0, label: "w" },
+    { id: 103, type: "floor", src_x: 32, src_y: 0, label: "f" },
+  ]);
+  db.run("INSERT INTO tiles (x, y, tile_id) VALUES (32, 32, 102)");
+  db.run("INSERT INTO tiles (x, y, tile_id) VALUES (96, 32, 103)");
+  seedDefaultSettings(db);
+  const world = initWorld(db);
+  const { Position, Solid, Tile } = world.components;
+
+  // Capture eids; should be the same after reconcile (no entity churn).
+  const wallEidBefore = world.tilesAtPosition.get("32,32");
+  const floorEidBefore = world.tilesAtPosition.get("96,32");
+
+  reconcileTileSolidity(world);
+
+  expect(world.tilesAtPosition.get("32,32")).toBe(wallEidBefore);
+  expect(world.tilesAtPosition.get("96,32")).toBe(floorEidBefore);
+  // Wall still solid, floor still not.
+  expect(hasComponent(world, wallEidBefore!, Solid)).toBe(true);
+  expect(hasComponent(world, floorEidBefore!, Solid)).toBe(false);
+  // Both still have Tile.
+  expect(query(world, [Position, Tile])).toHaveLength(2);
 });
