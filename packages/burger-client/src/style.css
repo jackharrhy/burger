@@ -278,3 +278,14 @@ body {
   border-top: 1px solid #333;
   margin: 0.25em 0;
 }
+
+.bulk-fill-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.bulk-fill-form select,
+.bulk-fill-form button {
+  font-size: 12px;
+}

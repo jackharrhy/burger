@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import AtlasGrid from "../atlas/AtlasGrid";
+import BulkFillForm from "../atlas/BulkFillForm";
 import CatalogForm from "../atlas/CatalogForm";
 import type { AtlasInfo, CatalogEntry } from "../atlas/types";
 import { eden } from "../eden";
@@ -9,6 +10,9 @@ const assignNewIds = (es: CatalogEntry[]): CatalogEntry[] => {
   let nextId = es.reduce((max, e) => (e.id > max ? e.id : max), 0) + 1;
   return es.map((e) => (e.id === 0 ? { ...e, id: nextId++ } : e));
 };
+
+const cellLabel = (sx: number, sy: number, tileSize: number) =>
+  `tile-${sx / tileSize}x${sy / tileSize}`;
 
 const fetchCatalog = async (): Promise<CatalogEntry[]> => {
   const { data, error } = await eden.api.catalog.get();
@@ -85,6 +89,26 @@ const Atlas = () => {
     });
   };
 
+  const onBulkFill = (type: CatalogEntry["type"]) => {
+    if (!atlasInfo) return;
+    const taken = new Set(entries.map((e) => `${e.src_x},${e.src_y}`));
+    const newEntries: CatalogEntry[] = [];
+    for (let sy = 0; sy < atlasInfo.height; sy += atlasInfo.tileSize) {
+      for (let sx = 0; sx < atlasInfo.width; sx += atlasInfo.tileSize) {
+        if (taken.has(`${sx},${sy}`)) continue;
+        newEntries.push({
+          id: 0, // sentinel — assignNewIds resolves on save
+          type,
+          src_x: sx,
+          src_y: sy,
+          label: cellLabel(sx, sy, atlasInfo.tileSize),
+        });
+      }
+    }
+    if (newEntries.length === 0) return;
+    setEntries((cur) => [...cur, ...newEntries]);
+  };
+
   const onSave = async () => {
     setError(null);
     setSaving(true);
@@ -134,6 +158,7 @@ const Atlas = () => {
     <div className="atlas-tool">
       <div className="atlas-toolbar">
         <span className="user">{user?.displayName ?? user?.username}</span>
+        <BulkFillForm onFill={onBulkFill} />
         <button onClick={onSave} disabled={!dirty || saving}>
           {saving ? "saving…" : `save ${dirty ? "(unsaved changes)" : ""}`}
         </button>
