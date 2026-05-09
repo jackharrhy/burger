@@ -42,11 +42,15 @@ type GameStore = {
   // window closes or after a successful save (the saved value becomes the
   // new server-side truth, no preview needed).
   spawnDraft: SpawnZone | null;
+  // The admin's curated paint palette: ordered catalog ids, max 9. Persisted
+  // server-side per user; the pixi editor reads from this to render slots.
+  palette: number[];
   // Lag/jitter sliders feed back into the live network state. The game's
   // metrics system reads these every tick.
   setLag: (ms: number) => void;
   setJitter: (ms: number) => void;
   setSpawnDraft: (zone: SpawnZone | null) => void;
+  setPalette: (ids: number[]) => void;
 
   setUser: (u: Me | null) => void;
   setEditor: (e: EditorPublicState | null) => void;
@@ -79,12 +83,14 @@ export const useGameStore = create<GameStore>((set) => ({
   },
   windows: {},
   spawnDraft: null,
+  palette: [],
 
   setLag: (lag) =>
     set((s) => ({ metrics: { ...s.metrics, lag: Math.max(0, lag) } })),
   setJitter: (jitter) =>
     set((s) => ({ metrics: { ...s.metrics, jitter: Math.max(0, jitter) } })),
   setSpawnDraft: (spawnDraft) => set({ spawnDraft }),
+  setPalette: (palette) => set({ palette }),
 
   setUser: (user) => set({ user }),
   setEditor: (editor) => set({ editor }),
