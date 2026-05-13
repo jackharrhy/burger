@@ -61,6 +61,7 @@
 ## Task 1: DB migrations for zones tables
 
 **Files:**
+
 - Modify: `packages/burger-server/src/db.ts`
 - Test: `packages/burger-server/test/world.test.ts` (extend existing file with a new test)
 
@@ -103,7 +104,7 @@ Expected: the new test fails ("zones" not found in table list).
 In `packages/burger-server/src/db.ts`, append inside `runMigrations` (after the `palettes` block, before the closing `};`):
 
 ```ts
-  db.run(`
+db.run(`
     CREATE TABLE IF NOT EXISTS zones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
@@ -111,7 +112,7 @@ In `packages/burger-server/src/db.ts`, append inside `runMigrations` (after the 
     )
   `);
 
-  db.run(`
+db.run(`
     CREATE TABLE IF NOT EXISTS zone_cells (
       zone_id INTEGER NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
       x INTEGER NOT NULL,
@@ -119,9 +120,9 @@ In `packages/burger-server/src/db.ts`, append inside `runMigrations` (after the 
       PRIMARY KEY (zone_id, x, y)
     )
   `);
-  db.run(`CREATE INDEX IF NOT EXISTS zone_cells_xy ON zone_cells(x, y)`);
+db.run(`CREATE INDEX IF NOT EXISTS zone_cells_xy ON zone_cells(x, y)`);
 
-  db.run(`
+db.run(`
     CREATE TABLE IF NOT EXISTS zone_members (
       zone_id INTEGER NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -129,7 +130,7 @@ In `packages/burger-server/src/db.ts`, append inside `runMigrations` (after the 
       PRIMARY KEY (zone_id, user_id)
     )
   `);
-  db.run(`CREATE INDEX IF NOT EXISTS zone_members_user ON zone_members(user_id)`);
+db.run(`CREATE INDEX IF NOT EXISTS zone_members_user ON zone_members(user_id)`);
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -160,6 +161,7 @@ git commit -m "feat(server): add zones, zone_cells, zone_members tables"
 ## Task 2: `world.zones` and `world.cellToZone` in-memory state
 
 **Files:**
+
 - Modify: `packages/burger-server/src/world.ts`
 - Create: `packages/burger-server/src/zones.ts` (just the type/loader stub for now)
 - Test: extend `packages/burger-server/test/world.test.ts`
@@ -185,11 +187,15 @@ test("initWorld loads zone rows into world.zones and world.cellToZone", () => {
   runMigrations(db);
   db.run("INSERT INTO zones (id, name, created_at) VALUES (1, 'kitchen', 0)");
   db.run("INSERT INTO zones (id, name, created_at) VALUES (2, 'bar', 0)");
-  db.run("INSERT INTO users (id, fourm_id, username, is_admin, created_at) VALUES ('u1', 'fid-u1', 'u1', 0, 0)");
+  db.run(
+    "INSERT INTO users (id, fourm_id, username, is_admin, created_at) VALUES ('u1', 'fid-u1', 'u1', 0, 0)",
+  );
   db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (1, 16, 16)");
   db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (1, 48, 16)");
   db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (2, 80, 16)");
-  db.run("INSERT INTO zone_members (zone_id, user_id, added_at) VALUES (1, 'u1', 0)");
+  db.run(
+    "INSERT INTO zone_members (zone_id, user_id, added_at) VALUES (1, 'u1', 0)",
+  );
 
   const world = initWorld(db);
 
@@ -244,9 +250,10 @@ export const loadZones = (db: Database): ZonesState => {
   const zones = new Map<number, ZoneRuntime>();
   const cellToZone = new Map<string, number>();
 
-  const zoneRows = db
-    .query("SELECT id, name FROM zones")
-    .all() as { id: number; name: string }[];
+  const zoneRows = db.query("SELECT id, name FROM zones").all() as {
+    id: number;
+    name: string;
+  }[];
 
   for (const z of zoneRows) {
     zones.set(z.id, {
@@ -257,9 +264,11 @@ export const loadZones = (db: Database): ZonesState => {
     });
   }
 
-  const cellRows = db
-    .query("SELECT zone_id, x, y FROM zone_cells")
-    .all() as { zone_id: number; x: number; y: number }[];
+  const cellRows = db.query("SELECT zone_id, x, y FROM zone_cells").all() as {
+    zone_id: number;
+    x: number;
+    y: number;
+  }[];
 
   for (const c of cellRows) {
     const zone = zones.get(c.zone_id);
@@ -296,21 +305,21 @@ import { loadZones, type ZoneRuntime } from "./zones";
 b) Extend the `WorldExtras` type with the two new fields. Find the existing `WorldExtras` type (search `WorldExtras` in the file). Add:
 
 ```ts
-  zones: Map<number, ZoneRuntime>;
-  cellToZone: Map<string, number>;
+zones: Map<number, ZoneRuntime>;
+cellToZone: Map<string, number>;
 ```
 
 c) Find the `return` block in `initWorld` (where `spawnZone` is added to the world object) and merge the zones state in:
 
 ```ts
-  const zonesState = loadZones(db);
+const zonesState = loadZones(db);
 
-  return {
-    // ... existing fields ...
-    spawnZone,
-    zones: zonesState.zones,
-    cellToZone: zonesState.cellToZone,
-  };
+return {
+  // ... existing fields ...
+  spawnZone,
+  zones: zonesState.zones,
+  cellToZone: zonesState.cellToZone,
+};
 ```
 
 Place `const zonesState = loadZones(db);` just before the `return` statement so the loader runs after all other table reads are done.
@@ -343,6 +352,7 @@ git commit -m "feat(server): load zones into world.zones + world.cellToZone on b
 ## Task 3: Pure `canPaint` function with unit tests
 
 **Files:**
+
 - Modify: `packages/burger-server/src/zones.ts`
 - Create: `packages/burger-server/test/zones.test.ts`
 
@@ -470,6 +480,7 @@ git commit -m "feat(server): pure canPaint function for zone authorization"
 ## Task 4: Wire `canPaint` into the WS paint handler
 
 **Files:**
+
 - Modify: `packages/burger-server/src/network.server.ts`
 - Test: extend `packages/burger-server/test/paint-e2e.test.ts`
 
@@ -481,7 +492,10 @@ Append to `packages/burger-server/test/paint-e2e.test.ts`:
 test("non-admin paint inside a zone they belong to succeeds", async () => {
   const sess = setupSession(db, false);
   db.run("INSERT INTO zones (id, name, created_at) VALUES (10, 'z', 0)");
-  db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (10, ?, ?)", [A_X, A_Y]);
+  db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (10, ?, ?)", [
+    A_X,
+    A_Y,
+  ]);
   db.run(
     "INSERT INTO zone_members (zone_id, user_id, added_at) VALUES (10, 'user1', 0)",
   );
@@ -523,7 +537,10 @@ test("non-admin paint outside any zone is rejected", async () => {
 test("non-admin paint inside another user's zone is rejected", async () => {
   const sess = setupSession(db, false);
   db.run("INSERT INTO zones (id, name, created_at) VALUES (11, 'z', 0)");
-  db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (11, ?, ?)", [A_X, A_Y]);
+  db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (11, ?, ?)", [
+    A_X,
+    A_Y,
+  ]);
   db.run(
     "INSERT INTO users (id, fourm_id, username, display_name, is_admin, created_at) VALUES ('bob', 'fid-bob', 'bob', 'bob', 0, 0)",
   );
@@ -574,31 +591,26 @@ import { canPaint } from "./zones";
 b) Replace lines 168-173 (the body of `handlePaintMessage`). Current code:
 
 ```ts
-  if (!connection.isAdmin) return;
-  if (connection.paintsThisTick >= MAX_PAINTS_PER_TICK) return;
-  const cmd = validatePaint(data, world, world.catalogIds);
-  if (!cmd) return;
-  connection.paintsThisTick++;
-  applyPaint(world, db, cmd, connection.userId);
+if (!connection.isAdmin) return;
+if (connection.paintsThisTick >= MAX_PAINTS_PER_TICK) return;
+const cmd = validatePaint(data, world, world.catalogIds);
+if (!cmd) return;
+connection.paintsThisTick++;
+applyPaint(world, db, cmd, connection.userId);
 ```
 
 New code:
 
 ```ts
-  if (connection.paintsThisTick >= MAX_PAINTS_PER_TICK) return;
-  const cmd = validatePaint(data, world, world.catalogIds);
-  if (!cmd) return;
-  if (!canPaint(world, connection.userId, cmd.x, cmd.y, connection.isAdmin)) {
-    debug(
-      "paint_denied user=%s x=%d y=%d",
-      connection.userId,
-      cmd.x,
-      cmd.y,
-    );
-    return;
-  }
-  connection.paintsThisTick++;
-  applyPaint(world, db, cmd, connection.userId);
+if (connection.paintsThisTick >= MAX_PAINTS_PER_TICK) return;
+const cmd = validatePaint(data, world, world.catalogIds);
+if (!cmd) return;
+if (!canPaint(world, connection.userId, cmd.x, cmd.y, connection.isAdmin)) {
+  debug("paint_denied user=%s x=%d y=%d", connection.userId, cmd.x, cmd.y);
+  return;
+}
+connection.paintsThisTick++;
+applyPaint(world, db, cmd, connection.userId);
 ```
 
 (`debug` is already imported via the existing `debug` namespace at the top of the file. If it's not, use `console.info` instead — check the existing imports.)
@@ -631,6 +643,7 @@ git commit -m "feat(server): gate non-admin paint via canPaint zone check"
 ## Task 5: Zone name + cell validators
 
 **Files:**
+
 - Modify: `packages/burger-server/src/zones.ts`
 - Modify: `packages/burger-server/test/zones.test.ts`
 
@@ -643,7 +656,10 @@ import { validateZoneName, validateZoneCells } from "../src/zones";
 
 describe("validateZoneName", () => {
   test("trims and accepts 1-32 chars", () => {
-    expect(validateZoneName("  kitchen  ")).toEqual({ ok: true, name: "kitchen" });
+    expect(validateZoneName("  kitchen  ")).toEqual({
+      ok: true,
+      name: "kitchen",
+    });
     expect(validateZoneName("a")).toEqual({ ok: true, name: "a" });
     expect(validateZoneName("a".repeat(32))).toEqual({
       ok: true,
@@ -670,19 +686,40 @@ describe("validateZoneCells", () => {
   const bounds = { x: 0, y: 0, w: 2048, h: 2048 };
 
   test("accepts cell-center integer coords inside bounds", () => {
-    const r = validateZoneCells([[16, 16], [48, 16]], bounds);
-    expect(r.cells).toEqual([[16, 16], [48, 16]]);
+    const r = validateZoneCells(
+      [
+        [16, 16],
+        [48, 16],
+      ],
+      bounds,
+    );
+    expect(r.cells).toEqual([
+      [16, 16],
+      [48, 16],
+    ]);
     expect(r.dropped).toBe(0);
   });
 
   test("drops misaligned coords", () => {
-    const r = validateZoneCells([[15, 16], [16, 16]], bounds);
+    const r = validateZoneCells(
+      [
+        [15, 16],
+        [16, 16],
+      ],
+      bounds,
+    );
     expect(r.cells).toEqual([[16, 16]]);
     expect(r.dropped).toBe(1);
   });
 
   test("drops out-of-bounds coords", () => {
-    const r = validateZoneCells([[16, 16], [4096, 16]], bounds);
+    const r = validateZoneCells(
+      [
+        [16, 16],
+        [4096, 16],
+      ],
+      bounds,
+    );
     expect(r.cells).toEqual([[16, 16]]);
     expect(r.dropped).toBe(1);
   });
@@ -697,7 +734,10 @@ describe("validateZoneCells", () => {
   });
 
   test("returns empty for non-array input", () => {
-    const r = validateZoneCells("not an array" as unknown as number[][], bounds);
+    const r = validateZoneCells(
+      "not an array" as unknown as number[][],
+      bounds,
+    );
     expect(r.cells).toEqual([]);
     expect(r.dropped).toBe(0);
   });
@@ -804,6 +844,7 @@ git commit -m "feat(server): validateZoneName + validateZoneCells"
 ## Task 6: Zone mutation functions (DB writes + memory mirror)
 
 **Files:**
+
 - Create: `packages/burger-server/src/zone-mutations.ts`
 - Create: `packages/burger-server/test/zone-mutations.test.ts`
 
@@ -847,9 +888,9 @@ describe("createZone", () => {
     if (!r.ok) return;
     expect(r.id).toBeGreaterThan(0);
     expect(r.name).toBe("kitchen");
-    const row = db.query("SELECT name FROM zones WHERE id = ?").get(r.id) as
-      | { name: string }
-      | null;
+    const row = db.query("SELECT name FROM zones WHERE id = ?").get(r.id) as {
+      name: string;
+    } | null;
     expect(row?.name).toBe("kitchen");
     expect(zonesState.zones.get(r.id)?.name).toBe("kitchen");
   });
@@ -875,9 +916,9 @@ describe("renameZone", () => {
     const r = renameZone(db, zonesState, c.id, "bar");
     expect(r.ok).toBe(true);
     expect(zonesState.zones.get(c.id)?.name).toBe("bar");
-    const row = db.query("SELECT name FROM zones WHERE id = ?").get(c.id) as
-      | { name: string }
-      | null;
+    const row = db.query("SELECT name FROM zones WHERE id = ?").get(c.id) as {
+      name: string;
+    } | null;
     expect(row?.name).toBe("bar");
   });
 
@@ -901,7 +942,13 @@ describe("deleteZone", () => {
   test("cascades to cells + members; mirror is cleared; returns affected user ids", () => {
     const c = createZone(db, zonesState, "z");
     if (!c.ok) throw new Error("setup failed");
-    mutateZoneCells(db, zonesState, c.id, { add: [[16, 16]], remove: [] }, bounds);
+    mutateZoneCells(
+      db,
+      zonesState,
+      c.id,
+      { add: [[16, 16]], remove: [] },
+      bounds,
+    );
     setZoneMembers(db, zonesState, c.id, ["u1", "u2"]);
 
     const r = deleteZone(db, zonesState, c.id);
@@ -930,7 +977,13 @@ describe("mutateZoneCells", () => {
       db,
       zonesState,
       c.id,
-      { add: [[16, 16], [48, 16]], remove: [] },
+      {
+        add: [
+          [16, 16],
+          [48, 16],
+        ],
+        remove: [],
+      },
       bounds,
     );
     expect(r.ok).toBe(true);
@@ -947,7 +1000,13 @@ describe("mutateZoneCells", () => {
       db,
       zonesState,
       c.id,
-      { add: [[16, 16], [48, 16]], remove: [] },
+      {
+        add: [
+          [16, 16],
+          [48, 16],
+        ],
+        remove: [],
+      },
       bounds,
     );
     const r = mutateZoneCells(
@@ -968,7 +1027,13 @@ describe("mutateZoneCells", () => {
     const a = createZone(db, zonesState, "a");
     const b = createZone(db, zonesState, "b");
     if (!a.ok || !b.ok) throw new Error("setup failed");
-    mutateZoneCells(db, zonesState, a.id, { add: [[16, 16]], remove: [] }, bounds);
+    mutateZoneCells(
+      db,
+      zonesState,
+      a.id,
+      { add: [[16, 16]], remove: [] },
+      bounds,
+    );
     const r = mutateZoneCells(
       db,
       zonesState,
@@ -989,7 +1054,13 @@ describe("mutateZoneCells", () => {
       db,
       zonesState,
       c.id,
-      { add: [[16, 16], [15, 16]], remove: [] },
+      {
+        add: [
+          [16, 16],
+          [15, 16],
+        ],
+        remove: [],
+      },
       bounds,
     );
     expect(r.ok).toBe(true);
@@ -999,7 +1070,13 @@ describe("mutateZoneCells", () => {
   });
 
   test("not_found for unknown zone", () => {
-    const r = mutateZoneCells(db, zonesState, 999, { add: [], remove: [] }, bounds);
+    const r = mutateZoneCells(
+      db,
+      zonesState,
+      999,
+      { add: [], remove: [] },
+      bounds,
+    );
     expect(r.ok).toBe(false);
   });
 });
@@ -1064,10 +1141,10 @@ export const createZone = (
     .query("SELECT id FROM zones WHERE name = ?")
     .get(v.name) as { id: number } | null;
   if (existing) return { ok: false, error: "name_taken" };
-  const result = db.run(
-    "INSERT INTO zones (name, created_at) VALUES (?, ?)",
-    [v.name, Date.now()],
-  );
+  const result = db.run("INSERT INTO zones (name, created_at) VALUES (?, ?)", [
+    v.name,
+    Date.now(),
+  ]);
   const id = Number(result.lastInsertRowid);
   state.zones.set(id, {
     id,
@@ -1241,9 +1318,9 @@ export const setZoneMembers = (
       dropped++;
       continue;
     }
-    const row = db.query("SELECT id FROM users WHERE id = ?").get(raw) as
-      | { id: string }
-      | null;
+    const row = db.query("SELECT id FROM users WHERE id = ?").get(raw) as {
+      id: string;
+    } | null;
     if (row) valid.push(raw);
     else dropped++;
   }
@@ -1304,6 +1381,7 @@ git commit -m "feat(server): zone-mutations module with create/rename/delete/cel
 ## Task 7: REST endpoints for zones
 
 **Files:**
+
 - Modify: `packages/burger-server/src/app.ts`
 - Create: `packages/burger-server/test/zones-e2e.test.ts`
 
@@ -1336,7 +1414,11 @@ const authConfig: AuthConfig = {
   isProduction: false,
 };
 
-const setupSession = (database: Database, isAdmin: boolean, id?: string): string => {
+const setupSession = (
+  database: Database,
+  isAdmin: boolean,
+  id?: string,
+): string => {
   const userId = id ?? (isAdmin ? "admin1" : "user1");
   database.run(
     "INSERT INTO users (id, fourm_id, username, display_name, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -1453,7 +1535,13 @@ test("admin PUT /api/zones/:id/cells adds + removes cells", async () => {
   const put = await req(
     "PUT",
     `/api/zones/${c.data.id}/cells`,
-    { add: [[16, 16], [48, 16]], remove: [] },
+    {
+      add: [
+        [16, 16],
+        [48, 16],
+      ],
+      remove: [],
+    },
     sess,
   );
   expect(put.status).toBe(200);
@@ -1537,16 +1625,16 @@ import {
 b) Add a helper near `requireAdmin` (right after it):
 
 ```ts
-  const zonesList = () => {
-    return [...world.zones.values()].map((z) => ({
-      id: z.id,
-      name: z.name,
-      member_user_ids: [...z.members],
-      cell_count: z.cells.size,
-    }));
-  };
+const zonesList = () => {
+  return [...world.zones.values()].map((z) => ({
+    id: z.id,
+    name: z.name,
+    member_user_ids: [...z.members],
+    cell_count: z.cells.size,
+  }));
+};
 
-  const zonesState = { zones: world.zones, cellToZone: world.cellToZone };
+const zonesState = { zones: world.zones, cellToZone: world.cellToZone };
 ```
 
 c) Just BEFORE the final closing of the route chain (find the last `.get(...)` or `.post(...)` before `.listen(...)` or before the `return` of the builder — search for the catalog-rename block ending or similar and add immediately after the catalog routes), add these endpoints. Use the existing `requireAdmin` pattern:
@@ -1709,6 +1797,7 @@ git commit -m "feat(server): REST endpoints for zones CRUD + cells + members + u
 ## Task 8: WS message types + server broadcasts
 
 **Files:**
+
 - Modify: `packages/burger-shared/src/const.shared.ts`
 - Modify: `packages/burger-server/src/network.server.ts`
 - Modify: `packages/burger-server/src/app.ts` (call broadcast from endpoint handlers)
@@ -1867,7 +1956,7 @@ const userIdToWs = new Map<string, WS>();
 b) In the connection-add code path (search for `playerConnections.set(ws, {` — currently around line 114), after the `playerConnections.set(...)` call, add:
 
 ```ts
-  userIdToWs.set(connection.userId, ws);
+userIdToWs.set(connection.userId, ws);
 ```
 
 Where `connection.userId` matches the existing field. (If the local variable name differs, use the equivalent.)
@@ -1875,8 +1964,8 @@ Where `connection.userId` matches the existing field. (If the local variable nam
 c) In the connection-remove path (search for `playerConnections.delete(ws)` — currently around line 124), add right before it:
 
 ```ts
-  const conn = playerConnections.get(ws);
-  if (conn) userIdToWs.delete(conn.userId);
+const conn = playerConnections.get(ws);
+if (conn) userIdToWs.delete(conn.userId);
 ```
 
 d) Append two new exported broadcast helpers after `broadcastCatalogUpdated`:
@@ -1913,17 +2002,17 @@ export const sendMyZonesTo = (
 e) In the connection-add path (where we wrote `userIdToWs.set(...)` above), immediately after that, for non-admin connections, compute and send their initial `MY_ZONES`. Add:
 
 ```ts
-  if (!connection.isAdmin) {
-    const cells: [number, number][] = [];
-    for (const z of world.zones.values()) {
-      if (!z.members.has(connection.userId)) continue;
-      for (const key of z.cells) {
-        const [x, y] = key.split(",").map(Number);
-        cells.push([x, y]);
-      }
+if (!connection.isAdmin) {
+  const cells: [number, number][] = [];
+  for (const z of world.zones.values()) {
+    if (!z.members.has(connection.userId)) continue;
+    for (const key of z.cells) {
+      const [x, y] = key.split(",").map(Number);
+      cells.push([x, y]);
     }
-    sendMyZonesTo(connection.userId, cells);
   }
+  sendMyZonesTo(connection.userId, cells);
+}
 ```
 
 Note: `world` is in scope inside `createServer` — it's the function arg. The connection-add path runs inside `createServer`, so it should be accessible. If `world` isn't in scope there, lift the on-connect logic to a callback or pass `world` through.
@@ -1941,19 +2030,19 @@ import { broadcastZonesUpdated, sendMyZonesTo } from "./network.server";
 b) Add a helper near the other zone helpers:
 
 ```ts
-  const sendMyZonesToAffected = (userIds: string[]) => {
-    for (const userId of userIds) {
-      const cells: [number, number][] = [];
-      for (const z of world.zones.values()) {
-        if (!z.members.has(userId)) continue;
-        for (const key of z.cells) {
-          const [x, y] = key.split(",").map(Number);
-          cells.push([x, y]);
-        }
+const sendMyZonesToAffected = (userIds: string[]) => {
+  for (const userId of userIds) {
+    const cells: [number, number][] = [];
+    for (const z of world.zones.values()) {
+      if (!z.members.has(userId)) continue;
+      for (const key of z.cells) {
+        const [x, y] = key.split(",").map(Number);
+        cells.push([x, y]);
       }
-      sendMyZonesTo(userId, cells);
     }
-  };
+    sendMyZonesTo(userId, cells);
+  }
+};
 ```
 
 c) After each successful mutation (`createZone`, `renameZone`, `deleteZone`, `mutateZoneCells`, `setZoneMembers`), call `broadcastZonesUpdated()`. For mutations that have an `affectedUserIds`, call `sendMyZonesToAffected(r.affectedUserIds)`.
@@ -1961,52 +2050,52 @@ c) After each successful mutation (`createZone`, `renameZone`, `deleteZone`, `mu
 For example, the POST /api/zones handler ends:
 
 ```ts
-  return { id: r.id, name: r.name };
+return { id: r.id, name: r.name };
 ```
 
 Change to:
 
 ```ts
-  broadcastZonesUpdated();
-  return { id: r.id, name: r.name };
+broadcastZonesUpdated();
+return { id: r.id, name: r.name };
 ```
 
 For PUT /api/zones/:id/cells:
 
 ```ts
-  broadcastZonesUpdated();
-  sendMyZonesToAffected(r.affectedUserIds);
-  return {
-    added: r.added,
-    removed: r.removed,
-    dropped: r.dropped,
-  };
+broadcastZonesUpdated();
+sendMyZonesToAffected(r.affectedUserIds);
+return {
+  added: r.added,
+  removed: r.removed,
+  dropped: r.dropped,
+};
 ```
 
 For PUT /api/zones/:id/members:
 
 ```ts
-  broadcastZonesUpdated();
-  sendMyZonesToAffected(r.affectedUserIds);
-  return {
-    member_user_ids: r.memberUserIds,
-    dropped: r.dropped,
-  };
+broadcastZonesUpdated();
+sendMyZonesToAffected(r.affectedUserIds);
+return {
+  member_user_ids: r.memberUserIds,
+  dropped: r.dropped,
+};
 ```
 
 For PATCH /api/zones/:id (rename):
 
 ```ts
-  broadcastZonesUpdated();
-  return { id: r.id, name: r.name };
+broadcastZonesUpdated();
+return { id: r.id, name: r.name };
 ```
 
 For DELETE /api/zones/:id:
 
 ```ts
-  broadcastZonesUpdated();
-  sendMyZonesToAffected(r.affectedUserIds);
-  return { ok: true };
+broadcastZonesUpdated();
+sendMyZonesToAffected(r.affectedUserIds);
+return { ok: true };
 ```
 
 - [ ] **Step 6: Run all tests**
@@ -2037,6 +2126,7 @@ git commit -m "feat(server): ZONES_UPDATED + MY_ZONES WS broadcasts wired into R
 ## Task 9: Client store + WS dispatch for zones messages
 
 **Files:**
+
 - Modify: `packages/burger-client/src/store.ts`
 - Modify: `packages/burger-client/src/game/network.ts`
 - Modify: `packages/burger-client/src/game/index.ts`
@@ -2106,7 +2196,10 @@ export const refetchZones = async () => {
     ),
   ]);
   const cellsByZone = new Map<number, [number, number][]>();
-  for (const z of cellsRes.zones as { id: number; cells: [number, number][] }[]) {
+  for (const z of cellsRes.zones as {
+    id: number;
+    cells: [number, number][];
+  }[]) {
     cellsByZone.set(z.id, z.cells);
   }
   useStore.getState().setZones(listRes.zones as ZoneEntry[]);
@@ -2176,6 +2269,7 @@ git commit -m "feat(client): zones store slice + WS message dispatch"
 ## Task 10: Client zones overlay renderer (admin paint mode)
 
 **Files:**
+
 - Create: `packages/burger-client/src/game/zones.ts`
 - Modify: `packages/burger-client/src/game/index.ts`
 - Modify: `packages/burger-client/src/game/editor.ts`
@@ -2231,7 +2325,10 @@ export const initZonesGame = (app: Application): ZonesGameState => {
   };
 };
 
-export const setZonesActive = (state: ZonesGameState, active: boolean): void => {
+export const setZonesActive = (
+  state: ZonesGameState,
+  active: boolean,
+): void => {
   state.active = active;
   state.overlay.visible = active;
   if (active) redrawZonesOverlay(state);
@@ -2300,9 +2397,12 @@ const context: Context = {
 d) Subscribe to the store. After the existing palette subscription, add:
 
 ```ts
-useStore.subscribe((s) => s.zones, (z) => {
-  setZonesData(zones, z.cellsByZone, z.selectedId);
-});
+useStore.subscribe(
+  (s) => s.zones,
+  (z) => {
+    setZonesData(zones, z.cellsByZone, z.selectedId);
+  },
+);
 ```
 
 (Match the existing subscription style — Zustand's selector subscribe.)
@@ -2364,7 +2464,7 @@ pnpm dev
 Log in as admin. Press `z`. With browser devtools open, run in console:
 
 ```js
-window.context.zones.active
+window.context.zones.active;
 ```
 
 Expected: `true`. Press `e`: false.
@@ -2383,6 +2483,7 @@ git commit -m "feat(client): zones overlay + z key toggles zone-paint mode"
 ## Task 11: Click handling for zone-paint (add/remove cells)
 
 **Files:**
+
 - Modify: `packages/burger-client/src/game/zones.ts` (add stroke accumulator)
 - Modify: `packages/burger-client/src/game/index.ts` (wire mousedown/mouseup)
 
@@ -2408,16 +2509,16 @@ export type ZonesGameState = {
 Update `initZonesGame` to seed those fields:
 
 ```ts
-  return {
-    active: false,
-    selectedZoneId: null,
-    cellsByZone: new Map(),
-    overlay,
-    pendingAdd: new Set(),
-    pendingRemove: new Set(),
-    isDragging: false,
-    dragButton: null,
-  };
+return {
+  active: false,
+  selectedZoneId: null,
+  cellsByZone: new Map(),
+  overlay,
+  pendingAdd: new Set(),
+  pendingRemove: new Set(),
+  isDragging: false,
+  dragButton: null,
+};
 ```
 
 Add helpers:
@@ -2450,8 +2551,12 @@ export const endZoneStroke = async (
 ): Promise<void> => {
   state.isDragging = false;
   state.dragButton = null;
-  const add = [...state.pendingAdd].map((k) => k.split(",").map(Number) as [number, number]);
-  const remove = [...state.pendingRemove].map((k) => k.split(",").map(Number) as [number, number]);
+  const add = [...state.pendingAdd].map(
+    (k) => k.split(",").map(Number) as [number, number],
+  );
+  const remove = [...state.pendingRemove].map(
+    (k) => k.split(",").map(Number) as [number, number],
+  );
   state.pendingAdd.clear();
   state.pendingRemove.clear();
   if (add.length === 0 && remove.length === 0) return;
@@ -2475,7 +2580,7 @@ if (zones.active) {
   if (zones.selectedZoneId === null) return;
   const button = e.button === 2 ? "right" : "left";
   beginZoneStroke(zones, button);
-  const { x, y } = canvasToCellCenter(e);  // use the existing helper
+  const { x, y } = canvasToCellCenter(e); // use the existing helper
   extendZoneStroke(zones, x, y);
   return;
 }
@@ -2544,6 +2649,7 @@ git commit -m "feat(client): zone-paint mouse handlers + cell stroke PUT"
 ## Task 12: Zones admin window UI
 
 **Files:**
+
 - Create: `packages/burger-client/src/windows/ZonesWindow.tsx`
 - Modify: `packages/burger-client/src/windows/WindowManager.tsx` (window id + registration + taskbar)
 
@@ -2558,10 +2664,10 @@ export const WINDOW_ZONES = "zones";
 Also extend the registerWindow block (around line 40-48) with:
 
 ```ts
-      registerWindow(WINDOW_ZONES, {
-        title: "Zones",
-        defaultPos: { x: 20, y: 60 },
-      });
+registerWindow(WINDOW_ZONES, {
+  title: "Zones",
+  defaultPos: { x: 20, y: 60 },
+});
 ```
 
 (Match the exact signature of the existing `registerWindow` calls.)
@@ -2569,7 +2675,9 @@ Also extend the registerWindow block (around line 40-48) with:
 And extend `taskbarIds` (line 104):
 
 ```ts
-const taskbarIds = isAdmin ? [WINDOW_ATLAS, WINDOW_SPAWN, WINDOW_BOTS, WINDOW_ZONES] : [];
+const taskbarIds = isAdmin
+  ? [WINDOW_ATLAS, WINDOW_SPAWN, WINDOW_BOTS, WINDOW_ZONES]
+  : [];
 ```
 
 - [ ] **Step 2: Create `ZonesWindow.tsx`**
@@ -2646,7 +2754,14 @@ export const ZonesWindow = () => {
 
   return (
     <Window id={WINDOW_ZONES} title="Zones" initialPos={{ x: 20, y: 60 }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "8px" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          padding: "8px",
+        }}
+      >
         <div>
           <input
             value={newName}
@@ -2666,7 +2781,8 @@ export const ZonesWindow = () => {
                 background: z.id === selectedId ? "#ddd" : "transparent",
               }}
             >
-              {z.name} ({z.cell_count} cells, {z.member_user_ids.length} members)
+              {z.name} ({z.cell_count} cells, {z.member_user_ids.length}{" "}
+              members)
             </div>
           ))}
         </div>
@@ -2689,7 +2805,10 @@ export const ZonesWindow = () => {
                 </label>
               ))}
             </div>
-            <button onClick={() => deleteZone(selected.id)} style={{ marginTop: "8px" }}>
+            <button
+              onClick={() => deleteZone(selected.id)}
+              style={{ marginTop: "8px" }}
+            >
               Delete zone
             </button>
           </div>
@@ -2713,7 +2832,9 @@ import { ZonesWindow } from "./ZonesWindow";
 In the JSX where existing windows render (search for `<AtlasWindow`, `<SpawnWindow`, `<BotsWindow`), add:
 
 ```tsx
-{windows[WINDOW_ZONES]?.open && <ZonesWindow />}
+{
+  windows[WINDOW_ZONES]?.open && <ZonesWindow />;
+}
 ```
 
 Use the exact conditional pattern from the existing windows (some may use `getWindow` selectors, etc.). The taskbar button is auto-rendered by virtue of `WINDOW_ZONES` being in the `taskbarIds` array from Step 1.
@@ -2769,6 +2890,3 @@ End-to-end manual smoke (already done at each step, repeat once more):
 4. From non-admin browser console, manually send a paint message inside one of Alice's cells (`ws.send(JSON.stringify({ type: "paint", x: 16, y: 16, tileId: 3 }))`). Confirm a tile appears in the world for both players.
 5. From non-admin browser console, paint outside the zone. Confirm no tile appears.
 6. Kill dev server.
-
-
-

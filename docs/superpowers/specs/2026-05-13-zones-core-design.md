@@ -62,7 +62,7 @@ CREATE TABLE zone_members (
 CREATE INDEX zone_members_user ON zone_members(user_id);
 ```
 
-**Coordinate convention**: `(x, y)` are tile-cell *centers* in pixel space — identical to the existing `tiles` table and `validatePaint`. With `TILE_SIZE = 32`, valid x values are 16, 48, 80, … Reusing this convention lets cell-set checks compare keys directly against `world.tilesAtPosition` keys (also `"x,y"` strings of centers).
+**Coordinate convention**: `(x, y)` are tile-cell _centers_ in pixel space — identical to the existing `tiles` table and `validatePaint`. With `TILE_SIZE = 32`, valid x values are 16, 48, 80, … Reusing this convention lets cell-set checks compare keys directly against `world.tilesAtPosition` keys (also `"x,y"` strings of centers).
 
 ### In-Memory Representation
 
@@ -108,15 +108,15 @@ Wired into the paint message handler in `network.server.ts`:
 
 All endpoints admin-gated via existing `requireAdmin` helper.
 
-| Method | Path | Body | Response | Notes |
-|---|---|---|---|---|
-| GET | `/api/zones` | — | `{ zones: [{ id, name, member_user_ids: string[], cell_count: number }] }` | List for the assignment UI. Does not ship cells. |
-| POST | `/api/zones` | `{ name: string }` | `{ id, name }` | 409 if name taken. |
-| PATCH | `/api/zones/:id` | `{ name: string }` | `{ id, name }` | Rename. 409 on duplicate. |
-| DELETE | `/api/zones/:id` | — | `{ ok: true }` | Cascades to cells + members. Tiles in `tiles` table are untouched. |
-| PUT | `/api/zones/:id/cells` | `{ add: [[x,y]...], remove: [[x,y]...] }` | `{ added: number, removed: number, dropped: number }` | Bulk diff. Invalid entries dropped silently; `dropped` count returned. |
-| PUT | `/api/zones/:id/members` | `{ user_ids: string[] }` | `{ member_user_ids: string[], dropped: number }` | Replace membership entirely. `dropped` counts unknown user IDs that were silently ignored. |
-| GET | `/api/zones/all-cells` | — | `{ zones: [{ id, cells: [[x,y]...] }] }` | Lazy-loaded by the admin painter on demand. Separate from list to avoid bloat. |
+| Method | Path                     | Body                                      | Response                                                                   | Notes                                                                                      |
+| ------ | ------------------------ | ----------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| GET    | `/api/zones`             | —                                         | `{ zones: [{ id, name, member_user_ids: string[], cell_count: number }] }` | List for the assignment UI. Does not ship cells.                                           |
+| POST   | `/api/zones`             | `{ name: string }`                        | `{ id, name }`                                                             | 409 if name taken.                                                                         |
+| PATCH  | `/api/zones/:id`         | `{ name: string }`                        | `{ id, name }`                                                             | Rename. 409 on duplicate.                                                                  |
+| DELETE | `/api/zones/:id`         | —                                         | `{ ok: true }`                                                             | Cascades to cells + members. Tiles in `tiles` table are untouched.                         |
+| PUT    | `/api/zones/:id/cells`   | `{ add: [[x,y]...], remove: [[x,y]...] }` | `{ added: number, removed: number, dropped: number }`                      | Bulk diff. Invalid entries dropped silently; `dropped` count returned.                     |
+| PUT    | `/api/zones/:id/members` | `{ user_ids: string[] }`                  | `{ member_user_ids: string[], dropped: number }`                           | Replace membership entirely. `dropped` counts unknown user IDs that were silently ignored. |
+| GET    | `/api/zones/all-cells`   | —                                         | `{ zones: [{ id, cells: [[x,y]...] }] }`                                   | Lazy-loaded by the admin painter on demand. Separate from list to avoid bloat.             |
 
 ### Cell Overlap Semantics
 
@@ -130,7 +130,7 @@ When an admin adds cell `(x, y)` to zone A but the cell is already in zone B, **
 
 ### Transactions
 
-The cells PUT and members PUT each wrap their inserts/deletes in a single SQLite transaction. The in-memory `world.zones` and `world.cellToZone` are updated *after* the transaction commits.
+The cells PUT and members PUT each wrap their inserts/deletes in a single SQLite transaction. The in-memory `world.zones` and `world.cellToZone` are updated _after_ the transaction commits.
 
 ## WebSocket Protocol
 
@@ -247,7 +247,7 @@ Three `CREATE TABLE IF NOT EXISTS` statements added to `runMigrations` in `packa
 `loadWorld` gains a step after settings load:
 
 ```ts
-loadZones(db, world);  // populates world.zones, world.cellToZone
+loadZones(db, world); // populates world.zones, world.cellToZone
 ```
 
 Zero-row state (no zones) boots cleanly: maps are empty, `canPaint` returns true only for admins.
