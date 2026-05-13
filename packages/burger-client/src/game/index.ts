@@ -52,6 +52,12 @@ import {
   type EditorState,
   type CatalogEntry,
 } from "./editor";
+import {
+  initZonesGame,
+  setZonesActive,
+  setZonesData,
+  type ZonesGameState,
+} from "./zones";
 import { useGameStore } from "../store";
 
 const debug = debugFactory("burger:client");
@@ -127,6 +133,7 @@ type Context = {
   };
   user: Me;
   editor: EditorState | null;
+  zones: ZonesGameState;
 };
 
 declare global {
@@ -669,6 +676,11 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
     const spawnOverlay = new Graphics();
     debugContainer.addChild(spawnOverlay);
 
+    // Zones overlay. Must be parented to a world-space container (under the
+    // camera-translated mainContainer) so the painted cells line up with
+    // tile sprites at every zoom level.
+    const zones = initZonesGame(mainContainer);
+
     const context: Context = {
       world,
       app,
@@ -734,6 +746,7 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
       },
       user,
       editor: null,
+      zones,
     };
 
     setupPlayerObserver(context);
@@ -784,6 +797,11 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
             () => context.camera,
             () => ZOOM,
             useGameStore.getState().palette,
+            {
+              onTogglePaintMode: (mode) => {
+                setZonesActive(context.zones, mode === "zone");
+              },
+            },
           );
           useGameStore.getState().setEditor({
             active: false,
@@ -802,6 +820,30 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
             }
           });
           teardownCallbacks.push(unsubscribePalette);
+
+          // Mirror the zones slice into the pixi overlay state. The
+          // overlay is created up-front but only redraws when the
+          // current data or selection changes (or when admin enters
+          // zone-paint via `z`). Same prev/curr gating as the palette
+          // subscription — we only care about reference changes on
+          // the two fields the overlay consumes.
+          let lastCellsByZone = useGameStore.getState().zones.cellsByZone;
+          let lastSelectedId = useGameStore.getState().zones.selectedId;
+          const unsubscribeZones = useGameStore.subscribe((s) => {
+            if (
+              s.zones.cellsByZone !== lastCellsByZone ||
+              s.zones.selectedId !== lastSelectedId
+            ) {
+              lastCellsByZone = s.zones.cellsByZone;
+              lastSelectedId = s.zones.selectedId;
+              setZonesData(
+                context.zones,
+                s.zones.cellsByZone,
+                s.zones.selectedId,
+              );
+            }
+          });
+          teardownCallbacks.push(unsubscribeZones);
         }
       },
       onSnapshotReceived: () => {

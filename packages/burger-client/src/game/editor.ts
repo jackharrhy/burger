@@ -137,6 +137,16 @@ export const setPalette = (
   rebuildPalette(state, textures);
 };
 
+// Paint-mode signal. `tile` = tile-paint editor active, `zone` = zone-paint
+// overlay active, `none` = both off. The two modes are mutually exclusive;
+// the editor toggles its own `state.active` and notifies the caller so the
+// zones overlay can be flipped in lockstep.
+export type PaintMode = "tile" | "zone" | "none";
+
+export type InitEditorOptions = {
+  onTogglePaintMode?: (mode: PaintMode) => void;
+};
+
 export const initEditor = (
   app: Application,
   catalog: CatalogEntry[],
@@ -146,6 +156,7 @@ export const initEditor = (
   getCamera: () => { x: number; y: number },
   getZoom: () => number,
   initialPalette: number[],
+  opts: InitEditorOptions = {},
 ): EditorState => {
   const paletteEntries = resolvePaletteEntries(initialPalette, catalog);
   const initialSelected = paletteEntries[0]?.id ?? catalog[0]?.id ?? 1;
@@ -220,6 +231,25 @@ export const initEditor = (
         state.cursorOutline.visible = false;
       }
       useGameStore.getState().setEditorActive(state.active);
+      // Tile-paint mode toggles itself; tell the caller so the zones
+      // overlay can switch off when tile mode turns on (mutual exclusion).
+      opts.onTogglePaintMode?.(state.active ? "tile" : "none");
+      return;
+    }
+    if (e.key === "z") {
+      e.preventDefault();
+      // `z` always enters zone-paint mode and forces tile-paint off. Hide
+      // the tile cursor/palette so the two modes don't visually overlap.
+      if (state.active) {
+        state.active = false;
+        palette.visible = false;
+        if (state.cursorSprite && state.cursorOutline) {
+          state.cursorSprite.visible = false;
+          state.cursorOutline.visible = false;
+        }
+        useGameStore.getState().setEditorActive(false);
+      }
+      opts.onTogglePaintMode?.("zone");
       return;
     }
     if (state.active) {
