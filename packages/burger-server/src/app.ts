@@ -68,6 +68,8 @@ import {
   handleIncomingMessage,
   tagMessage,
   broadcastCatalogUpdated,
+  broadcastZonesUpdated,
+  sendMyZonesTo,
   markEntityDirty,
 } from "./network.server";
 import { validateCatalog } from "./catalog-validation";
@@ -118,6 +120,30 @@ export const buildApp = (deps: AppDeps) => {
   };
 
   const zonesState = { zones: world.zones, cellToZone: world.cellToZone };
+
+  // Compute the union of paintable cells across every zone a user belongs
+  // to. Returned as a flat list of [x, y] pairs suitable for the MY_ZONES
+  // payload.
+  const paintableCellsFor = (userId: string): [number, number][] => {
+    const cells: [number, number][] = [];
+    for (const z of world.zones.values()) {
+      if (!z.members.has(userId)) continue;
+      for (const key of z.cells) {
+        const [x, y] = key.split(",").map(Number);
+        cells.push([x as number, y as number]);
+      }
+    }
+    return cells;
+  };
+
+  // Recomputes and pushes MY_ZONES for each affected non-admin user.
+  // Admin users are no-ops inside sendMyZonesTo, so passing admin ids is
+  // safe (cheap).
+  const sendMyZonesToAffected = (userIds: string[]): void => {
+    for (const userId of userIds) {
+      sendMyZonesTo(userId, paintableCellsFor(userId));
+    }
+  };
 
   const indexExists = existsSync("./public/index.html");
 
@@ -412,6 +438,7 @@ export const buildApp = (deps: AppDeps) => {
           set.status = r.error === "name_taken" ? 409 : 400;
           return { ok: false, error: r.error };
         }
+        broadcastZonesUpdated();
         return { id: r.id, name: r.name };
       })
       .patch("/api/zones/:id", ({ params, body, headers, set }) => {
@@ -432,6 +459,7 @@ export const buildApp = (deps: AppDeps) => {
                 : 400;
           return { ok: false, error: r.error };
         }
+        broadcastZonesUpdated();
         return { id: r.id, name: r.name };
       })
       .delete("/api/zones/:id", ({ params, headers, set }) => {
@@ -446,6 +474,8 @@ export const buildApp = (deps: AppDeps) => {
           set.status = 404;
           return { ok: false, error: r.error };
         }
+        broadcastZonesUpdated();
+        sendMyZonesToAffected(r.affectedUserIds);
         return { ok: true };
       })
       .put("/api/zones/:id/cells", ({ params, body, headers, set }) => {
@@ -467,6 +497,8 @@ export const buildApp = (deps: AppDeps) => {
           set.status = 404;
           return { ok: false, error: r.error };
         }
+        broadcastZonesUpdated();
+        sendMyZonesToAffected(r.affectedUserIds);
         return {
           added: r.added,
           removed: r.removed,
@@ -486,6 +518,8 @@ export const buildApp = (deps: AppDeps) => {
           set.status = 404;
           return { ok: false, error: r.error };
         }
+        broadcastZonesUpdated();
+        sendMyZonesToAffected(r.affectedUserIds);
         return {
           member_user_ids: r.memberUserIds,
           dropped: r.dropped,
@@ -574,6 +608,14 @@ export const buildApp = (deps: AppDeps) => {
           ws.sendBinary(
             tagMessage(MESSAGE_TYPES.SNAPSHOT, getSnapshotPayload()),
           );
+
+          // Non-admins get an initial MY_ZONES so the client can paint
+          // inside their zones without waiting for the next mutation
+          // broadcast. Admins are skipped — they refetch via the REST
+          // endpoints triggered by ZONES_UPDATED.
+          if (!user.isAdmin) {
+            sendMyZonesTo(user.id, paintableCellsFor(user.id));
+          }
         },
 
         close(ws) {

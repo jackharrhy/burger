@@ -26,6 +26,13 @@ export const MESSAGE_TYPES = {
   // the new catalog as a JSON array (same shape as GET /api/catalog).
   // Clients refetch and update their local atlas + editor + world.catalog.
   CATALOG_UPDATED: 10,
+  // Broadcast (admins only) after any successful zone mutation. Payload is
+  // empty — admin clients refetch /api/zones + /api/zones/all-cells.
+  ZONES_UPDATED: 11,
+  // Sent to a single non-admin user after a mutation affects their
+  // membership or the cells of zones they belong to. Payload is JSON:
+  // { cells: [[x, y], ...] } — the union of paintable cells for that user.
+  MY_ZONES: 12,
 } as const;
 
 export const TILE_TYPES = {

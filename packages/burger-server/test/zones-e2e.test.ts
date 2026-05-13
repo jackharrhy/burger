@@ -1,6 +1,7 @@
 import { expect, test, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { removeEntity } from "bitecs";
+import { MESSAGE_TYPES } from "burger-shared";
 import { runMigrations } from "../src/db";
 import { initWorld } from "../src/world";
 import { createServer, getPlayerConnections } from "../src/network.server";
@@ -217,4 +218,115 @@ test("admin GET /api/users returns id + display_name list", async () => {
   expect(r.status).toBe(200);
   const ids = (r.data.users as { id: string }[]).map((u) => u.id).sort();
   expect(ids).toEqual(["admin1", "alice"]);
+});
+
+const connect = (p: number, sid: string) =>
+  new Promise<WebSocket>((resolve, reject) => {
+    const ws = new WebSocket(`ws://localhost:${p}/ws`, {
+      headers: { Cookie: `burger_session=${sid}` },
+    } as unknown as ConstructorParameters<typeof WebSocket>[1]);
+    ws.binaryType = "arraybuffer";
+    const timer = setTimeout(
+      () => reject(new Error("WebSocket connect timeout")),
+      2000,
+    );
+    ws.addEventListener("open", () => {
+      clearTimeout(timer);
+      resolve(ws);
+    });
+    ws.addEventListener("error", (e) => {
+      clearTimeout(timer);
+      reject(e);
+    });
+  });
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+const collect = (ws: WebSocket, tag: number): Uint8Array[] => {
+  const collected: Uint8Array[] = [];
+  ws.addEventListener("message", (e) => {
+    const buf = new Uint8Array(e.data as ArrayBuffer);
+    if (buf[0] === tag) collected.push(buf.subarray(1));
+  });
+  return collected;
+};
+
+const parseJson = (buf: Uint8Array): unknown =>
+  JSON.parse(new TextDecoder().decode(buf));
+
+test("non-admin receives MY_ZONES on connect", async () => {
+  const sess = setupSession(db, false);
+  db.run("INSERT INTO zones (id, name, created_at) VALUES (50, 'z', 0)");
+  db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (50, 16, 16)");
+  db.run(
+    "INSERT INTO zone_members (zone_id, user_id, added_at) VALUES (50, 'user1', 0)",
+  );
+  world.zones.set(50, {
+    id: 50,
+    name: "z",
+    cells: new Set(["16,16"]),
+    members: new Set(["user1"]),
+  });
+  world.cellToZone.set("16,16", 50);
+
+  const ws = await connect(port, sess);
+  const messages = collect(ws, MESSAGE_TYPES.MY_ZONES);
+  await sleep(80);
+  expect(messages.length).toBeGreaterThanOrEqual(1);
+  const msg = parseJson(messages[0]!) as { cells: [number, number][] };
+  expect(msg.cells).toEqual([[16, 16]]);
+  ws.close();
+  await sleep(50);
+});
+
+test("admin does not receive MY_ZONES on connect", async () => {
+  const sess = setupSession(db, true);
+  const ws = await connect(port, sess);
+  const messages = collect(ws, MESSAGE_TYPES.MY_ZONES);
+  await sleep(80);
+  expect(messages.length).toBe(0);
+  ws.close();
+  await sleep(50);
+});
+
+test("admin receives ZONES_UPDATED after a zone mutation", async () => {
+  const adminSess = setupSession(db, true);
+  const ws = await connect(port, adminSess);
+  const messages = collect(ws, MESSAGE_TYPES.ZONES_UPDATED);
+  await sleep(50);
+  await req("POST", "/api/zones", { name: "newzone" }, adminSess);
+  await sleep(80);
+  expect(messages.length).toBeGreaterThanOrEqual(1);
+  ws.close();
+  await sleep(50);
+});
+
+test("affected non-admin receives MY_ZONES when added to a zone", async () => {
+  const adminSess = setupSession(db, true);
+  const userSess = setupSession(db, false, "alice");
+  const userWs = await connect(port, userSess);
+  const messages = collect(userWs, MESSAGE_TYPES.MY_ZONES);
+  await sleep(50);
+  // Clear the initial empty MY_ZONES message.
+  messages.length = 0;
+
+  const c = await req("POST", "/api/zones", { name: "z" }, adminSess);
+  await req(
+    "PUT",
+    `/api/zones/${c.data.id}/cells`,
+    { add: [[16, 16]], remove: [] },
+    adminSess,
+  );
+  await req(
+    "PUT",
+    `/api/zones/${c.data.id}/members`,
+    { user_ids: ["alice"] },
+    adminSess,
+  );
+  await sleep(80);
+  expect(messages.length).toBeGreaterThanOrEqual(1);
+  const last = parseJson(messages.at(-1)!) as { cells: [number, number][] };
+  expect(last.cells).toEqual([[16, 16]]);
+  userWs.close();
+  await sleep(50);
 });
