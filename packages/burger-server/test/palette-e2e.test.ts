@@ -20,8 +20,12 @@ const authConfig: AuthConfig = {
   isProduction: false,
 };
 
-const setupSession = (database: Database, isAdmin: boolean): string => {
-  const userId = isAdmin ? "admin1" : "user1";
+const setupSession = (
+  database: Database,
+  isAdmin: boolean,
+  id?: string,
+): string => {
+  const userId = id ?? (isAdmin ? "admin1" : "user1");
   database.run(
     "INSERT INTO users (id, fourm_id, username, display_name, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)",
     [userId, `fid-${userId}`, userId, userId, isAdmin ? 1 : 0, Date.now()],
@@ -86,10 +90,36 @@ const req = async (
   return { status: res.status, data };
 };
 
-test("non-admin GET /api/palette returns 403", async () => {
+test("non-admin GET /api/palette returns 200 with own (empty) palette", async () => {
   const sess = setupSession(db, false);
-  const { status } = await req("GET", "/api/palette", undefined, sess);
+  const { status, data } = await req("GET", "/api/palette", undefined, sess);
+  expect(status).toBe(200);
+  expect(data).toEqual({ ok: true, ids: [] });
+});
+
+test("non-admin PUT /api/palette persists own palette", async () => {
+  const sess = setupSession(db, false);
+  const put = await req("PUT", "/api/palette", { ids: [1, 2] }, sess);
+  expect(put.status).toBe(200);
+  expect(put.data).toEqual({ ok: true, ids: [1, 2] });
+
+  const get = await req("GET", "/api/palette", undefined, sess);
+  expect(get.data).toEqual({ ok: true, ids: [1, 2] });
+});
+
+test("unauthenticated GET /api/palette returns 403", async () => {
+  const { status } = await req("GET", "/api/palette", undefined);
   expect(status).toBe(403);
+});
+
+test("non-admin cannot modify another user's palette", async () => {
+  const sessAlice = setupSession(db, false, "alice");
+  const sessBob = setupSession(db, false, "bob");
+  // Alice sets her palette.
+  await req("PUT", "/api/palette", { ids: [1] }, sessAlice);
+  // Bob's GET reflects Bob's empty palette, not Alice's.
+  const bobGet = await req("GET", "/api/palette", undefined, sessBob);
+  expect(bobGet.data).toEqual({ ok: true, ids: [] });
 });
 
 test("admin GET /api/palette returns empty initially", async () => {
