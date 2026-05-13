@@ -7,12 +7,14 @@ import Window from "./Window";
 import DebugWindow from "./DebugWindow";
 import SpawnWindow from "./SpawnWindow";
 import BotsWindow from "./BotsWindow";
+import ZonesWindow from "./ZonesWindow";
 
 // Window IDs are stable strings; treat them like keys in the store.
 export const WINDOW_DEBUG = "debug";
 export const WINDOW_ATLAS = "atlas";
 export const WINDOW_SPAWN = "spawn";
 export const WINDOW_BOTS = "bots";
+export const WINDOW_ZONES = "zones";
 
 const showDebug = import.meta.env.DEV;
 
@@ -61,6 +63,14 @@ const WindowManager = () => {
         h: 200,
         open: false,
       });
+      registerWindow(WINDOW_ZONES, {
+        title: "Zones",
+        x: 20,
+        y: 60,
+        w: 320,
+        h: 480,
+        open: false,
+      });
     }
   }, [isAdmin, registerWindow]);
 
@@ -101,7 +111,9 @@ const WindowManager = () => {
 
   // Admin taskbar shows admin tools; the debug window is opt-in via the
   // `~` hotkey only and not exposed in the taskbar.
-  const taskbarIds = isAdmin ? [WINDOW_ATLAS, WINDOW_SPAWN, WINDOW_BOTS] : [];
+  const taskbarIds = isAdmin
+    ? [WINDOW_ATLAS, WINDOW_SPAWN, WINDOW_BOTS, WINDOW_ZONES]
+    : [];
 
   return (
     <>
@@ -120,6 +132,9 @@ const WindowManager = () => {
           </Window>
           <Window id={WINDOW_BOTS}>
             <BotsWindow />
+          </Window>
+          <Window id={WINDOW_ZONES}>
+            <ZonesWindow />
           </Window>
         </>
       )}
