@@ -23,7 +23,7 @@
     "tiny-invariant": "^1.3.3"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.13",
+    "@types/bun": "^1.3.14",
     "@types/debug": "^4.1.13"
   },
   "peerDependencies": {
