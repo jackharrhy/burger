@@ -9,6 +9,7 @@ import SpawnWindow from "./SpawnWindow";
 import BotsWindow from "./BotsWindow";
 import ZonesWindow from "./ZonesWindow";
 import TilePickerWindow from "./TilePickerWindow";
+import NonAdminHud from "./NonAdminHud";
 
 // Window IDs are stable strings; treat them like keys in the store.
 export const WINDOW_DEBUG = "debug";
@@ -165,6 +166,7 @@ const WindowManager = () => {
         </Window>
       )}
       <Taskbar ids={taskbarIds} />
+      <NonAdminHud />
     </>
   );
 };
