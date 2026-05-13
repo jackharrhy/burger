@@ -35,6 +35,7 @@ import { validateInput } from "./input-validation";
 import { validatePaint } from "./paint-validation";
 import { applyPaint } from "./paint";
 import { buildApp, type AppDeps } from "./app";
+import { canPaint } from "./zones";
 
 const debug = debugFactory("burger:network.server");
 
@@ -165,10 +166,13 @@ const handlePaintMessage = (
   connection: PlayerConnection,
   data: unknown,
 ): void => {
-  if (!connection.isAdmin) return;
   if (connection.paintsThisTick >= MAX_PAINTS_PER_TICK) return;
   const cmd = validatePaint(data, world, world.catalogIds);
   if (!cmd) return;
+  if (!canPaint(world, connection.userId, cmd.x, cmd.y, connection.isAdmin)) {
+    debug("paint_denied user=%s x=%d y=%d", connection.userId, cmd.x, cmd.y);
+    return;
+  }
   connection.paintsThisTick++;
   applyPaint(world, db, cmd, connection.userId);
 };
