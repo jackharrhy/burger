@@ -241,8 +241,7 @@ test("reconcileTileSolidity is a no-op when types haven't changed", () => {
 });
 
 test("zones, zone_cells, zone_members tables exist after migration", () => {
-  const db = new Database(":memory:");
-  runMigrations(db);
+  const db = setupDb();
   const tables = db
     .query("SELECT name FROM sqlite_master WHERE type='table'")
     .all() as { name: string }[];
@@ -250,5 +249,4 @@ test("zones, zone_cells, zone_members tables exist after migration", () => {
   expect(names).toContain("zones");
   expect(names).toContain("zone_cells");
   expect(names).toContain("zone_members");
-  db.close();
 });
