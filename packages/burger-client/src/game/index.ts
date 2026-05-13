@@ -53,6 +53,9 @@ import {
   type CatalogEntry,
 } from "./editor";
 import {
+  beginZoneStroke,
+  endZoneStroke,
+  extendZoneStroke,
   initZonesGame,
   setZonesActive,
   setZonesData,
@@ -844,6 +847,103 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
             }
           });
           teardownCallbacks.push(unsubscribeZones);
+
+          // Zone-paint mouse handlers. Same canvas → world-cell-center math
+          // as the editor's tile-paint (see editor.ts), but writes into a
+          // stroke accumulator and flushes on mouseup via Eden Treaty PUT.
+          // Tile-paint is forced off whenever zones.active is true (mutual
+          // exclusion is handled in editor.ts's `z` key handler), so the
+          // existing editor handlers safely early-return in zone mode.
+          const canvasToCellCenter = (
+            e: MouseEvent,
+          ): { x: number; y: number } | null => {
+            const rect = context.app.canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            // Bail when a DOM overlay (taskbar, window) is on top of the
+            // pointer — same gate the tile-paint handlers use to avoid
+            // painting through windows.
+            const topmost = document.elementFromPoint(e.clientX, e.clientY);
+            if (topmost !== context.app.canvas) return null;
+            const worldX =
+              (mouseX - context.app.screen.width / 2) / ZOOM + context.camera.x;
+            const worldY =
+              (mouseY - context.app.screen.height / 2) / ZOOM +
+              context.camera.y;
+            const halfTile = TILE_SIZE / 2;
+            return {
+              x: Math.floor(worldX / TILE_SIZE) * TILE_SIZE + halfTile,
+              y: Math.floor(worldY / TILE_SIZE) * TILE_SIZE + halfTile,
+            };
+          };
+
+          const onZoneMouseDown = (e: MouseEvent) => {
+            const zones = context.zones;
+            if (!zones.active) return;
+            if (zones.selectedZoneId === null) return;
+            const cell = canvasToCellCenter(e);
+            if (!cell) return;
+            e.preventDefault();
+            const button = e.button === 2 ? "right" : "left";
+            beginZoneStroke(zones, button);
+            extendZoneStroke(zones, cell.x, cell.y);
+          };
+
+          const onZoneMouseMove = (e: MouseEvent) => {
+            const zones = context.zones;
+            if (!zones.active || !zones.isDragging) return;
+            const cell = canvasToCellCenter(e);
+            if (!cell) return;
+            extendZoneStroke(zones, cell.x, cell.y);
+          };
+
+          // mouseup on window (not canvas) so a drag that ends off-canvas
+          // still flushes the stroke. Matches the tile-paint convention in
+          // editor.ts.
+          const onZoneMouseUp = () => {
+            const zones = context.zones;
+            if (!zones.active || !zones.isDragging) return;
+            if (zones.selectedZoneId !== null) {
+              endZoneStroke(zones, zones.selectedZoneId).catch(
+                (err: unknown) => {
+                  console.error("endZoneStroke failed", err);
+                },
+              );
+            } else {
+              // Lost the selection mid-drag — drop the pending sets so
+              // they don't leak into the next stroke.
+              zones.isDragging = false;
+              zones.dragButton = null;
+              zones.pendingAdd.clear();
+              zones.pendingRemove.clear();
+            }
+          };
+
+          // Right-click in zone-paint mode is the "remove" gesture — block
+          // the browser's context menu so it doesn't pop on every cell.
+          const onZoneContextMenu = (e: MouseEvent) => {
+            if (context.zones.active) e.preventDefault();
+          };
+
+          context.app.canvas.addEventListener("mousedown", onZoneMouseDown);
+          context.app.canvas.addEventListener("mousemove", onZoneMouseMove);
+          window.addEventListener("mouseup", onZoneMouseUp);
+          context.app.canvas.addEventListener("contextmenu", onZoneContextMenu);
+          teardownCallbacks.push(() => {
+            context.app.canvas.removeEventListener(
+              "mousedown",
+              onZoneMouseDown,
+            );
+            context.app.canvas.removeEventListener(
+              "mousemove",
+              onZoneMouseMove,
+            );
+            window.removeEventListener("mouseup", onZoneMouseUp);
+            context.app.canvas.removeEventListener(
+              "contextmenu",
+              onZoneContextMenu,
+            );
+          });
         }
       },
       onSnapshotReceived: () => {

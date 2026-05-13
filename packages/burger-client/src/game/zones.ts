@@ -1,11 +1,22 @@
 import { Container, Graphics } from "pixi.js";
 import { TILE_SIZE } from "burger-shared";
+import { eden } from "../eden";
 
 export type ZonesGameState = {
   active: boolean;
   selectedZoneId: number | null;
   cellsByZone: Map<number, [number, number][]>;
   overlay: Graphics;
+  // Stroke accumulator. Mouse-down + drag fills these sets with the
+  // cell-center keys `"x,y"` the user has touched this stroke; mouse-up
+  // flushes them to the server via PUT /api/zones/:id/cells. Left-click
+  // adds, right-click removes. Kept on local state (not the React store)
+  // because the redraw path is driven by the WS `ZONES_UPDATED` echo, not
+  // by optimistic local updates.
+  pendingAdd: Set<string>;
+  pendingRemove: Set<string>;
+  isDragging: boolean;
+  dragButton: "left" | "right" | null;
 };
 
 // Golden-angle hue spread so even adjacent zone ids get visually distinct
@@ -45,7 +56,63 @@ export const initZonesGame = (parent: Container): ZonesGameState => {
     selectedZoneId: null,
     cellsByZone: new Map(),
     overlay,
+    pendingAdd: new Set(),
+    pendingRemove: new Set(),
+    isDragging: false,
+    dragButton: null,
   };
+};
+
+// Start a fresh stroke. Caller is responsible for checking
+// `state.active` and `state.selectedZoneId !== null` first.
+export const beginZoneStroke = (
+  state: ZonesGameState,
+  button: "left" | "right",
+): void => {
+  state.isDragging = true;
+  state.dragButton = button;
+  state.pendingAdd.clear();
+  state.pendingRemove.clear();
+};
+
+// Push a cell-center coordinate into the appropriate pending set for the
+// current stroke. (x, y) must already be snapped to the cell center —
+// `${x},${y}` is used as the dedup key. No-op when not dragging.
+export const extendZoneStroke = (
+  state: ZonesGameState,
+  x: number,
+  y: number,
+): void => {
+  if (!state.isDragging || state.dragButton === null) return;
+  const key = `${x},${y}`;
+  if (state.dragButton === "left") state.pendingAdd.add(key);
+  else state.pendingRemove.add(key);
+};
+
+// Finish the stroke: build add/remove arrays and PUT them. Server will
+// broadcast `ZONES_UPDATED`, which triggers `refetchZones` and ultimately
+// `setZoneCells` → the overlay redraw. No local optimistic update.
+export const endZoneStroke = async (
+  state: ZonesGameState,
+  zoneId: number,
+): Promise<void> => {
+  state.isDragging = false;
+  state.dragButton = null;
+  const add = [...state.pendingAdd].map(
+    (k) => k.split(",").map(Number) as [number, number],
+  );
+  const remove = [...state.pendingRemove].map(
+    (k) => k.split(",").map(Number) as [number, number],
+  );
+  state.pendingAdd.clear();
+  state.pendingRemove.clear();
+  if (add.length === 0 && remove.length === 0) return;
+  const { error } = await eden.api
+    .zones({ id: zoneId })
+    .cells.put({ add, remove });
+  if (error) {
+    console.error("zone cells PUT failed", error);
+  }
 };
 
 export const setZonesActive = (
