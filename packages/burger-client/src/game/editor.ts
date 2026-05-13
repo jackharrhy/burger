@@ -52,6 +52,10 @@ export type EditorState = {
   isPainting: boolean;
   paintErase: boolean;
   lastPaintedKey: string | null;
+  // Per-cell paint permission check. Captured from InitEditorOptions at init
+  // time so updateEditor can tint the cursor red over forbidden cells without
+  // needing access to opts. Defaults to () => true (admin-equivalent).
+  getCanPaintCell: (key: string) => boolean;
 };
 
 const SLOT_SIZE = 40;
@@ -162,6 +166,12 @@ export type PaintMode = "tile" | "zone" | "none";
 
 export type InitEditorOptions = {
   onTogglePaintMode?: (mode: PaintMode) => void;
+  // Called when the user tries to enter paint mode. If returns false, entry
+  // is blocked silently. Defaults to "always allow" if omitted.
+  getCanEnterPaintMode?: () => boolean;
+  // Called per cursor cell to decide cursor tint. If returns false, cursor
+  // shows red tint + red outline. Defaults to "always allow" if omitted.
+  getCanPaintCell?: (key: string) => boolean;
 };
 
 export const initEditor = (
@@ -192,6 +202,7 @@ export const initEditor = (
     isPainting: false,
     paintErase: false,
     lastPaintedKey: null,
+    getCanPaintCell: opts.getCanPaintCell ?? (() => true),
   };
 
   // Cursor preview lives inside the world (mainContainer) so it shows at
@@ -239,9 +250,28 @@ export const initEditor = (
       return;
     }
 
+    if (e.key === "Escape" && state.active) {
+      e.preventDefault();
+      state.active = false;
+      palette.visible = false;
+      if (state.cursorSprite && state.cursorOutline) {
+        state.cursorSprite.visible = false;
+        state.cursorOutline.visible = false;
+      }
+      useGameStore.getState().setEditorActive(false);
+      opts.onTogglePaintMode?.("none");
+      return;
+    }
+
     if (e.key === "e" || e.key === "Tab") {
       e.preventDefault();
-      state.active = !state.active;
+      const goingActive = !state.active;
+      // Gate entry on the caller's permission check (non-admin without zones,
+      // etc). Silently no-op when blocked. Exit is always allowed.
+      if (goingActive && opts.getCanEnterPaintMode?.() === false) {
+        return;
+      }
+      state.active = goingActive;
       palette.visible = state.active;
       if (!state.active && state.cursorSprite && state.cursorOutline) {
         state.cursorSprite.visible = false;
@@ -407,6 +437,14 @@ export const updateEditor = (
   state.cursorSprite.y = state.cursorY;
   state.cursorSprite.visible = true;
 
+  // Visual feedback for non-admin paint mode: red tint + red outline over
+  // cells the user can't paint. Admins (and the default no-op check) always
+  // see the standard white cursor.
+  const key = `${state.cursorX},${state.cursorY}`;
+  const allowed = state.getCanPaintCell(key);
+  const color = allowed ? 0xffffff : 0xff4040;
+  state.cursorSprite.tint = color;
+
   // Outline is a top-left-anchored rect; offset back by half a tile so it
   // surrounds the cell that the cursor sprite occupies.
   const halfTile = TILE_SIZE / 2;
@@ -418,6 +456,6 @@ export const updateEditor = (
       TILE_SIZE,
       TILE_SIZE,
     )
-    .stroke({ color: 0xffffff, width: 1 });
+    .stroke({ color, width: 1 });
   state.cursorOutline.visible = true;
 };
