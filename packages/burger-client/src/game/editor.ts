@@ -9,6 +9,23 @@ import { TILE_SIZE } from "burger-shared";
 import { sendPaint, type NetworkState } from "./network";
 import { useGameStore } from "../store";
 
+export const canEnterPaintMode = (
+  user: { isAdmin: boolean },
+  myZoneCells: Set<string>,
+): boolean => {
+  if (user.isAdmin) return true;
+  return myZoneCells.size > 0;
+};
+
+export const canPaintCell = (
+  user: { isAdmin: boolean },
+  myZoneCells: Set<string>,
+  key: string,
+): boolean => {
+  if (user.isAdmin) return true;
+  return myZoneCells.has(key);
+};
+
 export type CatalogEntry = {
   id: number;
   type: string;
