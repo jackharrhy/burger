@@ -8,6 +8,7 @@ import DebugWindow from "./DebugWindow";
 import SpawnWindow from "./SpawnWindow";
 import BotsWindow from "./BotsWindow";
 import ZonesWindow from "./ZonesWindow";
+import TilePickerWindow from "./TilePickerWindow";
 
 // Window IDs are stable strings; treat them like keys in the store.
 export const WINDOW_DEBUG = "debug";
@@ -15,6 +16,7 @@ export const WINDOW_ATLAS = "atlas";
 export const WINDOW_SPAWN = "spawn";
 export const WINDOW_BOTS = "bots";
 export const WINDOW_ZONES = "zones";
+export const WINDOW_TILE_PICKER = "tile-picker";
 
 const showDebug = import.meta.env.DEV;
 
@@ -72,12 +74,25 @@ const WindowManager = () => {
         open: false,
       });
     }
+    // Tile picker is available to admins (taskbar) and non-admins (HUD button
+    // in Task 7), so it registers unconditionally for any authenticated user.
+    registerWindow(WINDOW_TILE_PICKER, {
+      title: "Palette",
+      x: 60,
+      y: 100,
+      w: 380,
+      h: 480,
+      open: false,
+    });
   }, [isAdmin, registerWindow]);
 
-  // Fetch the user's curated palette once they're confirmed admin. The pixi
-  // editor watches the store and rebuilds slots when this lands.
+  // Fetch the user's curated palette once they're authenticated. The pixi
+  // editor watches the store and rebuilds slots when this lands; the
+  // TilePickerWindow uses it to render the "in palette" yellow border.
+  // Non-admins are now allowed since palette endpoints were widened in
+  // burger-server.
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!user) return;
     let cancelled = false;
     void (async () => {
       const { data, error } = await eden.api.palette.get();
@@ -91,7 +106,7 @@ const WindowManager = () => {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, setPalette]);
+  }, [user, setPalette]);
 
   // `~` toggles the debug window (dev only).
   useEffect(() => {
@@ -112,7 +127,13 @@ const WindowManager = () => {
   // Admin taskbar shows admin tools; the debug window is opt-in via the
   // `~` hotkey only and not exposed in the taskbar.
   const taskbarIds = isAdmin
-    ? [WINDOW_ATLAS, WINDOW_SPAWN, WINDOW_BOTS, WINDOW_ZONES]
+    ? [
+        WINDOW_ATLAS,
+        WINDOW_SPAWN,
+        WINDOW_BOTS,
+        WINDOW_ZONES,
+        WINDOW_TILE_PICKER,
+      ]
     : [];
 
   return (
@@ -137,6 +158,11 @@ const WindowManager = () => {
             <ZonesWindow />
           </Window>
         </>
+      )}
+      {user && (
+        <Window id={WINDOW_TILE_PICKER}>
+          <TilePickerWindow />
+        </Window>
       )}
       <Taskbar ids={taskbarIds} />
     </>
