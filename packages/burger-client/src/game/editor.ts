@@ -408,6 +408,25 @@ export const initEditor = (
   return state;
 };
 
+// Programmatic exit from paint mode. Mirrors what the Escape key handler
+// does to the editor's visible state, but skips the keyboard plumbing —
+// used by `index.ts` to auto-exit non-admins when their last zone cell
+// disappears. The caller is responsible for updating the React store (via
+// `setEditorActive(false)`) and any external overlays it owns (perimeter,
+// zones, etc).
+export const exitPaintMode = (state: EditorState): void => {
+  state.active = false;
+  if (state.paletteContainer) {
+    state.paletteContainer.visible = false;
+  }
+  if (state.cursorSprite) {
+    state.cursorSprite.visible = false;
+  }
+  if (state.cursorOutline) {
+    state.cursorOutline.visible = false;
+  }
+};
+
 export const updateEditor = (
   state: EditorState,
   textures: Record<number, Texture>,

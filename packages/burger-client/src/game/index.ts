@@ -46,6 +46,9 @@ import {
 import debugFactory from "debug";
 import type { Me } from "../types";
 import {
+  canEnterPaintMode,
+  canPaintCell,
+  exitPaintMode,
   initEditor,
   setPalette as setEditorPalette,
   updateEditor,
@@ -61,6 +64,12 @@ import {
   setZonesData,
   type ZonesGameState,
 } from "./zones";
+import {
+  initPerimeter,
+  setPerimeterCells,
+  setPerimeterVisible,
+  type PerimeterState,
+} from "./zones-perimeter";
 import { useGameStore } from "../store";
 
 const debug = debugFactory("burger:client");
@@ -137,6 +146,7 @@ type Context = {
   user: Me;
   editor: EditorState | null;
   zones: ZonesGameState;
+  perimeter: PerimeterState;
 };
 
 declare global {
@@ -684,6 +694,13 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
     // tile sprites at every zoom level.
     const zones = initZonesGame(mainContainer);
 
+    // Perimeter outline overlay for non-admin paint mode. Parented to
+    // mainContainer (world-space) so the yellow outline lines up with tile
+    // sprites under camera pan/zoom. Hidden by default; toggled on when the
+    // user enters tile-paint mode and back off when they leave (or lose
+    // their zone membership).
+    const perimeter = initPerimeter(mainContainer);
+
     const context: Context = {
       world,
       app,
@@ -750,6 +767,7 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
       user,
       editor: null,
       zones,
+      perimeter,
     };
 
     setupPlayerObserver(context);
@@ -790,40 +808,90 @@ export const startGame = (parent: HTMLElement, user: Me): (() => void) => {
           };
         }
 
-        if (context.user.isAdmin) {
-          context.editor = initEditor(
-            context.app,
-            context.assets.catalog,
-            context.assets.tiles,
-            context.network,
-            context.containers.main,
-            () => context.camera,
-            () => ZOOM,
-            useGameStore.getState().palette,
-            {
-              onTogglePaintMode: (mode) => {
+        // Editor is universal — every user (admin + non-admin) gets the
+        // paint editor. Non-admins are gated per-zone via getCanEnterPaintMode
+        // and getCanPaintCell, both wired to the store's `myZoneCells` slice.
+        context.editor = initEditor(
+          context.app,
+          context.assets.catalog,
+          context.assets.tiles,
+          context.network,
+          context.containers.main,
+          () => context.camera,
+          () => ZOOM,
+          useGameStore.getState().palette,
+          {
+            onTogglePaintMode: (mode) => {
+              if (context.user.isAdmin) {
+                // Admin: the `z` key flips between tile-paint and zone-paint;
+                // the zone-fill overlay shows while zone-paint is active.
                 setZonesActive(context.zones, mode === "zone");
-              },
+              } else {
+                // Non-admin: show the perimeter outline whenever tile-paint
+                // is active; hide it on exit (also doubles for `Escape`,
+                // which calls back with mode === "none").
+                setPerimeterVisible(perimeter, mode === "tile");
+              }
             },
-          );
-          useGameStore.getState().setEditor({
-            active: false,
-            selectedTileId: context.editor.selectedTileId,
-          });
+            getCanEnterPaintMode: () =>
+              canEnterPaintMode(
+                context.user,
+                useGameStore.getState().zones.myZoneCells,
+              ),
+            getCanPaintCell: (key: string) =>
+              canPaintCell(
+                context.user,
+                useGameStore.getState().zones.myZoneCells,
+                key,
+              ),
+          },
+        );
+        useGameStore.getState().setEditor({
+          active: false,
+          selectedTileId: context.editor.selectedTileId,
+        });
 
-          // Rebuild the editor's slot UI whenever the user's palette changes
-          // (e.g. they right-clicked a cell in the atlas window). zustand's
-          // subscribe runs on every store change; the prev/curr comparison
-          // makes this a no-op for unrelated state changes.
-          let lastPalette = useGameStore.getState().palette;
-          const unsubscribePalette = useGameStore.subscribe((s) => {
-            if (s.palette !== lastPalette && context.editor) {
-              lastPalette = s.palette;
-              setEditorPalette(context.editor, s.palette, context.assets.tiles);
-            }
-          });
-          teardownCallbacks.push(unsubscribePalette);
+        // Palette subscription is universal: both admins and non-admins curate
+        // a palette via the Tile Picker, and the pixi editor's slot strip
+        // needs to redraw on changes. zustand's subscribe runs on every store
+        // change; the prev/curr comparison makes this a no-op for unrelated
+        // state changes.
+        let lastPalette = useGameStore.getState().palette;
+        const unsubscribePalette = useGameStore.subscribe((s) => {
+          if (s.palette !== lastPalette && context.editor) {
+            lastPalette = s.palette;
+            setEditorPalette(context.editor, s.palette, context.assets.tiles);
+          }
+        });
+        teardownCallbacks.push(unsubscribePalette);
 
+        // Perimeter overlay: prime from the current store state, then
+        // subscribe to keep it in sync with `myZoneCells`. Auto-exits
+        // non-admin paint mode when the user loses their last zone cell.
+        setPerimeterCells(perimeter, useGameStore.getState().zones.myZoneCells);
+        let lastMyCells = useGameStore.getState().zones.myZoneCells;
+        const unsubscribeMyZones = useGameStore.subscribe((s) => {
+          const next = s.zones.myZoneCells;
+          if (next === lastMyCells) return;
+          lastMyCells = next;
+          setPerimeterCells(perimeter, next);
+          // Auto-exit paint mode when a non-admin loses their last zone cell
+          // mid-session (admin un-assigned them). Admins are never auto-
+          // exited; their entry isn't gated on zone membership.
+          if (
+            !context.user.isAdmin &&
+            next.size === 0 &&
+            context.editor &&
+            context.editor.active
+          ) {
+            exitPaintMode(context.editor);
+            useGameStore.getState().setEditorActive(false);
+            setPerimeterVisible(perimeter, false);
+          }
+        });
+        teardownCallbacks.push(unsubscribeMyZones);
+
+        if (context.user.isAdmin) {
           // Mirror the zones slice into the pixi overlay state. The
           // overlay is created up-front but only redraws when the
           // current data or selection changes (or when admin enters
