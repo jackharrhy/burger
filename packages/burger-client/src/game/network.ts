@@ -55,6 +55,7 @@ import {
 } from "bitecs/serialization";
 import debugFactory from "debug";
 import { INTERP_HISTORY_MS, TELEPORT_THRESHOLD } from "./consts";
+import { refetchZones, useGameStore } from "../store";
 import type { World } from "./";
 
 const debug = debugFactory("burger:network.client");
@@ -201,6 +202,29 @@ export const setupSocket = ({
             label: string;
           }>;
           network.onCatalogUpdated?.(catalog);
+          break;
+        }
+
+        case MESSAGE_TYPES.ZONES_UPDATED: {
+          // Admin-only signal. The server only broadcasts this to admin
+          // connections, so no extra client-side gate is needed here.
+          // Errors are swallowed so a transient fetch failure doesn't crash
+          // the WS handler — the next ZONES_UPDATED retries.
+          debug("zones_updated received");
+          refetchZones().catch((err: unknown) => {
+            console.error("refetchZones failed", err);
+          });
+          break;
+        }
+
+        case MESSAGE_TYPES.MY_ZONES: {
+          // Per-user payload: the flat union of cells the user is allowed
+          // to paint. Sent on connect (non-admins) and whenever their
+          // membership or any of their zones' cells change.
+          const decoder = new TextDecoder();
+          const json = decoder.decode(payload);
+          const parsed = JSON.parse(json) as { cells: [number, number][] };
+          useGameStore.getState().setMyZoneCells(parsed.cells);
           break;
         }
       }
