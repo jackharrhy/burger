@@ -35,6 +35,7 @@ import { validateInput } from "./input-validation";
 import { validatePaint } from "./paint-validation";
 import { applyPaint } from "./paint";
 import { buildApp, type AppDeps } from "./app";
+import { canPaint } from "./zones";
 
 const debug = debugFactory("burger:network.server");
 
@@ -57,6 +58,9 @@ type WS = ServerWebSocket<{
 
 const playerConnections = new Map<WS, PlayerConnection>();
 const observerSerializers = new Map<WS, () => ArrayBuffer>();
+// Reverse lookup so zone broadcasts can target a specific user without
+// scanning every connection. Populated on register, cleared on unregister.
+const userIdToWs = new Map<string, WS>();
 
 let snapshotSerializer: () => ArrayBuffer;
 let soaSerializer: (eids: readonly number[]) => ArrayBuffer;
@@ -118,9 +122,12 @@ export const registerConnection = (
     lastReceivedSeq: -1,
     paintsThisTick: 0,
   });
+  userIdToWs.set(fields.userId, ws);
 };
 
 export const unregisterConnection = (ws: WS): void => {
+  const conn = playerConnections.get(ws);
+  if (conn) userIdToWs.delete(conn.userId);
   playerConnections.delete(ws);
   observerSerializers.delete(ws);
 };
@@ -165,10 +172,13 @@ const handlePaintMessage = (
   connection: PlayerConnection,
   data: unknown,
 ): void => {
-  if (!connection.isAdmin) return;
   if (connection.paintsThisTick >= MAX_PAINTS_PER_TICK) return;
   const cmd = validatePaint(data, world, world.catalogIds);
   if (!cmd) return;
+  if (!canPaint(world, connection.userId, cmd.x, cmd.y, connection.isAdmin)) {
+    debug("paint_denied user=%s x=%d y=%d", connection.userId, cmd.x, cmd.y);
+    return;
+  }
   connection.paintsThisTick++;
   applyPaint(world, db, cmd, connection.userId);
 };
@@ -227,6 +237,41 @@ export const broadcastCatalogUpdated = (
     ws.sendBinary(tagged);
   }
   debug("catalog_updated broadcast: %d entries", catalog.length);
+};
+
+// Broadcasts a single-byte ZONES_UPDATED to every connected admin. The
+// payload is empty — admin clients are expected to refetch the zones list
+// + all-cells endpoint themselves. Non-admins never receive this tag.
+export const broadcastZonesUpdated = (): void => {
+  if (playerConnections.size === 0) return;
+  const tagged = new Uint8Array(1);
+  tagged[0] = MESSAGE_TYPES.ZONES_UPDATED;
+  let count = 0;
+  for (const [ws, conn] of playerConnections) {
+    if (!conn.isAdmin) continue;
+    ws.sendBinary(tagged);
+    count++;
+  }
+  debug("zones_updated broadcast to %d admins", count);
+};
+
+// Sends a MY_ZONES payload to one non-admin user, if connected. Payload
+// is { cells: [[x, y], ...] } as JSON. Admins are skipped — they get the
+// full zones list via broadcastZonesUpdated() instead.
+export const sendMyZonesTo = (
+  userId: string,
+  cells: [number, number][],
+): void => {
+  const ws = userIdToWs.get(userId);
+  if (!ws) return;
+  const conn = playerConnections.get(ws);
+  if (!conn || conn.isAdmin) return;
+  const json = JSON.stringify({ cells });
+  const payload = textEncoder.encode(json);
+  const tagged = new Uint8Array(payload.byteLength + 1);
+  tagged[0] = MESSAGE_TYPES.MY_ZONES;
+  tagged.set(payload, 1);
+  ws.sendBinary(tagged);
 };
 
 export const broadcastGameState = ({

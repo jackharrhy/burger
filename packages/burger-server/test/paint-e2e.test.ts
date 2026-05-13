@@ -216,6 +216,85 @@ test("admin paint with bad tileId rejected", async () => {
   await sleep(50);
 });
 
+test("non-admin paint inside a zone they belong to succeeds", async () => {
+  const sess = setupSession(db, false);
+  db.run("INSERT INTO zones (id, name, created_at) VALUES (10, 'z', 0)");
+  db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (10, ?, ?)", [
+    A_X,
+    A_Y,
+  ]);
+  db.run(
+    "INSERT INTO zone_members (zone_id, user_id, added_at) VALUES (10, 'user1', 0)",
+  );
+  // canPaint reads from world.zones / cellToZone, so we mirror our DB writes
+  // there. There's no runtime reload helper (loadZones runs only at initWorld).
+  world.zones.set(10, {
+    id: 10,
+    name: "z",
+    cells: new Set([`${A_X},${A_Y}`]),
+    members: new Set(["user1"]),
+  });
+  world.cellToZone.set(`${A_X},${A_Y}`, 10);
+
+  const ws = await connect(port, sess);
+  await sleep(50);
+  ws.send(JSON.stringify({ type: "paint", x: A_X, y: A_Y, tileId: 3 }));
+  await sleep(50);
+  const tile = db
+    .query("SELECT tile_id FROM tiles WHERE x = ? AND y = ?")
+    .get(A_X, A_Y) as { tile_id: number } | null;
+  expect(tile?.tile_id).toBe(3);
+  ws.close();
+  await sleep(50);
+});
+
+test("non-admin paint outside any zone is rejected", async () => {
+  const sess = setupSession(db, false);
+  const ws = await connect(port, sess);
+  await sleep(50);
+  ws.send(JSON.stringify({ type: "paint", x: A_X, y: A_Y, tileId: 3 }));
+  await sleep(50);
+  const tile = db
+    .query("SELECT * FROM tiles WHERE x = ? AND y = ?")
+    .get(A_X, A_Y);
+  expect(tile).toBeNull();
+  ws.close();
+  await sleep(50);
+});
+
+test("non-admin paint inside another user's zone is rejected", async () => {
+  const sess = setupSession(db, false);
+  db.run("INSERT INTO zones (id, name, created_at) VALUES (11, 'z', 0)");
+  db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (11, ?, ?)", [
+    A_X,
+    A_Y,
+  ]);
+  db.run(
+    "INSERT INTO users (id, fourm_id, username, display_name, is_admin, created_at) VALUES ('bob', 'fid-bob', 'bob', 'bob', 0, 0)",
+  );
+  db.run(
+    "INSERT INTO zone_members (zone_id, user_id, added_at) VALUES (11, 'bob', 0)",
+  );
+  world.zones.set(11, {
+    id: 11,
+    name: "z",
+    cells: new Set([`${A_X},${A_Y}`]),
+    members: new Set(["bob"]),
+  });
+  world.cellToZone.set(`${A_X},${A_Y}`, 11);
+
+  const ws = await connect(port, sess);
+  await sleep(50);
+  ws.send(JSON.stringify({ type: "paint", x: A_X, y: A_Y, tileId: 3 }));
+  await sleep(50);
+  const tile = db
+    .query("SELECT * FROM tiles WHERE x = ? AND y = ?")
+    .get(A_X, A_Y);
+  expect(tile).toBeNull();
+  ws.close();
+  await sleep(50);
+});
+
 test("rate limit: more than MAX_PAINTS_PER_TICK in one batch landed only N", async () => {
   const sess = setupSession(db, true);
   const ws = await connect(port, sess);

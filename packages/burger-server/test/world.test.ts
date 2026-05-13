@@ -239,3 +239,51 @@ test("reconcileTileSolidity is a no-op when types haven't changed", () => {
   // Both still have Tile.
   expect(query(world, [Position, Tile])).toHaveLength(2);
 });
+
+test("zones, zone_cells, zone_members tables exist after migration", () => {
+  const db = setupDb();
+  const tables = db
+    .query("SELECT name FROM sqlite_master WHERE type='table'")
+    .all() as { name: string }[];
+  const names = tables.map((t) => t.name);
+  expect(names).toContain("zones");
+  expect(names).toContain("zone_cells");
+  expect(names).toContain("zone_members");
+});
+
+test("initWorld populates empty zones and cellToZone when DB has no rows", () => {
+  const db = setupDb();
+  const world = initWorld(db);
+  expect(world.zones).toBeInstanceOf(Map);
+  expect(world.zones.size).toBe(0);
+  expect(world.cellToZone).toBeInstanceOf(Map);
+  expect(world.cellToZone.size).toBe(0);
+});
+
+test("initWorld loads zone rows into world.zones and world.cellToZone", () => {
+  const db = setupDb();
+  db.run("INSERT INTO zones (id, name, created_at) VALUES (1, 'kitchen', 0)");
+  db.run("INSERT INTO zones (id, name, created_at) VALUES (2, 'bar', 0)");
+  db.run(
+    "INSERT INTO users (id, fourm_id, username, is_admin, created_at) VALUES ('u1', 'fid-u1', 'u1', 0, 0)",
+  );
+  db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (1, 16, 16)");
+  db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (1, 48, 16)");
+  db.run("INSERT INTO zone_cells (zone_id, x, y) VALUES (2, 80, 16)");
+  db.run(
+    "INSERT INTO zone_members (zone_id, user_id, added_at) VALUES (1, 'u1', 0)",
+  );
+
+  const world = initWorld(db);
+
+  expect(world.zones.size).toBe(2);
+  const kitchen = world.zones.get(1)!;
+  expect(kitchen.name).toBe("kitchen");
+  expect(kitchen.cells.has("16,16")).toBe(true);
+  expect(kitchen.cells.has("48,16")).toBe(true);
+  expect(kitchen.members.has("u1")).toBe(true);
+
+  expect(world.cellToZone.get("16,16")).toBe(1);
+  expect(world.cellToZone.get("48,16")).toBe(1);
+  expect(world.cellToZone.get("80,16")).toBe(2);
+});

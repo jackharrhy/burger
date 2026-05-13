@@ -74,6 +74,36 @@ export const runMigrations = (db: Database): void => {
       updated_at INTEGER NOT NULL
     )
   `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS zones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      created_at INTEGER NOT NULL
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS zone_cells (
+      zone_id INTEGER NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+      x INTEGER NOT NULL,
+      y INTEGER NOT NULL,
+      PRIMARY KEY (zone_id, x, y)
+    )
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS zone_cells_xy ON zone_cells(x, y)`);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS zone_members (
+      zone_id INTEGER NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      added_at INTEGER NOT NULL,
+      PRIMARY KEY (zone_id, user_id)
+    )
+  `);
+  db.run(
+    `CREATE INDEX IF NOT EXISTS zone_members_user ON zone_members(user_id)`,
+  );
 };
 
 export const openDatabase = (path?: string): Database => {

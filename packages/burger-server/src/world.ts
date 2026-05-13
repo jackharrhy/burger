@@ -3,6 +3,7 @@ import { addComponent, addEntity, hasComponent, removeComponent } from "bitecs";
 import type { Database } from "bun:sqlite";
 import { createSharedWorld, TILE_SIZE } from "burger-shared";
 import atlas from "../atlas.toml";
+import { loadZones, type ZoneRuntime } from "./zones";
 
 export type CatalogEntry = {
   id: number;
@@ -24,6 +25,8 @@ export type WorldExtras = {
   spawnZone: { x: number; y: number; w: number; h: number };
   typeIdToAtlasSrc: Record<number, [number, number]>;
   atlasInfo: { width: number; height: number; version: string };
+  zones: Map<number, ZoneRuntime>;
+  cellToZone: Map<string, number>;
 };
 
 // Try a couple of well-known locations for atlas.png and hash whichever we
@@ -222,6 +225,8 @@ export const initWorld = (db: Database) => {
     typeIdToAtlasSrc[id] = [entry.src_x, entry.src_y];
   }
 
+  const zonesState = loadZones(db);
+
   const world = createSharedWorld<WorldExtras>({
     catalog,
     catalogIds: new Set(catalog.keys()),
@@ -229,6 +234,8 @@ export const initWorld = (db: Database) => {
     spawnZone,
     typeIdToAtlasSrc,
     atlasInfo: tomlAtlasInfo,
+    zones: zonesState.zones,
+    cellToZone: zonesState.cellToZone,
   });
 
   world.bounds = {
