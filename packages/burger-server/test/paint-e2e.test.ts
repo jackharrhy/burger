@@ -226,7 +226,8 @@ test("non-admin paint inside a zone they belong to succeeds", async () => {
   db.run(
     "INSERT INTO zone_members (zone_id, user_id, added_at) VALUES (10, 'user1', 0)",
   );
-  // Reload world.zones / cellToZone since we wrote directly. Simplest: rehydrate.
+  // canPaint reads from world.zones / cellToZone, so we mirror our DB writes
+  // there. There's no runtime reload helper (loadZones runs only at initWorld).
   world.zones.set(10, {
     id: 10,
     name: "z",
