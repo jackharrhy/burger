@@ -76,6 +76,13 @@ import { renameCatalogId } from "./catalog-rename";
 import { validateSpawn } from "./spawn-validation";
 import { resetAiPlayers, getAiEntities } from "./ai";
 import { getPalette, setPalette, validatePaletteIds } from "./palette";
+import {
+  createZone,
+  renameZone,
+  deleteZone,
+  mutateZoneCells,
+  setZoneMembers,
+} from "./zone-mutations";
 
 export type AppDeps = {
   world: World;
@@ -100,6 +107,17 @@ export const buildApp = (deps: AppDeps) => {
     if (!user || !user.isAdmin) return { ok: false };
     return { ok: true, userId: user.id };
   };
+
+  const zonesList = () => {
+    return [...world.zones.values()].map((z) => ({
+      id: z.id,
+      name: z.name,
+      member_user_ids: [...z.members],
+      cell_count: z.cells.size,
+    }));
+  };
+
+  const zonesState = { zones: world.zones, cellToZone: world.cellToZone };
 
   const indexExists = existsSync("./public/index.html");
 
@@ -374,6 +392,131 @@ export const buildApp = (deps: AppDeps) => {
           body: t.Object({ ids: t.Array(t.Number()) }),
         },
       )
+      .get("/api/zones", ({ headers, set }) => {
+        const auth = requireAdmin(headers.cookie ?? null);
+        if (!auth.ok) {
+          set.status = 403;
+          return { ok: false };
+        }
+        return { zones: zonesList() };
+      })
+      .post("/api/zones", ({ body, headers, set }) => {
+        const auth = requireAdmin(headers.cookie ?? null);
+        if (!auth.ok) {
+          set.status = 403;
+          return { ok: false };
+        }
+        const name = (body as { name?: unknown })?.name;
+        const r = createZone(db, zonesState, name);
+        if (!r.ok) {
+          set.status = r.error === "name_taken" ? 409 : 400;
+          return { ok: false, error: r.error };
+        }
+        return { id: r.id, name: r.name };
+      })
+      .patch("/api/zones/:id", ({ params, body, headers, set }) => {
+        const auth = requireAdmin(headers.cookie ?? null);
+        if (!auth.ok) {
+          set.status = 403;
+          return { ok: false };
+        }
+        const id = Number(params.id);
+        const name = (body as { name?: unknown })?.name;
+        const r = renameZone(db, zonesState, id, name);
+        if (!r.ok) {
+          set.status =
+            r.error === "name_taken"
+              ? 409
+              : r.error === "not_found"
+                ? 404
+                : 400;
+          return { ok: false, error: r.error };
+        }
+        return { id: r.id, name: r.name };
+      })
+      .delete("/api/zones/:id", ({ params, headers, set }) => {
+        const auth = requireAdmin(headers.cookie ?? null);
+        if (!auth.ok) {
+          set.status = 403;
+          return { ok: false };
+        }
+        const id = Number(params.id);
+        const r = deleteZone(db, zonesState, id);
+        if (!r.ok) {
+          set.status = 404;
+          return { ok: false, error: r.error };
+        }
+        return { ok: true };
+      })
+      .put("/api/zones/:id/cells", ({ params, body, headers, set }) => {
+        const auth = requireAdmin(headers.cookie ?? null);
+        if (!auth.ok) {
+          set.status = 403;
+          return { ok: false };
+        }
+        const id = Number(params.id);
+        const b = body as { add?: unknown; remove?: unknown };
+        const r = mutateZoneCells(
+          db,
+          zonesState,
+          id,
+          { add: b?.add, remove: b?.remove },
+          world.bounds,
+        );
+        if (!r.ok) {
+          set.status = 404;
+          return { ok: false, error: r.error };
+        }
+        return {
+          added: r.added,
+          removed: r.removed,
+          dropped: r.dropped,
+        };
+      })
+      .put("/api/zones/:id/members", ({ params, body, headers, set }) => {
+        const auth = requireAdmin(headers.cookie ?? null);
+        if (!auth.ok) {
+          set.status = 403;
+          return { ok: false };
+        }
+        const id = Number(params.id);
+        const user_ids = (body as { user_ids?: unknown })?.user_ids;
+        const r = setZoneMembers(db, zonesState, id, user_ids);
+        if (!r.ok) {
+          set.status = 404;
+          return { ok: false, error: r.error };
+        }
+        return {
+          member_user_ids: r.memberUserIds,
+          dropped: r.dropped,
+        };
+      })
+      .get("/api/zones/all-cells", ({ headers, set }) => {
+        const auth = requireAdmin(headers.cookie ?? null);
+        if (!auth.ok) {
+          set.status = 403;
+          return { ok: false };
+        }
+        const zones = [...world.zones.values()].map((z) => ({
+          id: z.id,
+          cells: [...z.cells].map((key) => {
+            const [x, y] = key.split(",").map(Number);
+            return [x, y] as [number, number];
+          }),
+        }));
+        return { zones };
+      })
+      .get("/api/users", ({ headers, set }) => {
+        const auth = requireAdmin(headers.cookie ?? null);
+        if (!auth.ok) {
+          set.status = 403;
+          return { ok: false };
+        }
+        const users = db
+          .query("SELECT id, display_name FROM users ORDER BY display_name")
+          .all() as { id: string; display_name: string | null }[];
+        return { users };
+      })
       .ws("/ws", {
         open(ws) {
           const data = ws.data as {
