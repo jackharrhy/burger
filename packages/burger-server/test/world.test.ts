@@ -239,3 +239,16 @@ test("reconcileTileSolidity is a no-op when types haven't changed", () => {
   // Both still have Tile.
   expect(query(world, [Position, Tile])).toHaveLength(2);
 });
+
+test("zones, zone_cells, zone_members tables exist after migration", () => {
+  const db = new Database(":memory:");
+  runMigrations(db);
+  const tables = db
+    .query("SELECT name FROM sqlite_master WHERE type='table'")
+    .all() as { name: string }[];
+  const names = tables.map((t) => t.name);
+  expect(names).toContain("zones");
+  expect(names).toContain("zone_cells");
+  expect(names).toContain("zone_members");
+  db.close();
+});
