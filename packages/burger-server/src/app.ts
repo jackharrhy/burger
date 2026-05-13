@@ -110,6 +110,18 @@ export const buildApp = (deps: AppDeps) => {
     return { ok: true, userId: user.id };
   };
 
+  const requireUser = (
+    cookieHeader: string | null,
+  ): { ok: true; userId: string } | { ok: false } => {
+    const sessionId = parseSessionCookie(cookieHeader);
+    if (!sessionId) return { ok: false };
+    const session = getSession(db, sessionId);
+    if (!session) return { ok: false };
+    const user = getUserById(db, session.userId);
+    if (!user) return { ok: false };
+    return { ok: true, userId: user.id };
+  };
+
   const zonesList = () => {
     return [...world.zones.values()].map((z) => ({
       id: z.id,
@@ -373,12 +385,12 @@ export const buildApp = (deps: AppDeps) => {
         return { ok: true, count };
       })
       .get("/api/palette", ({ headers, set }) => {
-        const auth = requireAdmin(headers.cookie ?? null);
+        const auth = requireUser(headers.cookie ?? null);
         if (!auth.ok) {
           set.status = 403;
           return {
             ok: false,
-            errors: [{ field: "auth", message: "admin required" }],
+            errors: [{ field: "auth", message: "authentication required" }],
           };
         }
         return { ok: true, ids: getPalette(db, auth.userId) };
@@ -386,12 +398,12 @@ export const buildApp = (deps: AppDeps) => {
       .put(
         "/api/palette",
         ({ body, headers, set }) => {
-          const auth = requireAdmin(headers.cookie ?? null);
+          const auth = requireUser(headers.cookie ?? null);
           if (!auth.ok) {
             set.status = 403;
             return {
               ok: false,
-              errors: [{ field: "auth", message: "admin required" }],
+              errors: [{ field: "auth", message: "authentication required" }],
             };
           }
           const validation = validatePaletteIds(body.ids);
