@@ -56,3 +56,22 @@ export const loadZones = (db: Database): ZonesState => {
 
   return { zones, cellToZone };
 };
+
+type CanPaintState = {
+  zones: Map<number, ZoneRuntime>;
+  cellToZone: Map<string, number>;
+};
+
+export const canPaint = (
+  state: CanPaintState,
+  userId: string,
+  x: number,
+  y: number,
+  isAdmin: boolean,
+): boolean => {
+  if (isAdmin) return true;
+  const zoneId = state.cellToZone.get(`${x},${y}`);
+  if (zoneId === undefined) return false;
+  const zone = state.zones.get(zoneId);
+  return zone?.members.has(userId) ?? false;
+};
