@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { canPaint } from "../src/zones";
+import { canPaint, validateZoneName, validateZoneCells } from "../src/zones";
 
 const makeState = (
   zones: { id: number; cells: string[]; members: string[] }[],
@@ -50,5 +50,94 @@ describe("canPaint", () => {
     >();
     const cellToZone = new Map<string, number>([["16,16", 1]]);
     expect(canPaint({ zones, cellToZone }, "alice", 16, 16, false)).toBe(false);
+  });
+});
+
+describe("validateZoneName", () => {
+  test("trims and accepts 1-32 chars", () => {
+    expect(validateZoneName("  kitchen  ")).toEqual({
+      ok: true,
+      name: "kitchen",
+    });
+    expect(validateZoneName("a")).toEqual({ ok: true, name: "a" });
+    expect(validateZoneName("a".repeat(32))).toEqual({
+      ok: true,
+      name: "a".repeat(32),
+    });
+  });
+
+  test("rejects empty or whitespace-only", () => {
+    expect(validateZoneName("").ok).toBe(false);
+    expect(validateZoneName("   ").ok).toBe(false);
+  });
+
+  test("rejects >32 chars", () => {
+    expect(validateZoneName("a".repeat(33)).ok).toBe(false);
+  });
+
+  test("rejects non-string", () => {
+    expect(validateZoneName(undefined as unknown as string).ok).toBe(false);
+    expect(validateZoneName(123 as unknown as string).ok).toBe(false);
+  });
+});
+
+describe("validateZoneCells", () => {
+  const bounds = { x: 0, y: 0, w: 2048, h: 2048 };
+
+  test("accepts cell-center integer coords inside bounds", () => {
+    const r = validateZoneCells(
+      [
+        [16, 16],
+        [48, 16],
+      ],
+      bounds,
+    );
+    expect(r.cells).toEqual([
+      [16, 16],
+      [48, 16],
+    ]);
+    expect(r.dropped).toBe(0);
+  });
+
+  test("drops misaligned coords", () => {
+    const r = validateZoneCells(
+      [
+        [15, 16],
+        [16, 16],
+      ],
+      bounds,
+    );
+    expect(r.cells).toEqual([[16, 16]]);
+    expect(r.dropped).toBe(1);
+  });
+
+  test("drops out-of-bounds coords", () => {
+    const r = validateZoneCells(
+      [
+        [16, 16],
+        [4096, 16],
+      ],
+      bounds,
+    );
+    expect(r.cells).toEqual([[16, 16]]);
+    expect(r.dropped).toBe(1);
+  });
+
+  test("drops malformed entries", () => {
+    const r = validateZoneCells(
+      [[16, 16], "bad", [16], null, [1.5, 16]] as unknown as number[][],
+      bounds,
+    );
+    expect(r.cells).toEqual([[16, 16]]);
+    expect(r.dropped).toBe(4);
+  });
+
+  test("returns empty for non-array input", () => {
+    const r = validateZoneCells(
+      "not an array" as unknown as number[][],
+      bounds,
+    );
+    expect(r.cells).toEqual([]);
+    expect(r.dropped).toBe(0);
   });
 });
