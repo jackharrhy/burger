@@ -119,17 +119,51 @@ test("callback with state mismatch redirects with error", async () => {
   );
   expect(res.status).toBe(302);
   expect(res.headers.get("location")).toBe("/?error=state_mismatch");
+  expect(res.headers.get("set-cookie")).toContain("burger_oauth=");
+  expect(res.headers.get("set-cookie")).toContain("Max-Age=0");
 });
 
-test("callback with 4orm error param propagates to /", async () => {
+test("callback with valid state propagates 4orm error and clears cookie", async () => {
   const db = new Database(":memory:");
   runMigrations(db);
   const app = buildApp(db);
+  const startRes = await app.handle(
+    new Request("http://burger.test/auth/4orm"),
+  );
+  const oauthCookie = startRes.headers
+    .get("set-cookie")!
+    .match(/burger_oauth=([^;]+)/)![1];
+  const state = JSON.parse(decodeURIComponent(oauthCookie!)).state;
   const res = await app.handle(
-    new Request("http://burger.test/auth/4orm/callback?error=access_denied"),
+    new Request(
+      `http://burger.test/auth/4orm/callback?error=access_denied&state=${encodeURIComponent(state)}`,
+      { headers: { Cookie: `burger_oauth=${oauthCookie}` } },
+    ),
   );
   expect(res.status).toBe(302);
   expect(res.headers.get("location")).toBe("/?error=access_denied");
+  expect(res.headers.get("set-cookie")).toContain("Max-Age=0");
+});
+
+test("callback rejects 4orm error with mismatched state and clears cookie", async () => {
+  const db = new Database(":memory:");
+  runMigrations(db);
+  const app = buildApp(db);
+  const startRes = await app.handle(
+    new Request("http://burger.test/auth/4orm"),
+  );
+  const oauthCookie = startRes.headers
+    .get("set-cookie")!
+    .match(/burger_oauth=([^;]+)/)![1];
+  const res = await app.handle(
+    new Request(
+      "http://burger.test/auth/4orm/callback?error=access_denied&state=wrong",
+      { headers: { Cookie: `burger_oauth=${oauthCookie}` } },
+    ),
+  );
+  expect(res.status).toBe(302);
+  expect(res.headers.get("location")).toBe("/?error=state_mismatch");
+  expect(res.headers.get("set-cookie")).toContain("Max-Age=0");
 });
 
 test("GET /auth/me with valid session returns user", async () => {

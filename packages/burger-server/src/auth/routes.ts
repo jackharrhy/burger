@@ -94,17 +94,27 @@ export const authRoutes = ({
       const code = query.code as string | undefined;
       const state = query.state as string | undefined;
       const error = query.error as string | undefined;
-
-      if (error) {
-        return redirect(`/?error=${encodeURIComponent(error)}`);
-      }
-
       const oauth = parseOauthCookie(headers.cookie);
-      if (!oauth || !code || !state) {
-        return redirect(`/?error=missing_state`);
+      const callbackError = (error: string) =>
+        redirect(
+          `/?error=${encodeURIComponent(error)}`,
+          clearOauthCookie(config.isProduction),
+        );
+
+      // Authorization errors must be bound to the same browser transaction as
+      // successful callbacks before their provider-supplied error is trusted.
+      if (!oauth || !state) {
+        return callbackError("missing_state");
       }
       if (oauth.state !== state) {
-        return redirect(`/?error=state_mismatch`);
+        return callbackError("state_mismatch");
+      }
+      if (error) {
+        return callbackError(error);
+      }
+
+      if (!code) {
+        return callbackError("missing_state");
       }
 
       let token;
@@ -117,7 +127,7 @@ export const authRoutes = ({
           clientId: config.clientId,
         });
       } catch {
-        return redirect(`/?error=token_exchange_failed`);
+        return callbackError("token_exchange_failed");
       }
 
       let info;
@@ -127,7 +137,7 @@ export const authRoutes = ({
           userinfoUrl: buildUserinfoUrl(config),
         });
       } catch {
-        return redirect(`/?error=userinfo_failed`);
+        return callbackError("userinfo_failed");
       }
 
       const user = upsertUserFromUserinfo(db, info);
