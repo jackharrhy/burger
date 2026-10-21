@@ -23,7 +23,7 @@ packages/
 
 ## Requirements
 
-- Node 25
+- Node 26.12.1
 - `pnpm`
 - `bun`
 
@@ -54,6 +54,14 @@ pnpm fmt:check              # oxfmt — check (used in CI)
 `pnpm dev` opens vite on `:5173` (proxied to the server on `:5000`).
 
 ## Docker
+
+The image pins Platformatic Node 26.12.1 and Bun 1.4.0. Node includes the
+October 2026 security fixes, but this is **not** a complete eMudhra TLS fix:
+the application runs on Bun, whose stable releases still trust the compromised
+emSign chain as of October 21, 2026. Updating Node or the system CA bundle does
+not remove Bun's embedded trust. Track the pending stable Bun release containing
+[the upstream blocked-key fix](https://github.com/oven-sh/bun/pull/46300) before
+considering the application's outbound TLS remediated.
 
 ```bash
 docker compose up --build

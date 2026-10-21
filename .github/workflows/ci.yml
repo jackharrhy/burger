@@ -26,12 +26,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 25
+          node-version: 26.12.1
           cache: pnpm
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.0
 
       - run: pnpm install --frozen-lockfile
 
@@ -49,6 +49,13 @@ jobs:
 
       - name: build client
         run: pnpm build-frontend
+
+      - name: validate production image
+        if: github.event_name == 'pull_request'
+        run: |
+          docker build -t burger:check .
+          docker run --rm burger:check node -e 'if (process.version !== "v26.12.1") process.exit(1)'
+          docker run --rm burger:check bun -e 'import { Database } from "bun:sqlite"; if (Bun.version !== "1.4.0") process.exit(1); const db = new Database(":memory:"); if (db.query("select 1 as ok").get().ok !== 1) process.exit(1); db.close();'
 
   deploy:
     name: deploy
